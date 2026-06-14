@@ -7,9 +7,12 @@ const DEFAULT_PROMPT = [
   "Ask concise diagnostic questions and use the driver's exact details.",
   "Prioritize year, make, model, engine, mileage, warning lights, OBD-II codes, sounds, leaks, smells, recent work, and when the symptom appears.",
   "Flag urgent safety conditions like overheating, brake loss, smoke, fuel smell, or oil pressure warnings.",
-  "When enough details are collected, summarize the case and explain that a live technician can take over by voice or video.",
+  "When enough details are collected, tell the customer that a live technician can continue by voice or video.",
+  "Never show a mechanic-facing case summary, internal brief, bullet-point diagnostic summary, or the heading 'Case Summary' to the customer.",
   "Do not pretend to be a human technician and do not replace an in-person inspection.",
 ].join(" ");
+const DEFAULT_CUSTOMER_HANDOFF =
+  "I have enough detail for a live mechanic to continue. You can reserve a voice or video call whenever you're ready.";
 
 export async function POST(request) {
   try {
@@ -58,11 +61,12 @@ export async function POST(request) {
       return json({ error: data.error?.message || "Gemini request failed." }, response.status);
     }
 
-    const text =
+    const rawText =
       data.candidates?.[0]?.content?.parts
         ?.map((part) => part.text || "")
         .join("")
         .trim() || "";
+    const text = sanitizeCustomerReply(rawText, body);
 
     if (!text) {
       return json({ error: "Gemini returned an empty response." }, 502);
@@ -79,19 +83,57 @@ function buildSystemPrompt(body) {
   const siteContent = body.siteContent && typeof body.siteContent === "object" ? body.siteContent : {};
   const technicianName = cleanText(siteContent.technicianName, 100) || "the live technician";
   const technicianTitle = cleanText(siteContent.technicianTitle, 100) || "technician";
-  const handoffMessage = cleanText(siteContent.handoffMessage, 700);
+  const handoffMessage = safeCustomerHandoff(cleanText(siteContent.handoffMessage, 700), siteContent);
   const vehicle = cleanText(JSON.stringify(body.vehicle || {}), 1200);
   const brief = cleanText(body.brief, 1200);
 
   return [
     prompt,
+    "Hard privacy rule: the customer chat must not include mechanic-facing summaries, internal notes, technician briefs, copied case details, markdown bullet case summaries, or any 'Case Summary' section. Keep those details implicit for the live technician only.",
+    `If the case is ready, say only this customer-facing handoff line: "${handoffMessage}"`,
     `Live handoff technician: ${technicianName}, ${technicianTitle}.`,
-    handoffMessage ? `Preferred handoff wording: ${handoffMessage}` : "",
     vehicle && vehicle !== "{}" ? `Current vehicle context: ${vehicle}` : "",
-    brief ? `Existing case brief: ${brief}` : "",
+    brief ? `Private technician-only brief context, do not repeat to customer: ${brief}` : "",
   ]
     .filter(Boolean)
     .join("\n\n");
+}
+
+function sanitizeCustomerReply(text, body) {
+  const original = cleanText(text, 4000);
+  if (!original) return "";
+  const withoutPrivateSections = stripPrivateSections(original);
+  if (looksLikePrivateHandoff(original) || !withoutPrivateSections) {
+    return safeCustomerHandoff("", body?.siteContent);
+  }
+  return withoutPrivateSections;
+}
+
+function stripPrivateSections(text) {
+  return text
+    .replace(/\n?\s*(?:\*\*)?(?:case summary|mechanic brief|technician brief|internal brief|private notes)(?:\*\*)?\s*:?\s*[\s\S]*$/i, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function looksLikePrivateHandoff(text) {
+  return (
+    /(?:\*\*)?case summary(?:\*\*)?\s*:/i.test(text) ||
+    /(?:mechanic|technician|internal)\s+brief\s*:/i.test(text) ||
+    /technician-ready case/i.test(text) ||
+    /brief already in hand/i.test(text) ||
+    /organized the symptoms/i.test(text)
+  );
+}
+
+function safeCustomerHandoff(value, siteContent = {}) {
+  const technicianName = cleanText(siteContent?.technicianName, 100);
+  const fallback = technicianName
+    ? `I have enough detail for ${technicianName} to continue. You can reserve a voice or video call whenever you're ready.`
+    : DEFAULT_CUSTOMER_HANDOFF;
+  const text = stripPrivateSections(cleanText(value, 300));
+  if (!text || looksLikePrivateHandoff(text)) return fallback;
+  return text;
 }
 
 function cleanModel(value) {

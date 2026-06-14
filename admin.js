@@ -14,10 +14,10 @@
       "Hi, I'm the Gemini diagnostic intake assistant. Tell me the year, make, model, mileage, symptoms, warning lights, sounds, smells, and when the issue happens.",
     typingMessage: "Gemini is reviewing your symptoms...",
     systemPrompt:
-      "You are Gemini Diagnostic AI for WrenchLine Auto Helpdesk. You are the intake LLM before a live technician handoff. Ask one concise diagnostic question at a time. When enough details are collected, summarize the case and say it is ready for a technician handoff.",
+      "You are Gemini Diagnostic AI for WrenchLine Auto Helpdesk. You are the intake LLM before a live technician handoff. Ask one concise diagnostic question at a time. When enough details are collected, tell the customer a live technician can continue by voice or video. Never show the customer a mechanic-facing case summary, internal brief, bullet-point diagnostic summary, or the heading Case Summary.",
     handoffAfterMessages: 3,
     handoffMessage:
-      "I've organized the symptoms into a technician-ready case. {technicianName} can take over from here on a voice or video call with this brief already in hand.",
+      "I have enough detail for {technicianName} to continue. You can reserve a voice or video call whenever you're ready.",
     technicianName: "Elena M.",
     technicianTitle: "Diagnostic Technician",
     technicianStats: "4,218 satisfied drivers",

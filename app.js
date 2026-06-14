@@ -33,12 +33,13 @@
       "Ask one concise diagnostic question at a time unless the driver has already provided enough information.",
       "Prioritize year, make, model, engine, mileage, warning lights, OBD-II codes, noises, leaks, smells, recent work, and when the symptom appears.",
       "Flag urgent safety conditions like overheating, brake loss, smoke, fuel smell, or oil pressure warnings.",
-      "When enough details are collected, summarize the case and say it is ready for a technician handoff.",
+      "When enough details are collected, tell the customer a live technician can continue by voice or video.",
+      "Never show the customer a mechanic-facing case summary, internal brief, bullet-point diagnostic summary, or the heading Case Summary.",
       "Do not claim to replace an in-person mechanic.",
     ].join(" "),
     handoffAfterMessages: 3,
     handoffMessage:
-      "I've organized the symptoms into a technician-ready case. {technicianName} can take over from here on a voice or video call with this brief already in hand.",
+      "I have enough detail for {technicianName} to continue. You can reserve a voice or video call whenever you're ready.",
     technicianName: "Elena M.",
     technicianTitle: "Diagnostic Technician",
     technicianStats: "4,218 satisfied drivers",
@@ -352,7 +353,7 @@
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Gemini endpoint failed.");
-    return (data.text || data.reply || "").trim();
+    return customerFacingReply((data.text || data.reply || "").trim());
   }
 
   function mechanicSystemPrompt() {
@@ -370,7 +371,7 @@
   function classifyReply(text) {
     return {
       alert: Boolean(text && /Safety note:/i.test(text)),
-      handoff: Boolean(text && /handoff|technician-ready|take over/i.test(text)),
+      handoff: Boolean(text && /handoff|live mechanic|voice or video|reserve/i.test(text)),
     };
   }
 
@@ -419,9 +420,43 @@
     conversation.updatedAt = new Date().toISOString();
     persistLocal();
     saveCurrentConversation();
-    addMessage("assistant", `Mechanic brief saved:\n\n${conversation.brief}`, {
+    addMessage("assistant", customerHandoffMessage(), {
       name: assistantName(),
+      handoff: true,
     });
+  }
+
+  function customerFacingReply(text) {
+    const stripped = stripPrivateCaseSections(text || "");
+    if (!stripped || looksLikePrivateCaseSummary(text)) {
+      return customerHandoffMessage();
+    }
+    return stripped;
+  }
+
+  function stripPrivateCaseSections(text) {
+    return String(text || "")
+      .replace(/\n?\s*(?:\*\*)?(?:case summary|mechanic brief|technician brief|internal brief|private notes)(?:\*\*)?\s*:?\s*[\s\S]*$/i, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+
+  function looksLikePrivateCaseSummary(text) {
+    return (
+      /(?:\*\*)?case summary(?:\*\*)?\s*:/i.test(text || "") ||
+      /(?:mechanic|technician|internal)\s+brief\s*:/i.test(text || "") ||
+      /technician-ready case/i.test(text || "") ||
+      /brief already in hand/i.test(text || "") ||
+      /organized the symptoms/i.test(text || "")
+    );
+  }
+
+  function customerHandoffMessage() {
+    const template = state.siteContent.handoffMessage || DEFAULT_SITE_CONTENT.handoffMessage;
+    const technicianName = state.siteContent.technicianName || DEFAULT_SITE_CONTENT.technicianName;
+    const fallback = `I have enough detail for ${technicianName} to continue. You can reserve a voice or video call whenever you're ready.`;
+    const candidate = stripPrivateCaseSections(template.replaceAll("{technicianName}", technicianName));
+    return !candidate || looksLikePrivateCaseSummary(candidate) ? fallback : candidate;
   }
 
   function buildMechanicBrief() {
