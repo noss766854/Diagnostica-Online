@@ -11,7 +11,9 @@
   --soft: #f2f2f2;
   --dark-panel: rgba(0, 0, 0, 0.38);
   --radius: 6px;
-  --content-width: min(860px, calc(100vw - 340px));
+  --ad-gap: 4cm;
+  --ad-rail-width: clamp(64px, calc((100vw - var(--content-width) - (2 * var(--ad-gap))) / 2), 118px);
+  --content-width: min(760px, calc(100vw - (2 * var(--ad-gap)) - 150px));
   font-family: Arial, Helvetica, sans-serif;
 }
 
@@ -73,7 +75,7 @@ img {
   position: fixed;
   top: 74px;
   bottom: 18px;
-  width: calc((100vw - var(--content-width)) / 2 - 18px);
+  width: var(--ad-rail-width);
   display: grid;
   grid-template-rows: repeat(5, minmax(112px, 1fr));
   gap: 10px;
@@ -81,11 +83,11 @@ img {
 }
 
 .ad-rail-left {
-  left: 12px;
+  right: calc(50vw + (var(--content-width) / 2) + var(--ad-gap));
 }
 
 .ad-rail-right {
-  right: 12px;
+  left: calc(50vw + (var(--content-width) / 2) + var(--ad-gap));
 }
 
 .masthead {
@@ -682,7 +684,7 @@ img {
 }
 
 .side-ad {
-  min-height: 112px;
+  min-height: 86px;
   background: rgba(9, 24, 32, 0.7);
   backdrop-filter: blur(2px);
 }
@@ -945,6 +947,7 @@ svg {
   }
 
   :root {
+    --ad-gap: 0px;
     --content-width: min(720px, calc(100vw - 28px));
   }
 }
