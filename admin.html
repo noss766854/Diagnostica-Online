@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WrenchLine Admin</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="./config.js"></script>
+  </head>
+  <body>
+    <div class="photo-backdrop" aria-hidden="true"></div>
+    <div class="shade" aria-hidden="true"></div>
+
+    <div class="page-shell admin-page">
+      <header class="masthead">
+        <a class="brand" href="./index.html" aria-label="WrenchLine Auto Helpdesk home">
+          <span class="brand-kicker">WrenchLine</span>
+          <span class="brand-name">Admin Console</span>
+        </a>
+        <nav class="nav-actions" aria-label="Admin navigation">
+          <span class="account-badge" id="adminAccountBadge">Logged out</span>
+          <a class="nav-link" href="./index.html">Customer site</a>
+          <button class="nav-link" id="adminLogoutBtn" type="button" hidden>Sign out</button>
+        </nav>
+      </header>
+
+      <main class="admin-shell">
+        <section class="admin-card" id="adminLoginCard">
+          <p class="label-text">Supabase admin login</p>
+          <h1>Review mechanic cases, users, and paid-call bookings.</h1>
+          <form class="admin-login-form" id="adminLoginForm">
+            <div class="settings-grid">
+              <label>
+                <span>Supabase URL</span>
+                <input id="adminSupabaseUrlInput" type="url" placeholder="https://project.supabase.co" />
+              </label>
+              <label>
+                <span>Supabase anon key</span>
+                <input id="adminSupabaseAnonInput" type="password" autocomplete="off" />
+              </label>
+              <label>
+                <span>Email</span>
+                <input id="adminEmailInput" type="email" autocomplete="email" required />
+              </label>
+              <label>
+                <span>Password</span>
+                <input id="adminPasswordInput" type="password" autocomplete="current-password" required />
+              </label>
+            </div>
+            <p class="form-message" id="adminMessage"></p>
+            <div class="dialog-actions">
+              <button class="solid-button" id="adminLoginBtn" type="submit">
+                <i data-lucide="shield-check"></i>
+                <span>Login as admin</span>
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <section class="admin-dashboard" id="adminDashboard" hidden>
+          <div class="admin-toolbar">
+            <div>
+              <p class="label-text">Operations</p>
+              <h1>Admin dashboard</h1>
+            </div>
+            <button class="solid-button" id="refreshAdminBtn" type="button">
+              <i data-lucide="refresh-cw"></i>
+              <span>Refresh</span>
+            </button>
+          </div>
+
+          <div class="stat-grid" id="adminStats"></div>
+
+          <section class="admin-table-card">
+            <div class="table-heading">
+              <h2>Recent conversations</h2>
+            </div>
+            <div class="admin-table" id="adminConversations"></div>
+          </section>
+
+          <section class="admin-table-card">
+            <div class="table-heading">
+              <h2>Call bookings</h2>
+            </div>
+            <div class="admin-table" id="adminBookings"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="./admin.js"></script>
+  </body>
+</html>

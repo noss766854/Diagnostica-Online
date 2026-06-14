@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="WrenchLine Car connects drivers with AI-assisted mechanic intake, saved conversations, and paid voice or video mechanic calls."
+    />
+    <title>WrenchLine Car</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="preconnect" href="https://images.unsplash.com" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="./config.js"></script>
+  </head>
+  <body>
+    <div class="photo-backdrop" aria-hidden="true"></div>
+    <div class="shade" aria-hidden="true"></div>
+
+    <aside class="ad-rail ad-rail-left" aria-label="Sponsored links left">
+      <div class="ad-mount side-ad" data-ad-slot="left-top"><span>Advertisement</span></div>
+      <div class="ad-mount side-ad" data-ad-slot="left-upper"><span>Advertisement</span></div>
+      <div class="ad-mount side-ad" data-ad-slot="left-middle"><span>Advertisement</span></div>
+      <div class="ad-mount side-ad" data-ad-slot="left-lower"><span>Advertisement</span></div>
+      <div class="ad-mount side-ad" data-ad-slot="left-bottom"><span>Advertisement</span></div>
+    </aside>
+
+    <aside class="ad-rail ad-rail-right" aria-label="Sponsored links right">
+      <div class="ad-mount side-ad" data-ad-slot="right-top"><span>Advertisement</span></div>
+      <div class="ad-mount side-ad" data-ad-slot="right-upper"><span>Advertisement</span></div>
+      <div class="ad-mount side-ad" data-ad-slot="right-middle"><span>Advertisement</span></div>
+      <div class="ad-mount side-ad" data-ad-slot="right-lower"><span>Advertisement</span></div>
+      <div class="ad-mount side-ad" data-ad-slot="right-bottom"><span>Advertisement</span></div>
+    </aside>
+
+    <div class="page-shell">
+      <header class="masthead">
+        <a class="brand" href="./index.html" aria-label="WrenchLine Car home">
+          <span class="brand-kicker">WrenchLine</span>
+          <span class="brand-name">Auto Helpdesk</span>
+        </a>
+
+        <nav class="nav-actions" aria-label="Main navigation">
+          <span class="account-badge" id="accountBadge">Demo mode</span>
+          <button class="nav-link" id="loginNavBtn" type="button">Login</button>
+          <button class="nav-link" id="signupNavBtn" type="button">Create account</button>
+          <a class="nav-link" href="./admin.html">Admin</a>
+          <a class="nav-link" href="mailto:support@wrenchline.example">Contact us</a>
+          <button class="nav-link" id="logoutBtn" type="button" hidden>Sign out</button>
+          <button class="icon-link" id="settingsBtn" type="button" title="Integrations" aria-label="Integrations">
+            <i data-lucide="settings"></i>
+          </button>
+        </nav>
+      </header>
+
+      <main class="hero-grid">
+        <section class="consult-stack" aria-label="Mechanic chat">
+          <p class="promise">Connect one-on-one with an auto mechanic who can answer your question</p>
+          <p class="breadcrumbs">Ask an Expert <span>›</span> Car Questions</p>
+
+          <div class="category-tabs" role="tablist" aria-label="Case tools">
+            <button class="active" type="button">Diagnostics</button>
+            <button id="savedCasesToggle" type="button">Saved cases</button>
+            <button type="button">Repair library <i data-lucide="chevron-down"></i></button>
+          </div>
+
+          <section class="consult-card">
+            <div class="expert-strip">
+              <img
+                src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=160&q=80"
+                alt="Mechanic profile"
+              />
+              <div>
+                <strong>Marco R., Master Technician</strong>
+                <span>4,218 satisfied drivers</span>
+                <span>22 years diagnosing and repairing cars</span>
+              </div>
+            </div>
+
+            <div class="saved-drawer" id="savedDrawer" hidden>
+              <div class="drawer-header">
+                <strong>Saved conversations</strong>
+                <div class="drawer-actions">
+                  <button class="mini-button" id="newConversationBtn" type="button">
+                    <i data-lucide="plus"></i>
+                    <span>New case</span>
+                  </button>
+                  <button class="icon-link dark" id="refreshConversationsBtn" type="button" title="Refresh saved conversations" aria-label="Refresh saved conversations">
+                    <i data-lucide="refresh-cw"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="conversation-list" id="conversationList"></div>
+            </div>
+
+            <div class="messages" id="messages" aria-live="polite"></div>
+
+            <form class="question-box" id="chatForm">
+              <label class="visually-hidden" for="messageInput">Type your car question</label>
+              <textarea id="messageInput" rows="3" placeholder="Type your car question here..."></textarea>
+              <div class="question-footer">
+                <span id="onlineCopy">3 Auto Mechanics are Online Now</span>
+                <button class="start-chat" type="submit">
+                  <i data-lucide="send-horizontal"></i>
+                  <span>Start chat</span>
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <div class="quick-prompts" aria-label="Common car issues">
+            <button type="button" data-prompt="My check engine light is on and the car feels rough at idle.">Check engine</button>
+            <button type="button" data-prompt="My brakes are grinding when I slow down.">Grinding brakes</button>
+            <button type="button" data-prompt="The car will not start, but the lights still come on.">No start</button>
+            <button type="button" data-prompt="The engine temperature is climbing and I smell coolant.">Overheating</button>
+          </div>
+        </section>
+
+        <section class="hero-copy" aria-label="Service summary">
+          <h1>Describe the symptom. Leave with a mechanic-ready plan.</h1>
+          <p>Start with free AI intake, save the case to your account, then upgrade to a live mechanic when you want eyes or ears on the problem.</p>
+
+          <section class="call-box" aria-label="Paid mechanic call options">
+            <div class="call-heading">
+              <span>Live mechanic upgrade</span>
+              <button class="icon-link light" id="briefBtn" type="button" title="Create mechanic brief" aria-label="Create mechanic brief">
+                <i data-lucide="clipboard-list"></i>
+              </button>
+            </div>
+
+            <div class="call-options" role="tablist" aria-label="Call type">
+              <button class="call-option active" id="videoOption" type="button" data-call-type="video" role="tab" aria-selected="true">
+                <i data-lucide="video"></i>
+                <span>Video</span>
+                <strong>$40/hr</strong>
+              </button>
+              <button class="call-option" id="voiceOption" type="button" data-call-type="voice" role="tab" aria-selected="false">
+                <i data-lucide="phone"></i>
+                <span>Voice</span>
+                <strong>$20/hr</strong>
+              </button>
+            </div>
+
+            <div class="booking-controls">
+              <label for="durationSelect">Duration</label>
+              <select id="durationSelect">
+                <option value="30">30 minutes</option>
+                <option value="60" selected>1 hour</option>
+                <option value="90">90 minutes</option>
+                <option value="120">2 hours</option>
+              </select>
+              <strong id="bookingPrice">$40.00</strong>
+            </div>
+
+            <button class="reserve-button" id="bookingBtn" type="button">
+              <i data-lucide="calendar-check"></i>
+              <span>Reserve mechanic</span>
+            </button>
+            <div class="booking-result" id="bookingResult" hidden></div>
+          </section>
+
+          <section class="case-summary" aria-label="Detected case details">
+            <div class="summary-heading">
+              <span>Case details</span>
+              <button class="icon-link light" id="clearCaseBtn" type="button" title="Clear current case" aria-label="Clear current case">
+                <i data-lucide="trash-2"></i>
+              </button>
+            </div>
+            <div class="detail-grid" id="vehicleDetails"></div>
+          </section>
+
+          <section class="ad-panel inline-ads" aria-label="Advertisements">
+            <div class="ad-mount inline-ad" data-ad-slot="inline-one"><span>Advertisement</span></div>
+            <div class="ad-mount inline-ad" data-ad-slot="inline-two"><span>Advertisement</span></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <dialog class="auth-dialog" id="authDialog">
+      <form class="auth-form" id="authForm">
+        <div class="dialog-header">
+          <div>
+            <p class="label-text">Supabase account</p>
+            <h2 id="authTitle">Login</h2>
+          </div>
+          <button class="icon-link dark" id="closeAuthBtn" type="button" aria-label="Close login">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+
+        <label>
+          <span>Email</span>
+          <input id="authEmailInput" type="email" autocomplete="email" required />
+        </label>
+        <label>
+          <span>Password</span>
+          <input id="authPasswordInput" type="password" autocomplete="current-password" minlength="6" required />
+        </label>
+
+        <p class="form-message" id="authMessage"></p>
+
+        <div class="dialog-actions">
+          <button class="ghost-button" id="switchAuthModeBtn" type="button">Create account</button>
+          <button class="solid-button" id="authSubmitBtn" type="submit">
+            <i data-lucide="log-in"></i>
+            <span>Login</span>
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="settings-dialog" id="settingsDialog">
+      <form method="dialog" class="settings-form" id="settingsForm">
+        <div class="dialog-header">
+          <div>
+            <p class="label-text">Production connections</p>
+            <h2>Integrations</h2>
+          </div>
+          <button class="icon-link dark" value="cancel" type="submit" aria-label="Close integrations">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+
+        <div class="settings-grid">
+          <label>
+            <span>Supabase URL</span>
+            <input id="supabaseUrlInput" type="url" placeholder="https://project.supabase.co" />
+          </label>
+          <label>
+            <span>Supabase anon key</span>
+            <input id="supabaseAnonInput" type="password" autocomplete="off" />
+          </label>
+          <label>
+            <span>Gemini Edge Function URL</span>
+            <input id="geminiEndpointInput" type="url" placeholder="https://project.functions.supabase.co/gemini-diagnose" />
+          </label>
+          <label>
+            <span>Gemini browser API key</span>
+            <input id="geminiKeyInput" type="password" autocomplete="off" />
+          </label>
+          <label>
+            <span>Gemini model</span>
+            <input id="geminiModelInput" type="text" placeholder="gemini-2.5-flash" />
+          </label>
+          <label>
+            <span>AdSense client</span>
+            <input id="adsClientInput" type="text" placeholder="ca-pub-0000000000000000" />
+          </label>
+          <label>
+            <span>AdSense slot</span>
+            <input id="adsSlotInput" type="text" placeholder="1234567890" />
+          </label>
+          <label>
+            <span>Stripe checkout function</span>
+            <input id="checkoutUrlInput" type="url" placeholder="https://project.functions.supabase.co/create-checkout" />
+          </label>
+          <label>
+            <span>Jitsi domain</span>
+            <input id="jitsiDomainInput" type="text" placeholder="meet.jit.si" />
+          </label>
+        </div>
+
+        <div class="integration-status" id="integrationStatus"></div>
+
+        <div class="dialog-actions">
+          <button class="ghost-button" id="resetSettingsBtn" type="button">
+            <i data-lucide="rotate-ccw"></i>
+            <span>Reset</span>
+          </button>
+          <button class="solid-button" id="saveSettingsBtn" type="submit" value="default">
+            <i data-lucide="save"></i>
+            <span>Save</span>
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
