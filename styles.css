@@ -785,6 +785,23 @@ img {
   grid-column: 1 / -1;
 }
 
+.settings-section-title {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid #dbe8ee;
+  color: var(--teal-dark);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.settings-grid .settings-section-title:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
 .integration-status {
   flex-wrap: wrap;
   gap: 8px;
@@ -896,6 +913,44 @@ img {
   margin-top: 8px;
   color: var(--teal-dark);
   font-size: 2rem;
+}
+
+.config-status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.config-status-card {
+  min-height: 92px;
+  padding: 12px;
+  border-radius: var(--radius);
+  border: 1px solid #e0edf2;
+  background: #f7fafc;
+}
+
+.config-status-card.configured {
+  border-color: rgba(38, 159, 116, 0.36);
+  background: #effbf4;
+}
+
+.config-status-card.missing {
+  border-color: rgba(241, 115, 99, 0.42);
+  background: #fff4f2;
+}
+
+.config-status-card span,
+.config-status-card small {
+  display: block;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.config-status-card strong {
+  display: block;
+  margin: 7px 0;
+  color: var(--ink);
 }
 
 .admin-table-card {
@@ -1164,6 +1219,7 @@ svg {
   .settings-grid,
   .inline-ads,
   .stat-grid,
+  .config-status-grid,
   .admin-row,
   .case-detail-grid,
   details.admin-row summary {

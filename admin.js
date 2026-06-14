@@ -80,6 +80,7 @@
       "adminLoginRedirectBtn",
       "refreshAdminBtn",
       "adminStats",
+      "configStatus",
       "adminReadyCases",
       "adminConversations",
       "adminBookings",
@@ -156,7 +157,45 @@
     els.adminDashboard.hidden = false;
     renderAccount();
     await loadSiteContent();
+    await loadConfigStatus();
     await loadDashboard();
+  }
+
+  async function loadConfigStatus() {
+    if (!els.configStatus) return;
+    els.configStatus.innerHTML = `<div class="empty-state">Checking production configuration...</div>`;
+    try {
+      const headers = {};
+      const { data } = await state.supabase.auth.getSession();
+      if (data?.session?.access_token) {
+        headers.Authorization = `Bearer ${data.session.access_token}`;
+      }
+      const response = await fetch("/api/admin/config/status", { headers });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Configuration status is unavailable.");
+      renderConfigStatus(payload.items || []);
+    } catch (error) {
+      els.configStatus.innerHTML = `<div class="empty-state">${escapeHtml(error.message || "Configuration status is unavailable.")}</div>`;
+    }
+  }
+
+  function renderConfigStatus(items) {
+    if (!items.length) {
+      els.configStatus.innerHTML = `<div class="empty-state">No production configuration status available.</div>`;
+      return;
+    }
+
+    els.configStatus.innerHTML = items
+      .map(
+        (item) => `
+          <div class="config-status-card ${item.configured ? "configured" : "missing"}">
+            <span>${escapeHtml(item.label)}</span>
+            <strong>${item.configured ? "Configured" : "Missing"}</strong>
+            <small>${escapeHtml(item.secret ? "Secret" : "Public")} - ${escapeHtml(item.location || "Vercel")}</small>
+          </div>
+        `
+      )
+      .join("");
   }
 
   async function loadDashboard() {
@@ -418,7 +457,7 @@
     const flags = [message.handoff ? "handoff" : "", message.alert ? "safety" : ""].filter(Boolean).join(", ");
     return `
       <article class="transcript-line ${message.role === "user" ? "customer" : "assistant"}">
-        <strong>${escapeHtml(role)}${flags ? ` · ${escapeHtml(flags)}` : ""}</strong>
+        <strong>${escapeHtml(role)}${flags ? ` - ${escapeHtml(flags)}` : ""}</strong>
         <p>${escapeHtml(message.content || "")}</p>
         <span>${formatDate(message.createdAt || message.created_at)}</span>
       </article>

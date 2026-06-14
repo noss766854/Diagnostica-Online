@@ -95,7 +95,10 @@ begin
     new.id,
     new.email,
     coalesce(new.raw_user_meta_data->>'display_name', split_part(new.email, '@', 1)),
-    'customer'
+    case
+      when lower(new.email) = 'admin@diagnostica-online.com' then 'admin'
+      else 'customer'
+    end
   )
   on conflict (id) do nothing;
   return new;
@@ -225,6 +228,10 @@ values (
   }'::jsonb
 )
 on conflict (key) do nothing;
+
+update public.profiles
+set role = 'admin'
+where lower(email) = 'admin@diagnostica-online.com';
 
 -- After creating your admin user, promote it once from the SQL editor:
 -- update public.profiles set role = 'admin' where email = 'you@example.com';

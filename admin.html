@@ -55,6 +55,13 @@
 
           <section class="admin-table-card">
             <div class="table-heading">
+              <h2>Production configuration</h2>
+            </div>
+            <div class="config-status-grid" id="configStatus"></div>
+          </section>
+
+          <section class="admin-table-card">
+            <div class="table-heading">
               <h2>Ready cases</h2>
             </div>
             <div class="admin-table" id="adminReadyCases"></div>
@@ -66,6 +73,7 @@
             </div>
             <form class="site-content-form" id="siteContentForm">
               <div class="settings-grid">
+                <div class="settings-section-title span-2">AI intake</div>
                 <label>
                   <span>Assistant name</span>
                   <input id="assistantNameInput" type="text" />
@@ -86,6 +94,7 @@
                   <span>Handoff after driver messages</span>
                   <input id="handoffAfterMessagesInput" type="number" min="1" max="12" />
                 </label>
+                <div class="settings-section-title span-2">Technician handoff</div>
                 <label>
                   <span>Technician avatar URL</span>
                   <input id="technicianAvatarInput" type="url" />
@@ -110,12 +119,13 @@
                   <span>Handoff message</span>
                   <textarea id="handoffMessageInput" rows="3"></textarea>
                 </label>
+                <div class="settings-section-title span-2">Verification email</div>
                 <label>
                   <span>Email sender name</span>
                   <input id="emailFromNameInput" type="text" />
                 </label>
                 <label>
-                  <span>Email sender address</span>
+                  <span>Email sender address (verified domain)</span>
                   <input id="emailFromAddressInput" type="email" />
                 </label>
                 <label class="span-2">
@@ -126,6 +136,7 @@
                   <span>Verification email intro</span>
                   <textarea id="emailIntroInput" rows="3"></textarea>
                 </label>
+                <div class="settings-section-title span-2">Ads and calls</div>
                 <label>
                   <span>Gemini endpoint</span>
                   <input id="geminiEndpointInput" type="text" />
