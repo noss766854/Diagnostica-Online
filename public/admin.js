@@ -8,6 +8,7 @@
     geminiModel: "gemini-2.5-flash",
     adsClient: "ca-pub-6817388263556075",
     adsSlot: "",
+    adSlots: {},
     checkoutUrl: "",
     jitsiDomain: "meet.jit.si",
     ...BOOT_CONFIG,
@@ -20,24 +21,39 @@
       "Hi, I'm the Gemini diagnostic intake assistant. Tell me the year, make, model, mileage, symptoms, warning lights, sounds, smells, and when the issue happens.",
     typingMessage: "Gemini is reviewing your symptoms...",
     systemPrompt:
-      "You are Gemini Diagnostic AI for WrenchLine Auto Helpdesk. You are the intake LLM before a live technician handoff. Ask one concise diagnostic question at a time. When enough details are collected, tell the customer a live technician can continue by voice or video. Never show the customer a mechanic-facing case summary, internal brief, bullet-point diagnostic summary, or the heading Case Summary.",
+      "You are Gemini Diagnostic AI for DiagnosticaOnline. You are the intake LLM before a live technician handoff. Ask one concise diagnostic question at a time. When enough details are collected, tell the customer a live technician can continue by free text chat, voice, or video. Never show the customer a mechanic-facing case summary, internal brief, bullet-point diagnostic summary, or the heading Case Summary.",
     handoffAfterMessages: 3,
     handoffMessage:
-      "I have enough detail for {technicianName} to continue. You can reserve a voice or video call whenever you're ready.",
+      "I have enough detail for {technicianName} to continue. You can start a free technician text chat, or reserve a paid voice or video call whenever you're ready.",
     technicianName: "Elena M.",
     technicianTitle: "Diagnostic Technician",
     technicianStats: "4,218 satisfied drivers",
     technicianExperience: "22 years diagnosing drivability, brake, and electrical issues",
     technicianAvatar:
       "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=160&q=80",
-    emailFromName: "Diagnostica Online",
+    emailFromName: "DiagnosticaOnline",
     emailFromAddress: "verify@diagnostica-online.com",
-    emailSubject: "Verify your Diagnostica Online account",
+    emailSubject: "Verify your DiagnosticaOnline account",
     emailIntro: "Confirm your email so your mechanic conversations stay saved to your account.",
     geminiEndpoint: DEFAULT_SETTINGS.geminiEndpoint,
     geminiModel: DEFAULT_SETTINGS.geminiModel,
     adsClient: DEFAULT_SETTINGS.adsClient,
     adsSlot: DEFAULT_SETTINGS.adsSlot,
+    adSlots: {
+      leftTop: "",
+      leftUpper: "",
+      leftMiddle: "",
+      leftLower: "",
+      leftBottom: "",
+      rightTop: "",
+      rightUpper: "",
+      rightMiddle: "",
+      rightLower: "",
+      rightBottom: "",
+      inlineOne: "",
+      inlineTwo: "",
+      mobileChat: "",
+    },
     checkoutUrl: DEFAULT_SETTINGS.checkoutUrl,
     jitsiDomain: DEFAULT_SETTINGS.jitsiDomain,
   };
@@ -104,6 +120,19 @@
       "geminiModelInput",
       "adsClientInput",
       "adsSlotInput",
+      "adSlotLeftTopInput",
+      "adSlotLeftUpperInput",
+      "adSlotLeftMiddleInput",
+      "adSlotLeftLowerInput",
+      "adSlotLeftBottomInput",
+      "adSlotRightTopInput",
+      "adSlotRightUpperInput",
+      "adSlotRightMiddleInput",
+      "adSlotRightLowerInput",
+      "adSlotRightBottomInput",
+      "adSlotInlineOneInput",
+      "adSlotInlineTwoInput",
+      "adSlotMobileChatInput",
       "checkoutUrlInput",
       "jitsiDomainInput",
       "siteContentMessage",
@@ -225,6 +254,8 @@
     renderReadyCaseTable(readyRows);
     renderConversationTable(conversationRows);
     renderBookingTable(bookings.data || []);
+    bindTechnicianReplyForms();
+    createIcons();
   }
 
   async function loadSiteContent() {
@@ -269,6 +300,21 @@
       geminiModel: els.geminiModelInput.value,
       adsClient: els.adsClientInput.value,
       adsSlot: els.adsSlotInput.value,
+      adSlots: {
+        leftTop: els.adSlotLeftTopInput.value,
+        leftUpper: els.adSlotLeftUpperInput.value,
+        leftMiddle: els.adSlotLeftMiddleInput.value,
+        leftLower: els.adSlotLeftLowerInput.value,
+        leftBottom: els.adSlotLeftBottomInput.value,
+        rightTop: els.adSlotRightTopInput.value,
+        rightUpper: els.adSlotRightUpperInput.value,
+        rightMiddle: els.adSlotRightMiddleInput.value,
+        rightLower: els.adSlotRightLowerInput.value,
+        rightBottom: els.adSlotRightBottomInput.value,
+        inlineOne: els.adSlotInlineOneInput.value,
+        inlineTwo: els.adSlotInlineTwoInput.value,
+        mobileChat: els.adSlotMobileChatInput.value,
+      },
       checkoutUrl: els.checkoutUrlInput.value,
       jitsiDomain: els.jitsiDomainInput.value,
     });
@@ -312,6 +358,19 @@
     els.geminiModelInput.value = content.geminiModel;
     els.adsClientInput.value = content.adsClient;
     els.adsSlotInput.value = content.adsSlot;
+    els.adSlotLeftTopInput.value = content.adSlots.leftTop || "";
+    els.adSlotLeftUpperInput.value = content.adSlots.leftUpper || "";
+    els.adSlotLeftMiddleInput.value = content.adSlots.leftMiddle || "";
+    els.adSlotLeftLowerInput.value = content.adSlots.leftLower || "";
+    els.adSlotLeftBottomInput.value = content.adSlots.leftBottom || "";
+    els.adSlotRightTopInput.value = content.adSlots.rightTop || "";
+    els.adSlotRightUpperInput.value = content.adSlots.rightUpper || "";
+    els.adSlotRightMiddleInput.value = content.adSlots.rightMiddle || "";
+    els.adSlotRightLowerInput.value = content.adSlots.rightLower || "";
+    els.adSlotRightBottomInput.value = content.adSlots.rightBottom || "";
+    els.adSlotInlineOneInput.value = content.adSlots.inlineOne || "";
+    els.adSlotInlineTwoInput.value = content.adSlots.inlineTwo || "";
+    els.adSlotMobileChatInput.value = content.adSlots.mobileChat || "";
     els.checkoutUrlInput.value = content.checkoutUrl;
     els.jitsiDomainInput.value = content.jitsiDomain;
   }
@@ -337,8 +396,9 @@
       emailIntro: cleanText(merged.emailIntro, DEFAULT_SITE_CONTENT.emailIntro),
       geminiEndpoint: cleanEndpoint(merged.geminiEndpoint, DEFAULT_SETTINGS.geminiEndpoint),
       geminiModel: cleanText(merged.geminiModel, DEFAULT_SETTINGS.geminiModel),
-      adsClient: cleanOptionalText(merged.adsClient),
-      adsSlot: cleanOptionalText(merged.adsSlot),
+      adsClient: cleanAdsClient(merged.adsClient),
+      adsSlot: cleanAdSlot(merged.adsSlot),
+      adSlots: cleanAdSlots(merged.adSlots),
       checkoutUrl: cleanOptionalUrl(merged.checkoutUrl),
       jitsiDomain: cleanDomain(merged.jitsiDomain, DEFAULT_SETTINGS.jitsiDomain),
     };
@@ -356,6 +416,41 @@
 
   function cleanOptionalText(value) {
     return String(value || "").trim();
+  }
+
+  function cleanAdsClient(value) {
+    const text = cleanOptionalText(value);
+    const match = text.match(/(?:ca-)?pub-\d{8,}/i);
+    if (!match) return "";
+    const client = match[0].toLowerCase();
+    return client.startsWith("ca-") ? client : `ca-${client}`;
+  }
+
+  function cleanAdSlot(value) {
+    const text = cleanOptionalText(value);
+    const slotFromSnippet = text.match(/data-ad-slot=["']?(\d{5,})/i);
+    if (slotFromSnippet) return slotFromSnippet[1];
+    const firstNumber = text.match(/\b\d{5,}\b/);
+    return firstNumber ? firstNumber[0] : "";
+  }
+
+  function cleanAdSlots(value) {
+    const slots = value && typeof value === "object" ? value : {};
+    return {
+      leftTop: cleanAdSlot(slots.leftTop),
+      leftUpper: cleanAdSlot(slots.leftUpper),
+      leftMiddle: cleanAdSlot(slots.leftMiddle),
+      leftLower: cleanAdSlot(slots.leftLower),
+      leftBottom: cleanAdSlot(slots.leftBottom),
+      rightTop: cleanAdSlot(slots.rightTop),
+      rightUpper: cleanAdSlot(slots.rightUpper),
+      rightMiddle: cleanAdSlot(slots.rightMiddle),
+      rightLower: cleanAdSlot(slots.rightLower),
+      rightBottom: cleanAdSlot(slots.rightBottom),
+      inlineOne: cleanAdSlot(slots.inlineOne),
+      inlineTwo: cleanAdSlot(slots.inlineTwo),
+      mobileChat: cleanAdSlot(slots.mobileChat),
+    };
   }
 
   function cleanEndpoint(value, fallback) {
@@ -448,15 +543,25 @@
         <div class="case-transcript">
           ${messages.map(renderMessageLine).join("") || `<div class="empty-state">No transcript yet.</div>`}
         </div>
+        <form class="technician-reply-form" data-conversation-id="${escapeAttr(row.id)}">
+          <label>
+            <span>Technician reply</span>
+            <textarea name="reply" rows="3" placeholder="Type a free text-chat reply for this customer..."></textarea>
+          </label>
+          <button class="solid-button" type="submit">
+            <i data-lucide="send-horizontal"></i>
+            <span>Send reply</span>
+          </button>
+        </form>
       </details>
     `;
   }
 
   function renderMessageLine(message) {
-    const role = message.role === "user" ? "Customer" : "AI";
+    const role = message.role === "user" ? "Customer" : message.technicianReply ? "Technician" : "AI";
     const flags = [message.handoff ? "handoff" : "", message.alert ? "safety" : ""].filter(Boolean).join(", ");
     return `
-      <article class="transcript-line ${message.role === "user" ? "customer" : "assistant"}">
+      <article class="transcript-line ${message.role === "user" ? "customer" : message.technicianReply ? "technician" : "assistant"}">
         <strong>${escapeHtml(role)}${flags ? ` - ${escapeHtml(flags)}` : ""}</strong>
         <p>${escapeHtml(message.content || "")}</p>
         <span>${formatDate(message.createdAt || message.created_at)}</span>
@@ -469,8 +574,61 @@
     return Boolean(
       cleanText(row.brief, "") ||
         messages.some((message) => message.handoff) ||
-        messages.some((message) => message.role === "assistant" && /voice or video|reserve|live mechanic|continue/i.test(message.content || ""))
+        messages.some((message) => message.technicianText || message.technicianReply) ||
+        messages.some((message) => message.role === "assistant" && /text chat|voice or video|reserve|live mechanic|continue/i.test(message.content || ""))
     );
+  }
+
+  function bindTechnicianReplyForms() {
+    Array.from(document.querySelectorAll(".technician-reply-form")).forEach((form) => {
+      form.addEventListener("submit", handleTechnicianReply);
+    });
+  }
+
+  async function handleTechnicianReply(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const conversationId = form.dataset.conversationId;
+    const textarea = form.querySelector("textarea[name='reply']");
+    const content = textarea.value.trim();
+    if (!conversationId || !content || !state.supabase || state.profile?.role !== "admin") return;
+
+    const button = form.querySelector("button");
+    button.disabled = true;
+    try {
+      const { data, error } = await state.supabase
+        .from("conversations")
+        .select("messages")
+        .eq("id", conversationId)
+        .maybeSingle();
+      if (error) throw error;
+      const messages = Array.isArray(data?.messages) ? data.messages : [];
+      const reply = {
+        role: "assistant",
+        name: state.siteContent.technicianName || "Technician",
+        content,
+        createdAt: new Date().toISOString(),
+        handoff: true,
+        technicianReply: true,
+        technicianText: true,
+      };
+      const { error: updateError } = await state.supabase
+        .from("conversations")
+        .update({
+          messages: [...messages, reply],
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", conversationId);
+      if (updateError) throw updateError;
+      textarea.value = "";
+      await loadDashboard();
+    } catch (error) {
+      textarea.setCustomValidity(error.message || "Could not send reply.");
+      textarea.reportValidity();
+      window.setTimeout(() => textarea.setCustomValidity(""), 3000);
+    } finally {
+      button.disabled = false;
+    }
   }
 
   function messageCountLabel(messages) {
@@ -485,13 +643,16 @@
     }
     els.adminBookings.innerHTML = rows
       .map(
-        (row) => `
-          <div class="admin-row">
-            <strong>${escapeHtml(capitalize(row.call_type || "call"))} call</strong>
-            <span>${escapeHtml(row.duration_minutes || 0)} min - $${escapeHtml(row.total_usd || 0)}</span>
-            <span>${escapeHtml(row.status || "pending")} - ${formatDate(row.created_at)}</span>
-          </div>
-        `
+        (row) => {
+          const isText = row.call_type === "text";
+          return `
+            <div class="admin-row">
+              <strong>${escapeHtml(isText ? "Free text chat" : `${capitalize(row.call_type || "call")} call`)}</strong>
+              <span>${escapeHtml(isText ? "No charge" : `${row.duration_minutes || 0} min - $${row.total_usd || 0}`)}</span>
+              <span>${escapeHtml(row.status || "pending")} - ${formatDate(row.created_at)}</span>
+            </div>
+          `;
+        }
       )
       .join("");
   }

@@ -2,17 +2,17 @@ export const runtime = "nodejs";
 
 const DEFAULT_MODEL = "gemini-2.5-flash";
 const DEFAULT_PROMPT = [
-  "You are Gemini Diagnostic AI for Diagnostica Online.",
+  "You are Gemini Diagnostic AI for DiagnosticaOnline.",
   "You are an LLM intake assistant before a live technician handoff.",
   "Ask concise diagnostic questions and use the driver's exact details.",
   "Prioritize year, make, model, engine, mileage, warning lights, OBD-II codes, sounds, leaks, smells, recent work, and when the symptom appears.",
   "Flag urgent safety conditions like overheating, brake loss, smoke, fuel smell, or oil pressure warnings.",
-  "When enough details are collected, tell the customer that a live technician can continue by voice or video.",
+  "When enough details are collected, tell the customer that a live technician can continue by free text chat, voice, or video.",
   "Never show a mechanic-facing case summary, internal brief, bullet-point diagnostic summary, or the heading 'Case Summary' to the customer.",
   "Do not pretend to be a human technician and do not replace an in-person inspection.",
 ].join(" ");
 const DEFAULT_CUSTOMER_HANDOFF =
-  "I have enough detail for a live mechanic to continue. You can reserve a voice or video call whenever you're ready.";
+  "I have enough detail for a live mechanic to continue. You can start a free technician text chat, or reserve a paid voice or video call whenever you're ready.";
 
 export async function POST(request) {
   try {
@@ -129,7 +129,7 @@ function looksLikePrivateHandoff(text) {
 function safeCustomerHandoff(value, siteContent = {}) {
   const technicianName = cleanText(siteContent?.technicianName, 100);
   const fallback = technicianName
-    ? `I have enough detail for ${technicianName} to continue. You can reserve a voice or video call whenever you're ready.`
+    ? `I have enough detail for ${technicianName} to continue. You can start a free technician text chat, or reserve a paid voice or video call whenever you're ready.`
     : DEFAULT_CUSTOMER_HANDOFF;
   const text = stripPrivateSections(cleanText(value, 300));
   if (!text || looksLikePrivateHandoff(text)) return fallback;

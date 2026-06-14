@@ -3,9 +3,9 @@ import Script from "next/script";
 const DEFAULT_ADSENSE_CLIENT = "ca-pub-6817388263556075";
 
 export const metadata = {
-  title: "Diagnostica Online",
+  title: "DiagnosticaOnline",
   description:
-    "AI-assisted mechanic intake, saved conversations, ads, and paid voice or video technician handoff.",
+    "AI-assisted mechanic intake, saved conversations, ads, free technician text chat, and paid voice or video technician handoff.",
 };
 
 export default function RootLayout({ children }) {

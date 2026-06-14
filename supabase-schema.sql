@@ -25,8 +25,8 @@ create table if not exists public.call_bookings (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null references auth.users(id) on delete cascade,
   conversation_id uuid references public.conversations(id) on delete set null,
-  call_type text not null check (call_type in ('video', 'voice')),
-  duration_minutes integer not null check (duration_minutes > 0),
+  call_type text not null check (call_type in ('text', 'video', 'voice')),
+  duration_minutes integer not null check (duration_minutes >= 0),
   hourly_rate_usd numeric(10, 2) not null,
   total_usd numeric(10, 2) not null,
   meeting_url text,
@@ -34,6 +34,17 @@ create table if not exists public.call_bookings (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+do $$
+begin
+  alter table public.call_bookings drop constraint if exists call_bookings_call_type_check;
+  alter table public.call_bookings
+    add constraint call_bookings_call_type_check check (call_type in ('text', 'video', 'voice'));
+
+  alter table public.call_bookings drop constraint if exists call_bookings_duration_minutes_check;
+  alter table public.call_bookings
+    add constraint call_bookings_duration_minutes_check check (duration_minutes >= 0);
+end $$;
 
 create table if not exists public.site_settings (
   key text primary key,
@@ -152,6 +163,7 @@ create policy "Admins can update profiles"
 
 drop policy if exists "Users can manage their own conversations" on public.conversations;
 drop policy if exists "Admins can read all conversations" on public.conversations;
+drop policy if exists "Admins can update all conversations" on public.conversations;
 
 create policy "Users can manage their own conversations"
   on public.conversations
@@ -163,6 +175,12 @@ create policy "Admins can read all conversations"
   on public.conversations
   for select
   using (public.is_admin());
+
+create policy "Admins can update all conversations"
+  on public.conversations
+  for update
+  using (public.is_admin())
+  with check (public.is_admin());
 
 drop policy if exists "Users can manage their own bookings" on public.call_bookings;
 drop policy if exists "Admins can read all bookings" on public.call_bookings;
@@ -207,22 +225,37 @@ values (
     "assistantAvatarText": "AI",
     "welcomeMessage": "Hi, I''m the Gemini diagnostic intake assistant. Tell me the year, make, model, mileage, symptoms, warning lights, sounds, smells, and when the issue happens.",
     "typingMessage": "Gemini is reviewing your symptoms...",
-    "systemPrompt": "You are Gemini Diagnostic AI for WrenchLine Auto Helpdesk. You are the intake LLM before a live technician handoff. Ask one concise diagnostic question at a time. Prioritize year, make, model, engine, mileage, warning lights, OBD-II codes, noises, leaks, smells, recent work, and when the symptom appears. When enough details are collected, tell the customer a live technician can continue by voice or video. Never show the customer a mechanic-facing case summary, internal brief, bullet-point diagnostic summary, or the heading Case Summary.",
+    "systemPrompt": "You are Gemini Diagnostic AI for DiagnosticaOnline. You are the intake LLM before a live technician handoff. Ask one concise diagnostic question at a time. Prioritize year, make, model, engine, mileage, warning lights, OBD-II codes, noises, leaks, smells, recent work, and when the symptom appears. When enough details are collected, tell the customer a live technician can continue by free text chat, voice, or video. Never show the customer a mechanic-facing case summary, internal brief, bullet-point diagnostic summary, or the heading Case Summary.",
     "handoffAfterMessages": 3,
-    "handoffMessage": "I have enough detail for {technicianName} to continue. You can reserve a voice or video call whenever you''re ready.",
+    "handoffMessage": "I have enough detail for {technicianName} to continue. You can start a free technician text chat, or reserve a paid voice or video call whenever you''re ready.",
     "technicianName": "Elena M.",
     "technicianTitle": "Diagnostic Technician",
     "technicianStats": "4,218 satisfied drivers",
     "technicianExperience": "22 years diagnosing drivability, brake, and electrical issues",
     "technicianAvatar": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=160&q=80",
-    "emailFromName": "Diagnostica Online",
+    "emailFromName": "DiagnosticaOnline",
     "emailFromAddress": "verify@diagnostica-online.com",
-    "emailSubject": "Verify your Diagnostica Online account",
+    "emailSubject": "Verify your DiagnosticaOnline account",
     "emailIntro": "Confirm your email so your mechanic conversations stay saved to your account.",
     "geminiEndpoint": "/api/gemini",
     "geminiModel": "gemini-2.5-flash",
     "adsClient": "ca-pub-6817388263556075",
     "adsSlot": "",
+    "adSlots": {
+      "leftTop": "",
+      "leftUpper": "",
+      "leftMiddle": "",
+      "leftLower": "",
+      "leftBottom": "",
+      "rightTop": "",
+      "rightUpper": "",
+      "rightMiddle": "",
+      "rightLower": "",
+      "rightBottom": "",
+      "inlineOne": "",
+      "inlineTwo": "",
+      "mobileChat": ""
+    },
     "checkoutUrl": "",
     "jitsiDomain": "meet.jit.si"
   }'::jsonb

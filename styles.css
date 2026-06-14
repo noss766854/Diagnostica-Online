@@ -21,6 +21,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -570,7 +574,7 @@ img {
 
 .call-options {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin-top: 10px;
 }
@@ -587,7 +591,7 @@ img {
   gap: 3px 8px;
   align-items: center;
   text-align: left;
-  padding: 10px;
+  padding: 9px;
 }
 
 .call-option svg {
@@ -697,6 +701,15 @@ img {
 
 .inline-ad {
   min-height: 96px;
+}
+
+.mobile-chat-ad {
+  display: none;
+  min-height: 74px;
+  margin-bottom: 12px;
+  color: rgba(23, 32, 42, 0.58);
+  background: #ffffff;
+  border-color: #cddbe2;
 }
 
 .auth-dialog,
@@ -1082,6 +1095,11 @@ details.admin-row summary small {
   border-left: 4px solid var(--teal);
 }
 
+.transcript-line.technician {
+  border-left: 4px solid var(--orange);
+  background: #fff8f6;
+}
+
 .transcript-line p {
   margin: 6px 0;
   white-space: pre-wrap;
@@ -1093,6 +1111,37 @@ details.admin-row summary small {
   display: block;
   color: var(--muted);
   font-size: 0.78rem;
+}
+
+.technician-reply-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #dce9ef;
+}
+
+.technician-reply-form label,
+.technician-reply-form span {
+  display: grid;
+  gap: 6px;
+}
+
+.technician-reply-form span {
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.technician-reply-form textarea {
+  width: 100%;
+  min-height: 82px;
+  resize: vertical;
+  border: 1px solid #cfe0e7;
+  border-radius: var(--radius);
+  padding: 10px;
+  color: var(--ink);
 }
 
 .visually-hidden {
@@ -1198,6 +1247,10 @@ svg {
     padding-right: 14px;
   }
 
+  .mobile-chat-ad {
+    display: grid;
+  }
+
   .messages {
     padding-left: 14px;
     padding-right: 14px;
@@ -1222,6 +1275,7 @@ svg {
   .config-status-grid,
   .admin-row,
   .case-detail-grid,
+  .technician-reply-form,
   details.admin-row summary {
     grid-template-columns: 1fr;
   }

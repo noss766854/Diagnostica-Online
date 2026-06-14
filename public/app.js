@@ -14,6 +14,7 @@
     geminiModel: "gemini-2.5-flash",
     adsClient: "ca-pub-6817388263556075",
     adsSlot: "",
+    adSlots: {},
     checkoutUrl: "",
     jitsiDomain: "meet.jit.si",
     adminUsername: "MechanicAdmin",
@@ -28,32 +29,47 @@
       "Hi, I'm the Gemini diagnostic intake assistant. Tell me the year, make, model, mileage, symptoms, warning lights, sounds, smells, and when the issue happens.",
     typingMessage: "Gemini is reviewing your symptoms...",
     systemPrompt: [
-      "You are Gemini Diagnostic AI for WrenchLine Auto Helpdesk.",
+      "You are Gemini Diagnostic AI for DiagnosticaOnline.",
       "You are the intake LLM before a live technician handoff.",
       "Ask one concise diagnostic question at a time unless the driver has already provided enough information.",
       "Prioritize year, make, model, engine, mileage, warning lights, OBD-II codes, noises, leaks, smells, recent work, and when the symptom appears.",
       "Flag urgent safety conditions like overheating, brake loss, smoke, fuel smell, or oil pressure warnings.",
-      "When enough details are collected, tell the customer a live technician can continue by voice or video.",
+      "When enough details are collected, tell the customer a live technician can continue by free text chat, voice, or video.",
       "Never show the customer a mechanic-facing case summary, internal brief, bullet-point diagnostic summary, or the heading Case Summary.",
       "Do not claim to replace an in-person mechanic.",
     ].join(" "),
     handoffAfterMessages: 3,
     handoffMessage:
-      "I have enough detail for {technicianName} to continue. You can reserve a voice or video call whenever you're ready.",
+      "I have enough detail for {technicianName} to continue. You can start a free technician text chat, or reserve a paid voice or video call whenever you're ready.",
     technicianName: "Elena M.",
     technicianTitle: "Diagnostic Technician",
     technicianStats: "4,218 satisfied drivers",
     technicianExperience: "22 years diagnosing drivability, brake, and electrical issues",
     technicianAvatar:
       "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=160&q=80",
-    emailFromName: "Diagnostica Online",
+    emailFromName: "DiagnosticaOnline",
     emailFromAddress: "verify@diagnostica-online.com",
-    emailSubject: "Verify your Diagnostica Online account",
+    emailSubject: "Verify your DiagnosticaOnline account",
     emailIntro: "Confirm your email so your mechanic conversations stay saved to your account.",
     geminiEndpoint: DEFAULT_SETTINGS.geminiEndpoint,
     geminiModel: DEFAULT_SETTINGS.geminiModel,
     adsClient: DEFAULT_SETTINGS.adsClient,
     adsSlot: DEFAULT_SETTINGS.adsSlot,
+    adSlots: {
+      leftTop: "",
+      leftUpper: "",
+      leftMiddle: "",
+      leftLower: "",
+      leftBottom: "",
+      rightTop: "",
+      rightUpper: "",
+      rightMiddle: "",
+      rightLower: "",
+      rightBottom: "",
+      inlineOne: "",
+      inlineTwo: "",
+      mobileChat: "",
+    },
     checkoutUrl: DEFAULT_SETTINGS.checkoutUrl,
     jitsiDomain: DEFAULT_SETTINGS.jitsiDomain,
   };
@@ -94,7 +110,7 @@
     conversations: [],
     activeId: "",
     vehicle: {},
-    callType: "video",
+    callType: "text",
     supabase: null,
     supabaseUser: null,
     profile: null,
@@ -127,6 +143,7 @@
     await loadSupabaseConversations();
     renderAll();
     renderAds();
+    startTextChatPolling();
     createIcons();
   }
 
@@ -151,6 +168,7 @@
       "vehicleDetails",
       "durationSelect",
       "bookingPrice",
+      "bookingControls",
       "bookingBtn",
       "bookingResult",
       "technicianAvatar",
@@ -292,9 +310,19 @@
     const text = els.messageInput.value.trim();
     if (!text || state.typing) return;
     els.messageInput.value = "";
-    await addMessage("user", text, { name: "You" });
+    const technicianTextMode = isTechnicianTextMode();
+    if (technicianTextMode) {
+      await refreshCurrentConversation();
+    }
+    await addMessage("user", text, { name: "You", technicianText: technicianTextMode });
     inferVehicle(text);
+    const conversation = currentConversation();
+    if (conversation) conversation.vehicle = { ...state.vehicle };
     renderVehicleDetails();
+    if (technicianTextMode) {
+      await saveCurrentConversation();
+      return;
+    }
     await respondToUser(text);
   }
 
@@ -377,7 +405,7 @@
   function classifyReply(text) {
     return {
       alert: Boolean(text && /Safety note:/i.test(text)),
-      handoff: Boolean(text && /handoff|live mechanic|voice or video|reserve/i.test(text)),
+      handoff: Boolean(text && /handoff|live mechanic|technician text|text chat|voice or video|reserve/i.test(text)),
     };
   }
 
@@ -460,7 +488,7 @@
   function customerHandoffMessage() {
     const template = state.siteContent.handoffMessage || DEFAULT_SITE_CONTENT.handoffMessage;
     const technicianName = state.siteContent.technicianName || DEFAULT_SITE_CONTENT.technicianName;
-    const fallback = `I have enough detail for ${technicianName} to continue. You can reserve a voice or video call whenever you're ready.`;
+    const fallback = `I have enough detail for ${technicianName} to continue. You can start a free technician text chat, or reserve a paid voice or video call whenever you're ready.`;
     const candidate = stripPrivateCaseSections(template.replaceAll("{technicianName}", technicianName));
     return !candidate || looksLikePrivateCaseSummary(candidate) ? fallback : candidate;
   }
@@ -501,12 +529,13 @@
 
   async function reserveMechanic() {
     if (state.supabase && !state.supabaseUser) {
-      openAuth("login", "Log in before reserving a live mechanic call.");
+      openAuth("login", state.callType === "text" ? "Log in before starting a free technician text chat." : "Log in before reserving a live mechanic call.");
       return;
     }
 
-    const duration = Number(els.durationSelect.value);
-    const rate = state.callType === "video" ? 40 : 20;
+    const isTextChat = state.callType === "text";
+    const duration = isTextChat ? 0 : Number(els.durationSelect.value);
+    const rate = rateForCallType(state.callType);
     const total = Math.round((rate * duration) / 60);
     const conversation = currentConversation();
     const payload = {
@@ -521,9 +550,13 @@
 
     els.bookingBtn.disabled = true;
     els.bookingResult.hidden = false;
-    els.bookingResult.textContent = "Preparing checkout...";
+    els.bookingResult.textContent = isTextChat ? "Opening free technician text chat..." : "Preparing checkout...";
 
     try {
+      if (isTextChat) {
+        await startTechnicianTextChat(payload);
+        return;
+      }
       if (state.settings.checkoutUrl) {
         const response = await fetch(state.settings.checkoutUrl, {
           method: "POST",
@@ -547,8 +580,12 @@
   }
 
   async function showDemoBooking(payload) {
+    if (payload.callType === "text") {
+      await startTechnicianTextChat(payload);
+      return;
+    }
     const domain = (state.settings.jitsiDomain || DEFAULT_SETTINGS.jitsiDomain).replace(/^https?:\/\//, "");
-    const roomName = `WrenchLine-${payload.callType}-${payload.conversationId || newId()}`.replace(/[^a-z0-9-]/gi, "");
+    const roomName = `DiagnosticaOnline-${payload.callType}-${payload.conversationId || newId()}`.replace(/[^a-z0-9-]/gi, "");
     const jitsiUrl = `https://${domain}/${roomName}#config.startWithVideoMuted=${payload.callType === "voice"}`;
     els.bookingResult.innerHTML = `
       <strong>${capitalize(payload.callType)} session reserved.</strong><br>
@@ -556,6 +593,22 @@
       <a href="${escapeAttr(jitsiUrl)}" target="_blank" rel="noopener">Open ${payload.callType} room</a>
     `;
     await saveBooking(payload, jitsiUrl, "reserved");
+  }
+
+  async function startTechnicianTextChat(payload) {
+    const conversation = currentConversation();
+    if (conversation && !isTechnicianTextMode(conversation)) {
+      await addMessage("assistant", "Free technician text chat is open. Keep typing in this same conversation and a technician can answer from the admin dashboard.", {
+        name: "Technician desk",
+        handoff: true,
+        technicianText: true,
+      });
+    }
+    els.bookingResult.innerHTML = `
+      <strong>Free technician text chat started.</strong><br>
+      No checkout is needed. Keep typing in this case thread.
+    `;
+    await saveBooking(payload, "", "text_chat_open");
   }
 
   async function saveBooking(payload, meetingUrl, status) {
@@ -599,7 +652,6 @@
       const subscription = state.supabase.auth.onAuthStateChange(async (_event, session) => {
         state.supabaseUser = session?.user || null;
         state.profile = state.supabaseUser ? await loadProfile() : null;
-        redirectAdminSession();
         renderAuth();
         if (state.supabaseUser) {
           await loadSupabaseConversations();
@@ -645,6 +697,7 @@
       geminiModel: content.geminiModel ?? state.settings.geminiModel,
       adsClient: content.adsClient ?? state.settings.adsClient,
       adsSlot: content.adsSlot ?? state.settings.adsSlot,
+      adSlots: content.adSlots ?? state.settings.adSlots,
       checkoutUrl: content.checkoutUrl ?? state.settings.checkoutUrl,
       jitsiDomain: content.jitsiDomain ?? state.settings.jitsiDomain,
     };
@@ -679,8 +732,9 @@
       emailIntro: cleanText(merged.emailIntro, DEFAULT_SITE_CONTENT.emailIntro),
       geminiEndpoint: cleanEndpoint(merged.geminiEndpoint, DEFAULT_SETTINGS.geminiEndpoint),
       geminiModel: cleanText(merged.geminiModel, DEFAULT_SETTINGS.geminiModel),
-      adsClient: cleanOptionalText(merged.adsClient),
-      adsSlot: cleanOptionalText(merged.adsSlot),
+      adsClient: cleanAdsClient(merged.adsClient),
+      adsSlot: cleanAdSlot(merged.adsSlot),
+      adSlots: cleanAdSlots(merged.adSlots),
       checkoutUrl: cleanOptionalUrl(merged.checkoutUrl),
       jitsiDomain: cleanDomain(merged.jitsiDomain, DEFAULT_SETTINGS.jitsiDomain),
     };
@@ -698,6 +752,41 @@
 
   function cleanOptionalText(value) {
     return String(value || "").trim();
+  }
+
+  function cleanAdsClient(value) {
+    const text = cleanOptionalText(value);
+    const match = text.match(/(?:ca-)?pub-\d{8,}/i);
+    if (!match) return "";
+    const client = match[0].toLowerCase();
+    return client.startsWith("ca-") ? client : `ca-${client}`;
+  }
+
+  function cleanAdSlot(value) {
+    const text = cleanOptionalText(value);
+    const slotFromSnippet = text.match(/data-ad-slot=["']?(\d{5,})/i);
+    if (slotFromSnippet) return slotFromSnippet[1];
+    const firstNumber = text.match(/\b\d{5,}\b/);
+    return firstNumber ? firstNumber[0] : "";
+  }
+
+  function cleanAdSlots(value) {
+    const slots = value && typeof value === "object" ? value : {};
+    return {
+      leftTop: cleanAdSlot(slots.leftTop),
+      leftUpper: cleanAdSlot(slots.leftUpper),
+      leftMiddle: cleanAdSlot(slots.leftMiddle),
+      leftLower: cleanAdSlot(slots.leftLower),
+      leftBottom: cleanAdSlot(slots.leftBottom),
+      rightTop: cleanAdSlot(slots.rightTop),
+      rightUpper: cleanAdSlot(slots.rightUpper),
+      rightMiddle: cleanAdSlot(slots.rightMiddle),
+      rightLower: cleanAdSlot(slots.rightLower),
+      rightBottom: cleanAdSlot(slots.rightBottom),
+      inlineOne: cleanAdSlot(slots.inlineOne),
+      inlineTwo: cleanAdSlot(slots.inlineTwo),
+      mobileChat: cleanAdSlot(slots.mobileChat),
+    };
   }
 
   function cleanEndpoint(value, fallback) {
@@ -743,7 +832,6 @@
     const { data } = await state.supabase.auth.getSession();
     state.supabaseUser = data?.session?.user || null;
     state.profile = state.supabaseUser ? await loadProfile() : null;
-    redirectAdminSession();
     renderAuth();
     return state.supabaseUser;
   }
@@ -803,10 +891,6 @@
         await loadSupabaseConversations();
         await saveCurrentConversation();
         els.authDialog.close();
-        if (state.profile?.role === "admin") {
-          window.location.href = "/admin";
-          return;
-        }
       } else {
         const response = await fetch("/api/auth/signup", {
           method: "POST",
@@ -859,6 +943,40 @@
     } catch (error) {
       renderStatus();
     }
+  }
+
+  async function refreshCurrentConversation(renderAfter = false) {
+    const conversation = currentConversation();
+    if (!state.supabase || !state.supabaseUser || !conversation || !isUuid(conversation.id)) return false;
+    try {
+      const { data, error } = await state.supabase
+        .from("conversations")
+        .select("id,title,vehicle,messages,brief,created_at,updated_at")
+        .eq("id", conversation.id)
+        .maybeSingle();
+      if (error || !data) return false;
+      const index = state.conversations.findIndex((item) => item.id === conversation.id);
+      const remoteConversation = fromSupabaseRow(data);
+      if (index >= 0) {
+        state.conversations[index] = remoteConversation;
+      } else {
+        state.conversations.unshift(remoteConversation);
+      }
+      state.activeId = remoteConversation.id;
+      state.vehicle = { ...(remoteConversation.vehicle || {}) };
+      persistLocal();
+      if (renderAfter) renderAll();
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function startTextChatPolling() {
+    window.setInterval(async () => {
+      if (!isTechnicianTextMode()) return;
+      await refreshCurrentConversation(true);
+    }, 10000);
   }
 
   async function saveCurrentConversation() {
@@ -953,12 +1071,6 @@
     }
   }
 
-  function redirectAdminSession() {
-    if (state.profile?.role === "admin" && !window.location.pathname.startsWith("/admin")) {
-      window.location.href = "/admin";
-    }
-  }
-
   function resolveLoginEmail(loginId) {
     const adminUsername = state.settings.adminUsername || DEFAULT_SETTINGS.adminUsername;
     if (loginId === adminUsername) {
@@ -1002,8 +1114,8 @@
         const role = message.role === "user" ? "user" : "assistant";
         const alert = message.alert ? " alert" : "";
         const handoff = message.handoff ? " handoff" : "";
-        const avatar = role === "user" ? "You" : assistantAvatarText();
-        const name = message.name || (role === "user" ? "You" : assistantName());
+        const avatar = role === "user" ? "You" : message.technicianReply ? "Tech" : assistantAvatarText();
+        const name = message.name || (role === "user" ? "You" : message.technicianReply ? state.siteContent.technicianName : assistantName());
         return `
           <article class="message ${role}${alert}${handoff}">
             <div class="avatar" aria-hidden="true">${escapeHtml(avatar)}</div>
@@ -1048,22 +1160,25 @@
   }
 
   function renderBooking() {
+    const isTextChat = state.callType === "text";
     els.callOptions.forEach((button) => {
       const active = button.dataset.callType === state.callType;
       button.classList.toggle("active", active);
       button.setAttribute("aria-selected", String(active));
     });
-    const duration = Number(els.durationSelect.value || 60);
-    const rate = state.callType === "video" ? 40 : 20;
+    els.bookingControls.hidden = isTextChat;
+    const duration = isTextChat ? 0 : Number(els.durationSelect.value || 60);
+    const rate = rateForCallType(state.callType);
     const total = (rate * duration) / 60;
-    els.bookingPrice.textContent = `$${total.toFixed(2)}`;
+    els.bookingPrice.textContent = isTextChat ? "Free" : `$${total.toFixed(2)}`;
+    els.bookingBtn.querySelector("span").textContent = isTextChat ? "Start free text chat" : "Reserve mechanic";
   }
 
   function renderStatus() {
     const rows = [
       ["Supabase", Boolean(state.supabase && state.supabaseUser)],
       ["Gemini", Boolean(state.settings.geminiEndpoint || DEFAULT_SETTINGS.geminiEndpoint)],
-      ["Ads", Boolean(state.settings.adsClient && state.settings.adsSlot)],
+      ["Ads", Boolean(state.settings.adsClient && hasAnyAdSlot())],
       ["Checkout", Boolean(state.settings.checkoutUrl)],
     ];
     els.integrationStatus.innerHTML = rows
@@ -1073,7 +1188,7 @@
 
   function renderAds() {
     const mounts = els.adMounts || [];
-    if (!state.settings.adsClient || !state.settings.adsSlot) {
+    if (!state.settings.adsClient || !hasAnyAdSlot()) {
       mounts.forEach((mount) => {
         mount.innerHTML = "<span>Advertisement</span>";
       });
@@ -1089,12 +1204,17 @@
       document.head.appendChild(script);
     }
     mounts.forEach((mount) => {
+      const slot = adSlotForMount(mount);
+      if (!slot) {
+        mount.innerHTML = "<span>Advertisement</span>";
+        return;
+      }
       mount.innerHTML = "";
       const ad = document.createElement("ins");
       ad.className = "adsbygoogle";
       ad.style.display = "block";
       ad.dataset.adClient = state.settings.adsClient;
-      ad.dataset.adSlot = state.settings.adsSlot;
+      ad.dataset.adSlot = slot;
       ad.dataset.adFormat = "auto";
       ad.dataset.fullWidthResponsive = "true";
       mount.appendChild(ad);
@@ -1105,6 +1225,29 @@
         mount.innerHTML = "<span>Advertisement</span>";
       }
     });
+  }
+
+  function hasAnyAdSlot() {
+    return Boolean(state.settings.adsSlot || Object.values(state.settings.adSlots || {}).some(Boolean));
+  }
+
+  function adSlotForMount(mount) {
+    const key = adSlotKey(mount.dataset.adSlot || "");
+    return (state.settings.adSlots && state.settings.adSlots[key]) || state.settings.adsSlot || "";
+  }
+
+  function adSlotKey(value) {
+    return String(value || "").replace(/-([a-z])/g, (_match, letter) => letter.toUpperCase());
+  }
+
+  function rateForCallType(callType) {
+    if (callType === "video") return 40;
+    if (callType === "voice") return 20;
+    return 0;
+  }
+
+  function isTechnicianTextMode(conversation = currentConversation()) {
+    return Boolean((conversation?.messages || []).some((message) => message.technicianText));
   }
 
   function loadLocalConversations() {
@@ -1154,8 +1297,9 @@
       supabaseAnonKey: els.supabaseAnonInput.value.trim(),
       geminiEndpoint: els.geminiEndpointInput.value.trim() || DEFAULT_SETTINGS.geminiEndpoint,
       geminiModel: els.geminiModelInput.value.trim() || DEFAULT_SETTINGS.geminiModel,
-      adsClient: els.adsClientInput.value.trim(),
-      adsSlot: els.adsSlotInput.value.trim(),
+      adsClient: cleanAdsClient(els.adsClientInput.value),
+      adsSlot: cleanAdSlot(els.adsSlotInput.value),
+      adSlots: state.settings.adSlots || DEFAULT_SETTINGS.adSlots,
       checkoutUrl: els.checkoutUrlInput.value.trim(),
       jitsiDomain: els.jitsiDomainInput.value.trim() || DEFAULT_SETTINGS.jitsiDomain,
     };

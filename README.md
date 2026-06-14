@@ -1,6 +1,6 @@
-# WrenchLine Auto Helpdesk
+# DiagnosticaOnline
 
-A mechanic-consulting web app with AI intake, Supabase login, saved conversations, side ad slots, live-call upgrades, and an admin dashboard.
+A mechanic-consulting web app with AI intake, Supabase login, saved conversations, side and mobile ad slots, free technician text chat, paid live-call upgrades, and an admin dashboard.
 
 ## Run
 
@@ -33,12 +33,13 @@ The app works in demo mode with local conversation storage.
 - Supabase: run `supabase-schema.sql`, enable email/password Auth, then set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in Vercel. For local/static testing, you can still add the URL and anon key in `config.js`.
 - Admin: use the normal site Login button with username `MechanicAdmin`. In Supabase Auth, create the mapped email user `admin@diagnostica-online.com`, set the admin password there, then promote it once in the SQL editor:
   `update public.profiles set role = 'admin' where email = 'admin@diagnostica-online.com';`
-- Admin content: the public site hides admin controls from logged-out users and non-admin customers. Admin users are redirected to `/admin`, where they can review ready customer cases, past conversations, bookings, production configuration status, Gemini handoff copy, technician details, verification email sender/copy, AdSense client/slot, checkout URL, Jitsi domain, and public Gemini endpoint/model. These editable values are stored in `site_settings`.
+- Admin content: the public site hides admin controls from logged-out users and non-admin customers. Admin users see an Admin dashboard button, but they can still browse the customer site normally. In `/admin`, admins can review ready customer cases, past conversations, bookings, production configuration status, Gemini handoff copy, technician details, verification email sender/copy, AdSense client/placement slots, checkout URL, Jitsi domain, and public Gemini endpoint/model. These editable values are stored in `site_settings`.
 - Gemini: set `GEMINI_API_KEY` in Vercel project environment variables. The Next.js route `/api/gemini` calls Gemini from the server, so the browser never stores the Gemini key.
 - Custom verification email: set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, and `PUBLIC_SITE_URL` in Vercel. The signup form calls `/api/auth/signup`, Supabase generates the verification link, and Resend sends your branded email. Add and verify the sender domain in Resend first, then edit the sender name/address in `/admin`.
 - Supabase Auth URLs: add your production URL and `/verify` URL to Supabase Auth URL Configuration so confirmation links can return to the website.
-- Google ads: add your AdSense client ID and slot ID. The app renders multiple side and inline slots; AdSense only serves on approved domains.
+- Google ads: keep the AdSense client ID as your publisher ID, such as `ca-pub-6817388263556075`. For the visible ad boxes, open each existing AdSense ad unit, copy the number from `data-ad-slot="1234567890"`, and paste it into the matching placement field in `/admin`. The app also accepts `pub-...` and normalizes it to `ca-pub-...` when saved. The default slot is a fallback for any placement left blank. The app renders five left rail slots, five right rail slots, two inline slots, and one mobile typing-area slot; AdSense only serves on approved domains.
 - AdSense ownership: the default publisher ID is `ca-pub-6817388263556075`, and the verification script is rendered in the site `<head>`. You can still override the client ID in Vercel with `NEXT_PUBLIC_ADSENSE_CLIENT` or in `/admin`.
+- Technician text chat: customers can start a free technician text chat from the main upgrade panel. Admins can reply from `/admin`, and those replies show in the customer’s saved conversation.
 - Paid calls: deploy `supabase/functions/create-checkout`, set `STRIPE_SECRET_KEY` and `PUBLIC_SITE_URL`, then add the function URL in the app. Video is priced at $40/hour and voice at $20/hour.
 - Call rooms: the app creates Jitsi room links after checkout or in demo mode. Replace this with your preferred video provider when you have mechanic scheduling.
 

@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="WrenchLine Car connects drivers with AI-assisted mechanic intake, saved conversations, and paid voice or video mechanic calls."
+      content="DiagnosticaOnline connects drivers with AI-assisted mechanic intake, saved conversations, free technician text chat, and paid voice or video mechanic calls."
     />
-    <title>WrenchLine Car</title>
+    <title>DiagnosticaOnline</title>
     <link rel="stylesheet" href="./styles.css" />
     <link rel="preconnect" href="https://images.unsplash.com" />
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -36,8 +36,8 @@
 
     <div class="page-shell">
       <header class="masthead">
-        <a class="brand" href="./index.html" aria-label="WrenchLine Car home">
-          <span class="brand-kicker">WrenchLine</span>
+        <a class="brand" href="./index.html" aria-label="DiagnosticaOnline home">
+          <span class="brand-kicker">DiagnosticaOnline</span>
           <span class="brand-name">Auto Helpdesk</span>
         </a>
 
@@ -46,7 +46,7 @@
           <button class="nav-link" id="loginNavBtn" type="button">Login</button>
           <button class="nav-link" id="signupNavBtn" type="button">Create account</button>
           <button class="nav-link" id="adminNavBtn" type="button" hidden>Admin</button>
-          <a class="nav-link" href="mailto:support@wrenchline.example">Contact us</a>
+          <a class="nav-link" href="mailto:support@diagnostica-online.com">Contact us</a>
           <button class="nav-link" id="logoutBtn" type="button" hidden>Sign out</button>
           <button class="icon-link" id="settingsBtn" type="button" title="Integrations" aria-label="Integrations" hidden>
             <i data-lucide="settings"></i>
@@ -98,6 +98,7 @@
             <div class="messages" id="messages" aria-live="polite"></div>
 
             <form class="question-box" id="chatForm">
+              <div class="ad-mount mobile-chat-ad" data-ad-slot="mobile-chat"><span>Advertisement</span></div>
               <label class="visually-hidden" for="messageInput">Type your car question</label>
               <textarea id="messageInput" rows="3" placeholder="Type your car question here..."></textarea>
               <div class="question-footer">
@@ -131,7 +132,12 @@
             </div>
 
             <div class="call-options" role="tablist" aria-label="Call type">
-              <button class="call-option active" id="videoOption" type="button" data-call-type="video" role="tab" aria-selected="true">
+              <button class="call-option active" type="button" data-call-type="text" role="tab" aria-selected="true">
+                <i data-lucide="messages-square"></i>
+                <span>Text chat</span>
+                <strong>Free</strong>
+              </button>
+              <button class="call-option" id="videoOption" type="button" data-call-type="video" role="tab" aria-selected="false">
                 <i data-lucide="video"></i>
                 <span>Video</span>
                 <strong>$40/hr</strong>
@@ -143,7 +149,7 @@
               </button>
             </div>
 
-            <div class="booking-controls">
+            <div class="booking-controls" id="bookingControls">
               <label for="durationSelect">Duration</label>
               <select id="durationSelect">
                 <option value="30">30 minutes</option>
