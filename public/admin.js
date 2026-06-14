@@ -68,6 +68,7 @@
       "adminPasswordInput",
       "adminMessage",
       "adminLoginBtn",
+      "saveConnectionBtn",
       "refreshAdminBtn",
       "adminStats",
       "adminConversations",
@@ -93,6 +94,7 @@
 
   function bindEvents() {
     els.adminLoginForm.addEventListener("submit", login);
+    els.saveConnectionBtn.addEventListener("click", saveConnectionOnly);
     els.adminLogoutBtn.addEventListener("click", logout);
     els.refreshAdminBtn.addEventListener("click", verifyAdminAndLoad);
     els.siteContentForm.addEventListener("submit", saveSiteContent);
@@ -115,11 +117,7 @@
 
   async function login(event) {
     event.preventDefault();
-    state.settings.supabaseUrl = els.adminSupabaseUrlInput.value.trim();
-    state.settings.supabaseAnonKey = els.adminSupabaseAnonInput.value.trim();
-    state.settings.adminUsername = DEFAULT_SETTINGS.adminUsername;
-    state.settings.adminEmail = DEFAULT_SETTINGS.adminEmail;
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...loadSettings(), ...state.settings }));
+    saveConnectionSettings();
     await connectSupabase();
 
     if (!state.supabase) {
@@ -138,10 +136,34 @@
       await refreshUser();
       await verifyAdminAndLoad();
     } catch (error) {
-      renderLoggedOut(error.message || "Admin login failed.");
+      renderLoggedOut(authErrorMessage(error));
     } finally {
       els.adminLoginBtn.disabled = false;
     }
+  }
+
+  function authErrorMessage(error) {
+    const message = error?.message || "Admin login failed.";
+    if (/invalid login credentials/i.test(message)) {
+      return `Invalid login. Create the Supabase Auth user ${state.settings.adminEmail}, set its password, then log in with username ${state.settings.adminUsername}.`;
+    }
+    return message;
+  }
+
+  async function saveConnectionOnly() {
+    saveConnectionSettings();
+    await connectSupabase();
+    els.adminMessage.textContent =
+      "Supabase connection saved in this browser. Create the admin Auth user, then enter its password to open the dashboard.";
+    renderAccount();
+  }
+
+  function saveConnectionSettings() {
+    state.settings.supabaseUrl = els.adminSupabaseUrlInput.value.trim();
+    state.settings.supabaseAnonKey = els.adminSupabaseAnonInput.value.trim();
+    state.settings.adminUsername = DEFAULT_SETTINGS.adminUsername;
+    state.settings.adminEmail = DEFAULT_SETTINGS.adminEmail;
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...loadSettings(), ...state.settings }));
   }
 
   async function verifyAdminAndLoad() {

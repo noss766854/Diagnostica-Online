@@ -10,8 +10,7 @@
   const DEFAULT_SETTINGS = {
     supabaseUrl: "",
     supabaseAnonKey: "",
-    geminiEndpoint: "",
-    geminiApiKey: "",
+    geminiEndpoint: "/api/gemini",
     geminiModel: "gemini-2.5-flash",
     adsClient: "",
     adsSlot: "",
@@ -160,7 +159,6 @@
       "supabaseUrlInput",
       "supabaseAnonInput",
       "geminiEndpointInput",
-      "geminiKeyInput",
       "geminiModelInput",
       "adsClientInput",
       "adsSlotInput",
@@ -297,20 +295,22 @@
     await saveCurrentConversation();
   }
 
-  async function respondToUser(latestUserText) {
+  async function respondToUser() {
     state.typing = true;
     renderMessages();
     try {
       const text = await getGeminiReply();
-      await addMessage("assistant", text || localDiagnosticReply(latestUserText), {
+      if (!text) throw new Error("Gemini returned an empty response.");
+      await addMessage("assistant", text, {
         name: assistantName(),
         ...classifyReply(text),
       });
     } catch (error) {
-      const fallback = localDiagnosticReply(latestUserText);
-      await addMessage("assistant", fallback, {
+      const message =
+        "Gemini is not available yet. Add GEMINI_API_KEY in Vercel project environment variables, redeploy, and this chat will answer with Gemini instead of fallback text.";
+      await addMessage("assistant", message, {
         name: assistantName(),
-        ...classifyReply(fallback),
+        alert: true,
       });
     } finally {
       state.typing = false;
@@ -321,56 +321,23 @@
   async function getGeminiReply() {
     const conversation = currentConversation();
     if (!conversation) return "";
-    if (state.settings.geminiEndpoint) {
-      const response = await fetch(state.settings.geminiEndpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: conversation.messages,
-          vehicle: state.vehicle,
-          brief: conversation.brief,
-          siteContent: state.siteContent,
-          systemPrompt: mechanicSystemPrompt(),
-        }),
-      });
-      if (!response.ok) throw new Error("Gemini endpoint failed");
-      const data = await response.json();
-      return data.text || data.reply || "";
-    }
-
-    if (!state.settings.geminiApiKey) return "";
-
-    const contents = conversation.messages
-      .filter((message) => message.role === "user" || message.role === "assistant")
-      .slice(-12)
-      .map((message) => ({
-        role: message.role === "assistant" ? "model" : "user",
-        parts: [{ text: message.content }],
-      }));
-
-    const model = encodeURIComponent(state.settings.geminiModel || DEFAULT_SETTINGS.geminiModel);
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(
-        state.settings.geminiApiKey
-      )}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: mechanicSystemPrompt() }] },
-          contents,
-          generationConfig: { temperature: 0.45, maxOutputTokens: 360 },
-        }),
-      }
-    );
-    if (!response.ok) throw new Error("Gemini API failed");
+    const endpoint = state.settings.geminiEndpoint || DEFAULT_SETTINGS.geminiEndpoint;
+    if (!endpoint) throw new Error("Gemini endpoint is not configured.");
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: conversation.messages,
+        vehicle: state.vehicle,
+        brief: conversation.brief,
+        siteContent: state.siteContent,
+        systemPrompt: mechanicSystemPrompt(),
+        model: state.settings.geminiModel || DEFAULT_SETTINGS.geminiModel,
+      }),
+    });
     const data = await response.json();
-    return (
-      data.candidates?.[0]?.content?.parts
-        ?.map((part) => part.text || "")
-        .join("")
-        .trim() || ""
-    );
+    if (!response.ok) throw new Error(data.error || "Gemini endpoint failed.");
+    return (data.text || data.reply || "").trim();
   }
 
   function mechanicSystemPrompt() {
@@ -385,75 +352,11 @@
     return (state.siteContent.assistantAvatarText || DEFAULT_SITE_CONTENT.assistantAvatarText).slice(0, 3);
   }
 
-  function localDiagnosticReply(latestUserText) {
-    const conversation = currentConversation();
-    const allText = `${conversation?.messages.map((message) => message.content).join(" ")} ${latestUserText}`.toLowerCase();
-    const urgent = urgentSafetyLine(allText);
-    const userMessages = conversation?.messages.filter((message) => message.role === "user") || [];
-
-    const missingVehicle = !state.vehicle.year || !state.vehicle.make || !state.vehicle.model;
-    const hasMileage = /\b\d{2,3}[,.]?\d{3}\s*(miles|mi|km|kilometers)?\b/i.test(allText);
-    const hasCodes = /\bp0\d{3}\b|\bp1\d{3}\b|\bobd\b|code/i.test(allText);
-    const hasTiming = /\b(cold|hot|idle|accelerat|brak|turn|start|highway|stop|reverse|morning|after)\b/i.test(allText);
-    const hasRecentWork = /\b(replaced|changed|repair|service|oil change|battery|alternator|brake job|spark plug)\b/i.test(allText);
-
-    let question = "";
-    if (missingVehicle) {
-      question = "What year, make, model, engine size, and mileage are we working with?";
-    } else if (!hasTiming) {
-      question = "When does it happen most: cold start, warm idle, acceleration, braking, turning, highway speed, or after a longer drive?";
-    } else if (!hasCodes && /\b(check engine|cel|warning|light|rough|misfire|stall|transmission)\b/i.test(allText)) {
-      question = "Have you scanned it for OBD-II codes yet? If yes, send the exact codes, even pending ones.";
-    } else if (!hasMileage) {
-      question = "About how many miles are on the vehicle, and has this started suddenly or gradually?";
-    } else if (!hasRecentWork) {
-      question = "Has any recent maintenance or repair happened before this started, even something routine like a battery, oil, tire, or brake service?";
-    } else if (userMessages.length < state.siteContent.handoffAfterMessages) {
-      question = "What changed right before the symptom appeared: weather, fuel stop, pothole, long trip, warning light, or a specific sound or smell?";
-    } else {
-      return buildSummaryReply(urgent);
-    }
-
-    return [urgent, question].filter(Boolean).join("\n\n");
-  }
-
-  function urgentSafetyLine(text) {
-    if (/\b(overheat|temperature|steam|coolant|red temp)\b/i.test(text)) {
-      return "Safety note: if the temperature gauge is in the red, steam is visible, or coolant is leaking fast, shut the engine off and avoid driving it until it cools and the leak source is checked.";
-    }
-    if (/\b(brake pedal|no brakes|brake fluid|grinding brakes|soft pedal)\b/i.test(text)) {
-      return "Safety note: brake loss, a soft pedal, or metal-on-metal grinding can become unsafe quickly. Avoid driving if stopping distance has changed.";
-    }
-    if (/\b(fuel smell|gas smell|smoke|burning oil|oil pressure)\b/i.test(text)) {
-      return "Safety note: fuel smell, smoke, or an oil pressure warning should be treated as urgent. Stop driving if the warning is active or the smell is strong.";
-    }
-    return "";
-  }
-
-  function buildSummaryReply(urgent) {
-    const brief = buildMechanicBrief();
-    return [
-      urgent,
-      "Here is the working brief I’d hand to a mechanic:",
-      brief,
-      handoffMessage(),
-      "A voice call is good for a quick diagnostic readout; choose video if you can show the sound, leak, belt movement, dash warnings, or under-hood area live.",
-    ]
-      .filter(Boolean)
-      .join("\n\n");
-  }
-
   function classifyReply(text) {
     return {
       alert: Boolean(text && /Safety note:/i.test(text)),
       handoff: Boolean(text && /handoff|technician-ready|take over/i.test(text)),
     };
-  }
-
-  function handoffMessage() {
-    return (state.siteContent.handoffMessage || DEFAULT_SITE_CONTENT.handoffMessage)
-      .replaceAll("{technicianName}", state.siteContent.technicianName)
-      .replaceAll("{technicianTitle}", state.siteContent.technicianTitle);
   }
 
   function inferVehicle(text) {
@@ -1001,7 +904,7 @@
   function renderStatus() {
     const rows = [
       ["Supabase", Boolean(state.supabase && state.supabaseUser)],
-      ["Gemini", Boolean(state.settings.geminiEndpoint || state.settings.geminiApiKey)],
+      ["Gemini", Boolean(state.settings.geminiEndpoint || DEFAULT_SETTINGS.geminiEndpoint)],
       ["Ads", Boolean(state.settings.adsClient && state.settings.adsSlot)],
       ["Checkout", Boolean(state.settings.checkoutUrl)],
     ];
@@ -1079,8 +982,7 @@
   function fillSettingsForm() {
     els.supabaseUrlInput.value = state.settings.supabaseUrl || "";
     els.supabaseAnonInput.value = state.settings.supabaseAnonKey || "";
-    els.geminiEndpointInput.value = state.settings.geminiEndpoint || "";
-    els.geminiKeyInput.value = state.settings.geminiApiKey || "";
+    els.geminiEndpointInput.value = state.settings.geminiEndpoint || DEFAULT_SETTINGS.geminiEndpoint;
     els.geminiModelInput.value = state.settings.geminiModel || DEFAULT_SETTINGS.geminiModel;
     els.adsClientInput.value = state.settings.adsClient || "";
     els.adsSlotInput.value = state.settings.adsSlot || "";
@@ -1092,8 +994,7 @@
     state.settings = {
       supabaseUrl: els.supabaseUrlInput.value.trim(),
       supabaseAnonKey: els.supabaseAnonInput.value.trim(),
-      geminiEndpoint: els.geminiEndpointInput.value.trim(),
-      geminiApiKey: els.geminiKeyInput.value.trim(),
+      geminiEndpoint: els.geminiEndpointInput.value.trim() || DEFAULT_SETTINGS.geminiEndpoint,
       geminiModel: els.geminiModelInput.value.trim() || DEFAULT_SETTINGS.geminiModel,
       adsClient: els.adsClientInput.value.trim(),
       adsSlot: els.adsSlotInput.value.trim(),

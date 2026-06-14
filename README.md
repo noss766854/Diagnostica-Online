@@ -25,7 +25,7 @@ The app works in demo mode with local conversation storage.
 - Admin: open `/admin` and log in with username `MechanicAdmin`. In Supabase Auth, create the mapped email user `admin@diagnostica-online.com`, set the admin password there, then promote it once in the SQL editor:
   `update public.profiles set role = 'admin' where email = 'admin@diagnostica-online.com';`
 - Admin content: the dashboard can edit the Gemini assistant name, prompt, handoff timing, and technician card. These values are stored in `site_settings`.
-- Gemini: deploy `supabase/functions/gemini-diagnose` and set `GEMINI_API_KEY`. The app can also use a browser API key for local testing, but the Edge Function is safer.
+- Gemini: set `GEMINI_API_KEY` in Vercel project environment variables. The Next.js route `/api/gemini` calls Gemini from the server, so the browser never stores the Gemini key.
 - Google ads: add your AdSense client ID and slot ID. The app renders multiple side and inline slots; AdSense only serves on approved domains.
 - Paid calls: deploy `supabase/functions/create-checkout`, set `STRIPE_SECRET_KEY` and `PUBLIC_SITE_URL`, then add the function URL in the app. Video is priced at $40/hour and voice at $20/hour.
 - Call rooms: the app creates Jitsi room links after checkout or in demo mode. Replace this with your preferred video provider when you have mechanic scheduling.

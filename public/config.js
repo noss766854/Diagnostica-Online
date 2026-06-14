@@ -1,8 +1,7 @@
 window.WRENCHLINE_CONFIG = {
   supabaseUrl: "",
   supabaseAnonKey: "",
-  geminiEndpoint: "",
-  geminiApiKey: "",
+  geminiEndpoint: "/api/gemini",
   geminiModel: "gemini-2.5-flash",
   adsClient: "",
   adsSlot: "",
