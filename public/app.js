@@ -50,6 +50,12 @@
     emailFromAddress: "verify@diagnostica-online.com",
     emailSubject: "Verify your Diagnostica Online account",
     emailIntro: "Confirm your email so your mechanic conversations stay saved to your account.",
+    geminiEndpoint: DEFAULT_SETTINGS.geminiEndpoint,
+    geminiModel: DEFAULT_SETTINGS.geminiModel,
+    adsClient: DEFAULT_SETTINGS.adsClient,
+    adsSlot: DEFAULT_SETTINGS.adsSlot,
+    checkoutUrl: DEFAULT_SETTINGS.checkoutUrl,
+    jitsiDomain: DEFAULT_SETTINGS.jitsiDomain,
   };
 
   const MAKE_WORDS = [
@@ -593,6 +599,7 @@
       const subscription = state.supabase.auth.onAuthStateChange(async (_event, session) => {
         state.supabaseUser = session?.user || null;
         state.profile = state.supabaseUser ? await loadProfile() : null;
+        redirectAdminSession();
         renderAuth();
         if (state.supabaseUser) {
           await loadSupabaseConversations();
@@ -610,6 +617,7 @@
 
   async function loadSiteContent() {
     state.siteContent = { ...DEFAULT_SITE_CONTENT, ...loadLocalSiteContent() };
+    applyPublicSettingsFromSiteContent();
     if (!state.supabase) {
       renderTechnicianProfile();
       return;
@@ -625,7 +633,21 @@
     } catch (error) {
       state.siteContent = { ...DEFAULT_SITE_CONTENT, ...loadLocalSiteContent() };
     }
+    applyPublicSettingsFromSiteContent();
     renderTechnicianProfile();
+  }
+
+  function applyPublicSettingsFromSiteContent() {
+    const content = state.siteContent || {};
+    state.settings = {
+      ...state.settings,
+      geminiEndpoint: content.geminiEndpoint ?? state.settings.geminiEndpoint,
+      geminiModel: content.geminiModel ?? state.settings.geminiModel,
+      adsClient: content.adsClient ?? state.settings.adsClient,
+      adsSlot: content.adsSlot ?? state.settings.adsSlot,
+      checkoutUrl: content.checkoutUrl ?? state.settings.checkoutUrl,
+      jitsiDomain: content.jitsiDomain ?? state.settings.jitsiDomain,
+    };
   }
 
   function loadLocalSiteContent() {
@@ -655,6 +677,12 @@
       emailFromAddress: cleanEmail(merged.emailFromAddress, DEFAULT_SITE_CONTENT.emailFromAddress),
       emailSubject: cleanText(merged.emailSubject, DEFAULT_SITE_CONTENT.emailSubject),
       emailIntro: cleanText(merged.emailIntro, DEFAULT_SITE_CONTENT.emailIntro),
+      geminiEndpoint: cleanEndpoint(merged.geminiEndpoint, DEFAULT_SETTINGS.geminiEndpoint),
+      geminiModel: cleanText(merged.geminiModel, DEFAULT_SETTINGS.geminiModel),
+      adsClient: cleanOptionalText(merged.adsClient),
+      adsSlot: cleanOptionalText(merged.adsSlot),
+      checkoutUrl: cleanOptionalUrl(merged.checkoutUrl),
+      jitsiDomain: cleanDomain(merged.jitsiDomain, DEFAULT_SETTINGS.jitsiDomain),
     };
   }
 
@@ -666,6 +694,38 @@
   function cleanEmail(value, fallback) {
     const text = String(value || "").trim();
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text) ? text : fallback;
+  }
+
+  function cleanOptionalText(value) {
+    return String(value || "").trim();
+  }
+
+  function cleanEndpoint(value, fallback) {
+    const text = cleanOptionalText(value);
+    if (!text) return fallback;
+    if (text.startsWith("/")) return text;
+    try {
+      const url = new URL(text);
+      return url.protocol === "https:" ? text : fallback;
+    } catch (error) {
+      return fallback;
+    }
+  }
+
+  function cleanOptionalUrl(value) {
+    const text = cleanOptionalText(value);
+    if (!text) return "";
+    try {
+      const url = new URL(text);
+      return url.protocol === "https:" ? text : "";
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function cleanDomain(value, fallback) {
+    const text = cleanOptionalText(value).replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+    return text || fallback;
   }
 
   function cleanUrl(value, fallback) {
@@ -683,6 +743,7 @@
     const { data } = await state.supabase.auth.getSession();
     state.supabaseUser = data?.session?.user || null;
     state.profile = state.supabaseUser ? await loadProfile() : null;
+    redirectAdminSession();
     renderAuth();
     return state.supabaseUser;
   }
@@ -875,18 +936,27 @@
 
   function renderAuth() {
     const configured = Boolean(state.settings.supabaseUrl && state.settings.supabaseAnonKey);
+    const isAdmin = state.profile?.role === "admin";
+    els.adminNavBtn.hidden = !isAdmin;
+    els.settingsBtn.hidden = !isAdmin;
     if (state.supabaseUser) {
       els.accountBadge.textContent = state.supabaseUser.email || "Logged in";
       els.loginNavBtn.hidden = true;
       els.signupNavBtn.hidden = true;
       els.logoutBtn.hidden = false;
-      els.adminNavBtn.textContent = state.profile?.role === "admin" ? "Admin dashboard" : "Admin";
+      els.adminNavBtn.textContent = isAdmin ? "Admin dashboard" : "Admin";
     } else {
       els.accountBadge.textContent = configured ? "Supabase ready" : "Demo mode";
       els.loginNavBtn.hidden = false;
       els.signupNavBtn.hidden = false;
       els.logoutBtn.hidden = true;
       els.adminNavBtn.textContent = "Admin";
+    }
+  }
+
+  function redirectAdminSession() {
+    if (state.profile?.role === "admin" && !window.location.pathname.startsWith("/admin")) {
+      window.location.href = "/admin";
     }
   }
 

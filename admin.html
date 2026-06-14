@@ -55,7 +55,14 @@
 
           <section class="admin-table-card">
             <div class="table-heading">
-              <h2>Gemini handoff settings</h2>
+              <h2>Ready cases</h2>
+            </div>
+            <div class="admin-table" id="adminReadyCases"></div>
+          </section>
+
+          <section class="admin-table-card">
+            <div class="table-heading">
+              <h2>Site, AI, ads, and call settings</h2>
             </div>
             <form class="site-content-form" id="siteContentForm">
               <div class="settings-grid">
@@ -118,6 +125,30 @@
                 <label class="span-2">
                   <span>Verification email intro</span>
                   <textarea id="emailIntroInput" rows="3"></textarea>
+                </label>
+                <label>
+                  <span>Gemini endpoint</span>
+                  <input id="geminiEndpointInput" type="text" />
+                </label>
+                <label>
+                  <span>Gemini model</span>
+                  <input id="geminiModelInput" type="text" />
+                </label>
+                <label>
+                  <span>AdSense client</span>
+                  <input id="adsClientInput" type="text" />
+                </label>
+                <label>
+                  <span>AdSense slot</span>
+                  <input id="adsSlotInput" type="text" />
+                </label>
+                <label>
+                  <span>Checkout URL</span>
+                  <input id="checkoutUrlInput" type="url" />
+                </label>
+                <label>
+                  <span>Jitsi domain</span>
+                  <input id="jitsiDomainInput" type="text" />
                 </label>
               </div>
               <p class="form-message" id="siteContentMessage"></p>

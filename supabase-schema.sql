@@ -215,7 +215,13 @@ values (
     "emailFromName": "Diagnostica Online",
     "emailFromAddress": "verify@diagnostica-online.com",
     "emailSubject": "Verify your Diagnostica Online account",
-    "emailIntro": "Confirm your email so your mechanic conversations stay saved to your account."
+    "emailIntro": "Confirm your email so your mechanic conversations stay saved to your account.",
+    "geminiEndpoint": "/api/gemini",
+    "geminiModel": "gemini-2.5-flash",
+    "adsClient": "",
+    "adsSlot": "",
+    "checkoutUrl": "",
+    "jitsiDomain": "meet.jit.si"
   }'::jsonb
 )
 on conflict (key) do nothing;

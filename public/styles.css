@@ -872,7 +872,7 @@ img {
 
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin-top: 18px;
 }
@@ -927,6 +927,38 @@ img {
   border: 1px solid #e0edf2;
 }
 
+.admin-row.case-ready {
+  border-color: rgba(82, 186, 208, 0.55);
+  background: #eefbfe;
+}
+
+details.admin-row {
+  display: block;
+}
+
+details.admin-row summary {
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  cursor: pointer;
+}
+
+details.admin-row summary::marker {
+  color: var(--teal-dark);
+}
+
+details.admin-row summary small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .admin-row strong,
 .admin-row span {
   min-width: 0;
@@ -937,6 +969,75 @@ img {
 
 .admin-row span {
   color: var(--muted);
+}
+
+.case-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.case-detail-grid span,
+.transcript-line span {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.vehicle-value.dark {
+  color: var(--ink);
+  font-weight: 700;
+  white-space: normal;
+}
+
+.case-brief {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: #10262d;
+  color: #ffffff;
+}
+
+.case-brief pre {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 0.85rem/1.45 Consolas, "Liberation Mono", monospace;
+}
+
+.case-transcript {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.transcript-line {
+  padding: 10px;
+  border-radius: var(--radius);
+  border: 1px solid #dde9ee;
+  background: #ffffff;
+}
+
+.transcript-line.customer {
+  border-left: 4px solid var(--salmon);
+}
+
+.transcript-line.assistant {
+  border-left: 4px solid var(--teal);
+}
+
+.transcript-line p {
+  margin: 6px 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+}
+
+.transcript-line span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
 }
 
 .visually-hidden {
@@ -1063,7 +1164,9 @@ svg {
   .settings-grid,
   .inline-ads,
   .stat-grid,
-  .admin-row {
+  .admin-row,
+  .case-detail-grid,
+  details.admin-row summary {
     grid-template-columns: 1fr;
   }
 }

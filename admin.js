@@ -4,6 +4,12 @@
   const DEFAULT_SETTINGS = {
     supabaseUrl: "",
     supabaseAnonKey: "",
+    geminiEndpoint: "/api/gemini",
+    geminiModel: "gemini-2.5-flash",
+    adsClient: "",
+    adsSlot: "",
+    checkoutUrl: "",
+    jitsiDomain: "meet.jit.si",
     ...BOOT_CONFIG,
   };
 
@@ -28,6 +34,12 @@
     emailFromAddress: "verify@diagnostica-online.com",
     emailSubject: "Verify your Diagnostica Online account",
     emailIntro: "Confirm your email so your mechanic conversations stay saved to your account.",
+    geminiEndpoint: DEFAULT_SETTINGS.geminiEndpoint,
+    geminiModel: DEFAULT_SETTINGS.geminiModel,
+    adsClient: DEFAULT_SETTINGS.adsClient,
+    adsSlot: DEFAULT_SETTINGS.adsSlot,
+    checkoutUrl: DEFAULT_SETTINGS.checkoutUrl,
+    jitsiDomain: DEFAULT_SETTINGS.jitsiDomain,
   };
 
   const els = {};
@@ -68,6 +80,7 @@
       "adminLoginRedirectBtn",
       "refreshAdminBtn",
       "adminStats",
+      "adminReadyCases",
       "adminConversations",
       "adminBookings",
       "siteContentForm",
@@ -86,6 +99,12 @@
       "emailFromAddressInput",
       "emailSubjectInput",
       "emailIntroInput",
+      "geminiEndpointInput",
+      "geminiModelInput",
+      "adsClientInput",
+      "adsSlotInput",
+      "checkoutUrlInput",
+      "jitsiDomainInput",
       "siteContentMessage",
       "saveSiteContentBtn",
     ].forEach((id) => {
@@ -145,19 +164,27 @@
       countRows("conversations"),
       countRows("call_bookings"),
       countRows("profiles"),
-      state.supabase.from("conversations").select("id,title,owner_id,vehicle,updated_at").order("updated_at", { ascending: false }).limit(12),
+      state.supabase
+        .from("conversations")
+        .select("id,title,owner_id,vehicle,messages,brief,created_at,updated_at")
+        .order("updated_at", { ascending: false })
+        .limit(50),
       state.supabase.from("call_bookings").select("id,owner_id,call_type,duration_minutes,total_usd,status,created_at").order("created_at", { ascending: false }).limit(12),
     ]);
+    const conversationRows = conversations.data || [];
+    const readyRows = conversationRows.filter(isReadyCase);
 
     els.adminStats.innerHTML = [
       ["Conversations", conversationCount],
+      ["Ready cases", readyRows.length],
       ["Call bookings", bookingCount],
       ["Users", userCount],
     ]
       .map((stat) => `<div class="stat-card"><span>${escapeHtml(stat[0])}</span><strong>${escapeHtml(stat[1])}</strong></div>`)
       .join("");
 
-    renderConversationTable(conversations.data || []);
+    renderReadyCaseTable(readyRows);
+    renderConversationTable(conversationRows);
     renderBookingTable(bookings.data || []);
   }
 
@@ -199,6 +226,12 @@
       emailFromAddress: els.emailFromAddressInput.value,
       emailSubject: els.emailSubjectInput.value,
       emailIntro: els.emailIntroInput.value,
+      geminiEndpoint: els.geminiEndpointInput.value,
+      geminiModel: els.geminiModelInput.value,
+      adsClient: els.adsClientInput.value,
+      adsSlot: els.adsSlotInput.value,
+      checkoutUrl: els.checkoutUrlInput.value,
+      jitsiDomain: els.jitsiDomainInput.value,
     });
 
     els.saveSiteContentBtn.disabled = true;
@@ -211,7 +244,7 @@
       });
       if (error) throw error;
       state.siteContent = content;
-      els.siteContentMessage.textContent = "Saved. The public site will use these Gemini, technician, and verification email settings.";
+      els.siteContentMessage.textContent = "Saved. The public site will use these AI, ad, call, technician, and verification email settings.";
     } catch (error) {
       els.siteContentMessage.textContent = error.message || "Could not save settings.";
     } finally {
@@ -236,6 +269,12 @@
     els.emailFromAddressInput.value = content.emailFromAddress;
     els.emailSubjectInput.value = content.emailSubject;
     els.emailIntroInput.value = content.emailIntro;
+    els.geminiEndpointInput.value = content.geminiEndpoint;
+    els.geminiModelInput.value = content.geminiModel;
+    els.adsClientInput.value = content.adsClient;
+    els.adsSlotInput.value = content.adsSlot;
+    els.checkoutUrlInput.value = content.checkoutUrl;
+    els.jitsiDomainInput.value = content.jitsiDomain;
   }
 
   function sanitizeSiteContent(value) {
@@ -257,6 +296,12 @@
       emailFromAddress: cleanEmail(merged.emailFromAddress, DEFAULT_SITE_CONTENT.emailFromAddress),
       emailSubject: cleanText(merged.emailSubject, DEFAULT_SITE_CONTENT.emailSubject),
       emailIntro: cleanText(merged.emailIntro, DEFAULT_SITE_CONTENT.emailIntro),
+      geminiEndpoint: cleanEndpoint(merged.geminiEndpoint, DEFAULT_SETTINGS.geminiEndpoint),
+      geminiModel: cleanText(merged.geminiModel, DEFAULT_SETTINGS.geminiModel),
+      adsClient: cleanOptionalText(merged.adsClient),
+      adsSlot: cleanOptionalText(merged.adsSlot),
+      checkoutUrl: cleanOptionalUrl(merged.checkoutUrl),
+      jitsiDomain: cleanDomain(merged.jitsiDomain, DEFAULT_SETTINGS.jitsiDomain),
     };
   }
 
@@ -268,6 +313,38 @@
   function cleanEmail(value, fallback) {
     const text = String(value || "").trim();
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text) ? text : fallback;
+  }
+
+  function cleanOptionalText(value) {
+    return String(value || "").trim();
+  }
+
+  function cleanEndpoint(value, fallback) {
+    const text = cleanOptionalText(value);
+    if (!text) return fallback;
+    if (text.startsWith("/")) return text;
+    try {
+      const url = new URL(text);
+      return url.protocol === "https:" ? text : fallback;
+    } catch (error) {
+      return fallback;
+    }
+  }
+
+  function cleanOptionalUrl(value) {
+    const text = cleanOptionalText(value);
+    if (!text) return "";
+    try {
+      const url = new URL(text);
+      return url.protocol === "https:" ? text : "";
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function cleanDomain(value, fallback) {
+    const text = cleanOptionalText(value).replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+    return text || fallback;
   }
 
   function cleanUrl(value, fallback) {
@@ -285,24 +362,81 @@
     return count || 0;
   }
 
+  function renderReadyCaseTable(rows) {
+    if (!rows.length) {
+      els.adminReadyCases.innerHTML = `<div class="empty-state">No AI-ready cases yet.</div>`;
+      return;
+    }
+    els.adminReadyCases.innerHTML = rows.map((row) => renderCaseRow(row, true)).join("");
+  }
+
   function renderConversationTable(rows) {
     if (!rows.length) {
       els.adminConversations.innerHTML = `<div class="empty-state">No conversations yet.</div>`;
       return;
     }
-    els.adminConversations.innerHTML = rows
-      .map((row) => {
-        const vehicle = row.vehicle || {};
-        const vehicleText = [vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(" ") || "Unknown vehicle";
-        return `
-          <div class="admin-row">
+    els.adminConversations.innerHTML = rows.map((row) => renderCaseRow(row, false)).join("");
+  }
+
+  function renderCaseRow(row, readyList) {
+    const vehicle = row.vehicle || {};
+    const messages = Array.isArray(row.messages) ? row.messages : [];
+    const vehicleText = [vehicle.year, vehicle.make, vehicle.model, vehicle.mileage ? `(${vehicle.mileage})` : ""].filter(Boolean).join(" ") || "Unknown vehicle";
+    const lastCustomerNote = [...messages].reverse().find((message) => message.role === "user")?.content || "No customer note captured.";
+    const status = isReadyCase(row) ? "Ready for mechanic" : "AI collecting details";
+    const brief = cleanText(row.brief, "");
+    const summaryClass = readyList ? "admin-row case-ready" : "admin-row";
+    return `
+      <details class="${summaryClass}">
+        <summary>
+          <span>
             <strong>${escapeHtml(row.title || "Mechanic case")}</strong>
-            <span>${escapeHtml(vehicleText)}</span>
-            <span>${formatDate(row.updated_at)}</span>
+            <small>${escapeHtml(status)} - ${escapeHtml(vehicleText)} - ${formatDate(row.updated_at)}</small>
+          </span>
+          <span>${escapeHtml(messageCountLabel(messages))}</span>
+        </summary>
+        <div class="case-detail-grid">
+          <div>
+            <span class="vehicle-label">Owner ID</span>
+            <span class="vehicle-value dark">${escapeHtml(row.owner_id || "Unknown")}</span>
           </div>
-        `;
-      })
-      .join("");
+          <div>
+            <span class="vehicle-label">Last customer note</span>
+            <span class="vehicle-value dark">${escapeHtml(lastCustomerNote)}</span>
+          </div>
+        </div>
+        ${brief ? `<div class="case-brief"><strong>Private technician brief</strong><pre>${escapeHtml(brief)}</pre></div>` : ""}
+        <div class="case-transcript">
+          ${messages.map(renderMessageLine).join("") || `<div class="empty-state">No transcript yet.</div>`}
+        </div>
+      </details>
+    `;
+  }
+
+  function renderMessageLine(message) {
+    const role = message.role === "user" ? "Customer" : "AI";
+    const flags = [message.handoff ? "handoff" : "", message.alert ? "safety" : ""].filter(Boolean).join(", ");
+    return `
+      <article class="transcript-line ${message.role === "user" ? "customer" : "assistant"}">
+        <strong>${escapeHtml(role)}${flags ? ` · ${escapeHtml(flags)}` : ""}</strong>
+        <p>${escapeHtml(message.content || "")}</p>
+        <span>${formatDate(message.createdAt || message.created_at)}</span>
+      </article>
+    `;
+  }
+
+  function isReadyCase(row) {
+    const messages = Array.isArray(row.messages) ? row.messages : [];
+    return Boolean(
+      cleanText(row.brief, "") ||
+        messages.some((message) => message.handoff) ||
+        messages.some((message) => message.role === "assistant" && /voice or video|reserve|live mechanic|continue/i.test(message.content || ""))
+    );
+  }
+
+  function messageCountLabel(messages) {
+    const customerCount = messages.filter((message) => message.role === "user").length;
+    return `${customerCount} customer ${customerCount === 1 ? "note" : "notes"}`;
   }
 
   function renderBookingTable(rows) {
