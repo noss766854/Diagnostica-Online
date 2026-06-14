@@ -4,8 +4,6 @@
   const DEFAULT_SETTINGS = {
     supabaseUrl: "",
     supabaseAnonKey: "",
-    adminUsername: "MechanicAdmin",
-    adminEmail: "admin@diagnostica-online.com",
     ...BOOT_CONFIG,
   };
 
@@ -26,6 +24,10 @@
     technicianExperience: "22 years diagnosing drivability, brake, and electrical issues",
     technicianAvatar:
       "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=160&q=80",
+    emailFromName: "Diagnostica Online",
+    emailFromAddress: "verify@diagnostica-online.com",
+    emailSubject: "Verify your Diagnostica Online account",
+    emailIntro: "Confirm your email so your mechanic conversations stay saved to your account.",
   };
 
   const els = {};
@@ -46,11 +48,12 @@
   async function init() {
     cacheElements();
     bindEvents();
-    fillConnectionFields();
     await connectSupabase();
     await refreshUser();
     if (state.user) {
       await verifyAdminAndLoad();
+    } else {
+      renderLoggedOut("Log in from the main site with username MechanicAdmin, then open the admin dashboard.");
     }
     createIcons();
   }
@@ -61,14 +64,8 @@
       "adminLogoutBtn",
       "adminLoginCard",
       "adminDashboard",
-      "adminLoginForm",
-      "adminSupabaseUrlInput",
-      "adminSupabaseAnonInput",
-      "adminUsernameInput",
-      "adminPasswordInput",
       "adminMessage",
-      "adminLoginBtn",
-      "saveConnectionBtn",
+      "adminLoginRedirectBtn",
       "refreshAdminBtn",
       "adminStats",
       "adminConversations",
@@ -85,6 +82,10 @@
       "technicianStatsInput",
       "technicianExperienceInput",
       "technicianAvatarInput",
+      "emailFromNameInput",
+      "emailFromAddressInput",
+      "emailSubjectInput",
+      "emailIntroInput",
       "siteContentMessage",
       "saveSiteContentBtn",
     ].forEach((id) => {
@@ -93,8 +94,6 @@
   }
 
   function bindEvents() {
-    els.adminLoginForm.addEventListener("submit", login);
-    els.saveConnectionBtn.addEventListener("click", saveConnectionOnly);
     els.adminLogoutBtn.addEventListener("click", logout);
     els.refreshAdminBtn.addEventListener("click", verifyAdminAndLoad);
     els.siteContentForm.addEventListener("submit", saveSiteContent);
@@ -113,57 +112,6 @@
     const { data } = await state.supabase.auth.getSession();
     state.user = data?.session?.user || null;
     renderAccount();
-  }
-
-  async function login(event) {
-    event.preventDefault();
-    saveConnectionSettings();
-    await connectSupabase();
-
-    if (!state.supabase) {
-      renderLoggedOut("Supabase is not configured.");
-      return;
-    }
-
-    els.adminLoginBtn.disabled = true;
-    els.adminMessage.textContent = "Logging in...";
-    try {
-      const { error } = await state.supabase.auth.signInWithPassword({
-        email: resolveAdminEmail(els.adminUsernameInput.value.trim()),
-        password: els.adminPasswordInput.value,
-      });
-      if (error) throw error;
-      await refreshUser();
-      await verifyAdminAndLoad();
-    } catch (error) {
-      renderLoggedOut(authErrorMessage(error));
-    } finally {
-      els.adminLoginBtn.disabled = false;
-    }
-  }
-
-  function authErrorMessage(error) {
-    const message = error?.message || "Admin login failed.";
-    if (/invalid login credentials/i.test(message)) {
-      return `Invalid login. Create the Supabase Auth user ${state.settings.adminEmail}, set its password, then log in with username ${state.settings.adminUsername}.`;
-    }
-    return message;
-  }
-
-  async function saveConnectionOnly() {
-    saveConnectionSettings();
-    await connectSupabase();
-    els.adminMessage.textContent =
-      "Supabase connection saved in this browser. Create the admin Auth user, then enter its password to open the dashboard.";
-    renderAccount();
-  }
-
-  function saveConnectionSettings() {
-    state.settings.supabaseUrl = els.adminSupabaseUrlInput.value.trim();
-    state.settings.supabaseAnonKey = els.adminSupabaseAnonInput.value.trim();
-    state.settings.adminUsername = DEFAULT_SETTINGS.adminUsername;
-    state.settings.adminEmail = DEFAULT_SETTINGS.adminEmail;
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...loadSettings(), ...state.settings }));
   }
 
   async function verifyAdminAndLoad() {
@@ -190,14 +138,6 @@
     renderAccount();
     await loadSiteContent();
     await loadDashboard();
-  }
-
-  function resolveAdminEmail(username) {
-    if (username.includes("@")) return username;
-    if (username !== state.settings.adminUsername) {
-      throw new Error(`Use the configured admin username: ${state.settings.adminUsername}`);
-    }
-    return state.settings.adminEmail;
   }
 
   async function loadDashboard() {
@@ -255,6 +195,10 @@
       technicianStats: els.technicianStatsInput.value,
       technicianExperience: els.technicianExperienceInput.value,
       technicianAvatar: els.technicianAvatarInput.value,
+      emailFromName: els.emailFromNameInput.value,
+      emailFromAddress: els.emailFromAddressInput.value,
+      emailSubject: els.emailSubjectInput.value,
+      emailIntro: els.emailIntroInput.value,
     });
 
     els.saveSiteContentBtn.disabled = true;
@@ -267,7 +211,7 @@
       });
       if (error) throw error;
       state.siteContent = content;
-      els.siteContentMessage.textContent = "Saved. The public site will use these Gemini and technician settings.";
+      els.siteContentMessage.textContent = "Saved. The public site will use these Gemini, technician, and verification email settings.";
     } catch (error) {
       els.siteContentMessage.textContent = error.message || "Could not save settings.";
     } finally {
@@ -288,6 +232,10 @@
     els.technicianStatsInput.value = content.technicianStats;
     els.technicianExperienceInput.value = content.technicianExperience;
     els.technicianAvatarInput.value = content.technicianAvatar;
+    els.emailFromNameInput.value = content.emailFromName;
+    els.emailFromAddressInput.value = content.emailFromAddress;
+    els.emailSubjectInput.value = content.emailSubject;
+    els.emailIntroInput.value = content.emailIntro;
   }
 
   function sanitizeSiteContent(value) {
@@ -305,12 +253,21 @@
       technicianStats: cleanText(merged.technicianStats, DEFAULT_SITE_CONTENT.technicianStats),
       technicianExperience: cleanText(merged.technicianExperience, DEFAULT_SITE_CONTENT.technicianExperience),
       technicianAvatar: cleanUrl(merged.technicianAvatar, DEFAULT_SITE_CONTENT.technicianAvatar),
+      emailFromName: cleanText(merged.emailFromName, DEFAULT_SITE_CONTENT.emailFromName),
+      emailFromAddress: cleanEmail(merged.emailFromAddress, DEFAULT_SITE_CONTENT.emailFromAddress),
+      emailSubject: cleanText(merged.emailSubject, DEFAULT_SITE_CONTENT.emailSubject),
+      emailIntro: cleanText(merged.emailIntro, DEFAULT_SITE_CONTENT.emailIntro),
     };
   }
 
   function cleanText(value, fallback) {
     const text = String(value || "").trim();
     return text || fallback;
+  }
+
+  function cleanEmail(value, fallback) {
+    const text = String(value || "").trim();
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text) ? text : fallback;
   }
 
   function cleanUrl(value, fallback) {
@@ -388,12 +345,6 @@
       els.adminAccountBadge.textContent = "Logged out";
       els.adminLogoutBtn.hidden = true;
     }
-  }
-
-  function fillConnectionFields() {
-    els.adminSupabaseUrlInput.value = state.settings.supabaseUrl || "";
-    els.adminSupabaseAnonInput.value = state.settings.supabaseAnonKey || "";
-    els.adminUsernameInput.value = state.settings.adminUsername || DEFAULT_SETTINGS.adminUsername;
   }
 
   function loadSettings() {

@@ -28,39 +28,15 @@
 
       <main class="admin-shell">
         <section class="admin-card" id="adminLoginCard">
-          <p class="label-text">Supabase admin login</p>
-          <h1>Review mechanic cases, users, and paid-call bookings.</h1>
-          <form class="admin-login-form" id="adminLoginForm">
-            <div class="settings-grid">
-              <label>
-                <span>Supabase URL</span>
-                <input id="adminSupabaseUrlInput" type="url" placeholder="https://project.supabase.co" />
-              </label>
-              <label>
-                <span>Supabase anon key</span>
-                <input id="adminSupabaseAnonInput" type="password" autocomplete="off" />
-              </label>
-              <label>
-                <span>Admin username</span>
-                <input id="adminUsernameInput" type="text" autocomplete="username" value="MechanicAdmin" required />
-              </label>
-              <label>
-                <span>Password</span>
-                <input id="adminPasswordInput" type="password" autocomplete="current-password" required />
-              </label>
-            </div>
-            <p class="form-message" id="adminMessage"></p>
-            <div class="dialog-actions">
-              <button class="ghost-button" id="saveConnectionBtn" type="button">
-                <i data-lucide="plug"></i>
-                <span>Save Supabase connection</span>
-              </button>
-              <button class="solid-button" id="adminLoginBtn" type="submit">
-                <i data-lucide="shield-check"></i>
-                <span>Login as admin</span>
-              </button>
-            </div>
-          </form>
+          <p class="label-text">Admin access</p>
+          <h1>Log in from the main site with your admin details.</h1>
+          <p class="form-message" id="adminMessage">Use the normal Login button, enter username MechanicAdmin and the Supabase Auth password, then return here.</p>
+          <div class="dialog-actions">
+            <a class="solid-button" id="adminLoginRedirectBtn" href="/">
+              <i data-lucide="log-in"></i>
+              <span>Go to login</span>
+            </a>
+          </div>
         </section>
 
         <section class="admin-dashboard" id="adminDashboard" hidden>
@@ -127,12 +103,28 @@
                   <span>Handoff message</span>
                   <textarea id="handoffMessageInput" rows="3"></textarea>
                 </label>
+                <label>
+                  <span>Email sender name</span>
+                  <input id="emailFromNameInput" type="text" />
+                </label>
+                <label>
+                  <span>Email sender address</span>
+                  <input id="emailFromAddressInput" type="email" />
+                </label>
+                <label class="span-2">
+                  <span>Verification email subject</span>
+                  <input id="emailSubjectInput" type="text" />
+                </label>
+                <label class="span-2">
+                  <span>Verification email intro</span>
+                  <textarea id="emailIntroInput" rows="3"></textarea>
+                </label>
               </div>
               <p class="form-message" id="siteContentMessage"></p>
               <div class="dialog-actions">
                 <button class="solid-button" id="saveSiteContentBtn" type="submit">
                   <i data-lucide="save"></i>
-                  <span>Save handoff settings</span>
+                  <span>Save site settings</span>
                 </button>
               </div>
             </form>

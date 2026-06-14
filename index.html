@@ -45,7 +45,7 @@
           <span class="account-badge" id="accountBadge">Demo mode</span>
           <button class="nav-link" id="loginNavBtn" type="button">Login</button>
           <button class="nav-link" id="signupNavBtn" type="button">Create account</button>
-          <a class="nav-link" href="./admin.html">Admin</a>
+          <button class="nav-link" id="adminNavBtn" type="button">Admin</button>
           <a class="nav-link" href="mailto:support@wrenchline.example">Contact us</a>
           <button class="nav-link" id="logoutBtn" type="button" hidden>Sign out</button>
           <button class="icon-link" id="settingsBtn" type="button" title="Integrations" aria-label="Integrations">
@@ -192,8 +192,8 @@
         </div>
 
         <label>
-          <span>Email</span>
-          <input id="authEmailInput" type="email" autocomplete="email" required />
+          <span>Email or admin username</span>
+          <input id="authEmailInput" type="text" autocomplete="username" required />
         </label>
         <label>
           <span>Password</span>

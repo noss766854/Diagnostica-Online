@@ -211,7 +211,11 @@ values (
     "technicianTitle": "Diagnostic Technician",
     "technicianStats": "4,218 satisfied drivers",
     "technicianExperience": "22 years diagnosing drivability, brake, and electrical issues",
-    "technicianAvatar": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=160&q=80"
+    "technicianAvatar": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=160&q=80",
+    "emailFromName": "Diagnostica Online",
+    "emailFromAddress": "verify@diagnostica-online.com",
+    "emailSubject": "Verify your Diagnostica Online account",
+    "emailIntro": "Confirm your email so your mechanic conversations stay saved to your account."
   }'::jsonb
 )
 on conflict (key) do nothing;

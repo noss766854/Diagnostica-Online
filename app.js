@@ -16,6 +16,8 @@
     adsSlot: "",
     checkoutUrl: "",
     jitsiDomain: "meet.jit.si",
+    adminUsername: "MechanicAdmin",
+    adminEmail: "admin@diagnostica-online.com",
     ...BOOT_CONFIG,
   };
 
@@ -43,6 +45,10 @@
     technicianExperience: "22 years diagnosing drivability, brake, and electrical issues",
     technicianAvatar:
       "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=160&q=80",
+    emailFromName: "Diagnostica Online",
+    emailFromAddress: "verify@diagnostica-online.com",
+    emailSubject: "Verify your Diagnostica Online account",
+    emailIntro: "Confirm your email so your mechanic conversations stay saved to your account.",
   };
 
   const MAKE_WORDS = [
@@ -84,6 +90,7 @@
     callType: "video",
     supabase: null,
     supabaseUser: null,
+    profile: null,
     authSubscription: null,
     authMode: "login",
     saving: false,
@@ -123,6 +130,7 @@
       "signupNavBtn",
       "logoutBtn",
       "settingsBtn",
+      "adminNavBtn",
       "newConversationBtn",
       "savedCasesToggle",
       "savedDrawer",
@@ -184,6 +192,13 @@
     });
     els.loginNavBtn.addEventListener("click", () => openAuth("login"));
     els.signupNavBtn.addEventListener("click", () => openAuth("signup"));
+    els.adminNavBtn.addEventListener("click", async () => {
+      if (state.profile?.role === "admin") {
+        window.location.href = "/admin";
+        return;
+      }
+      openAuth("login", `Log in with ${state.settings.adminUsername || DEFAULT_SETTINGS.adminUsername} to open the admin dashboard.`);
+    });
     els.closeAuthBtn.addEventListener("click", () => els.authDialog.close());
     els.switchAuthModeBtn.addEventListener("click", () => setAuthMode(state.authMode === "login" ? "signup" : "login"));
     els.authForm.addEventListener("submit", handleAuthSubmit);
@@ -542,6 +557,7 @@
       await refreshSupabaseUser();
       const subscription = state.supabase.auth.onAuthStateChange(async (_event, session) => {
         state.supabaseUser = session?.user || null;
+        state.profile = state.supabaseUser ? await loadProfile() : null;
         renderAuth();
         if (state.supabaseUser) {
           await loadSupabaseConversations();
@@ -600,12 +616,21 @@
       technicianStats: cleanText(merged.technicianStats, DEFAULT_SITE_CONTENT.technicianStats),
       technicianExperience: cleanText(merged.technicianExperience, DEFAULT_SITE_CONTENT.technicianExperience),
       technicianAvatar: cleanUrl(merged.technicianAvatar, DEFAULT_SITE_CONTENT.technicianAvatar),
+      emailFromName: cleanText(merged.emailFromName, DEFAULT_SITE_CONTENT.emailFromName),
+      emailFromAddress: cleanEmail(merged.emailFromAddress, DEFAULT_SITE_CONTENT.emailFromAddress),
+      emailSubject: cleanText(merged.emailSubject, DEFAULT_SITE_CONTENT.emailSubject),
+      emailIntro: cleanText(merged.emailIntro, DEFAULT_SITE_CONTENT.emailIntro),
     };
   }
 
   function cleanText(value, fallback) {
     const text = String(value || "").trim();
     return text || fallback;
+  }
+
+  function cleanEmail(value, fallback) {
+    const text = String(value || "").trim();
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text) ? text : fallback;
   }
 
   function cleanUrl(value, fallback) {
@@ -622,8 +647,24 @@
     if (!state.supabase) return null;
     const { data } = await state.supabase.auth.getSession();
     state.supabaseUser = data?.session?.user || null;
+    state.profile = state.supabaseUser ? await loadProfile() : null;
     renderAuth();
     return state.supabaseUser;
+  }
+
+  async function loadProfile() {
+    if (!state.supabase || !state.supabaseUser) return null;
+    try {
+      const { data, error } = await state.supabase
+        .from("profiles")
+        .select("id,email,role,display_name")
+        .eq("id", state.supabaseUser.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data || null;
+    } catch (error) {
+      return null;
+    }
   }
 
   function openAuth(mode, message = "") {
@@ -653,33 +694,35 @@
       return;
     }
 
-    const email = els.authEmailInput.value.trim();
+    const loginId = els.authEmailInput.value.trim();
     const password = els.authPasswordInput.value;
     els.authSubmitBtn.disabled = true;
     els.authMessage.textContent = state.authMode === "login" ? "Logging in..." : "Creating account...";
 
     try {
       if (state.authMode === "login") {
-        const { error } = await state.supabase.auth.signInWithPassword({ email, password });
+        const { error } = await state.supabase.auth.signInWithPassword({ email: resolveLoginEmail(loginId), password });
         if (error) throw error;
         await refreshSupabaseUser();
         await loadSupabaseConversations();
         await saveCurrentConversation();
         els.authDialog.close();
-      } else {
-        const { data, error } = await state.supabase.auth.signUp({
-          email,
-          password,
-          options: { data: { role: "customer" } },
-        });
-        if (error) throw error;
-        if (data.session) {
-          await refreshSupabaseUser();
-          await saveCurrentConversation();
-          els.authDialog.close();
-        } else {
-          els.authMessage.textContent = "Check your email to confirm the account, then log in.";
+        if (state.profile?.role === "admin") {
+          window.location.href = "/admin";
+          return;
         }
+      } else {
+        const response = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: loginId,
+            password,
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Could not create the account.");
+        els.authMessage.textContent = data.message || "Check your email for the verification link, then log in.";
       }
       renderAll();
     } catch (error) {
@@ -694,6 +737,7 @@
       await state.supabase.auth.signOut();
     }
     state.supabaseUser = null;
+    state.profile = null;
     loadLocalConversations();
     if (!state.conversations.length) createConversation(false);
     state.activeId = state.conversations[0].id;
@@ -801,12 +845,22 @@
       els.loginNavBtn.hidden = true;
       els.signupNavBtn.hidden = true;
       els.logoutBtn.hidden = false;
+      els.adminNavBtn.textContent = state.profile?.role === "admin" ? "Admin dashboard" : "Admin";
     } else {
       els.accountBadge.textContent = configured ? "Supabase ready" : "Demo mode";
       els.loginNavBtn.hidden = false;
       els.signupNavBtn.hidden = false;
       els.logoutBtn.hidden = true;
+      els.adminNavBtn.textContent = "Admin";
     }
+  }
+
+  function resolveLoginEmail(loginId) {
+    const adminUsername = state.settings.adminUsername || DEFAULT_SETTINGS.adminUsername;
+    if (loginId === adminUsername) {
+      return state.settings.adminEmail || DEFAULT_SETTINGS.adminEmail;
+    }
+    return loginId;
   }
 
   function renderConversations() {
