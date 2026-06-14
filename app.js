@@ -935,7 +935,6 @@
   }
 
   function renderAuth() {
-    const configured = Boolean(state.settings.supabaseUrl && state.settings.supabaseAnonKey);
     const isAdmin = state.profile?.role === "admin";
     els.adminNavBtn.hidden = !isAdmin;
     els.settingsBtn.hidden = !isAdmin;
@@ -946,7 +945,7 @@
       els.logoutBtn.hidden = false;
       els.adminNavBtn.textContent = isAdmin ? "Admin dashboard" : "Admin";
     } else {
-      els.accountBadge.textContent = configured ? "Supabase ready" : "Demo mode";
+      els.accountBadge.textContent = "Logged out";
       els.loginNavBtn.hidden = false;
       els.signupNavBtn.hidden = false;
       els.logoutBtn.hidden = true;
