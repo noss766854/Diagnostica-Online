@@ -4,19 +4,25 @@ A mechanic-consulting web app with AI intake, Supabase login, saved conversation
 
 ## Run
 
-Open `index.html` in a browser. The app works in demo mode with local conversation storage.
+Run it as a Next.js app:
+
+```bash
+npm install
+npm run dev
+```
+
+The app works in demo mode with local conversation storage.
 
 ## Vercel
 
-- Framework preset: `Other`
-- Root directory: `outputs`
-- Build command: leave empty
-- Output directory: leave empty or use `.`
+- Framework preset: `Next.js`
+- Build command: `next build`
+- Output directory: leave empty
 
 ## Integrations
 
 - Supabase: run `supabase-schema.sql`, enable email/password Auth, then add your project URL and anon key in `config.js` or in the app's Integrations panel.
-- Admin: open `admin.html` and log in with username `MechanicAdmin`. In Supabase Auth, create the mapped email user `admin@diagnostica-online.com`, set the admin password there, then promote it once in the SQL editor:
+- Admin: open `/admin` and log in with username `MechanicAdmin`. In Supabase Auth, create the mapped email user `admin@diagnostica-online.com`, set the admin password there, then promote it once in the SQL editor:
   `update public.profiles set role = 'admin' where email = 'admin@diagnostica-online.com';`
 - Admin content: the dashboard can edit the Gemini assistant name, prompt, handoff timing, and technician card. These values are stored in `site_settings`.
 - Gemini: deploy `supabase/functions/gemini-diagnose` and set `GEMINI_API_KEY`. The app can also use a browser API key for local testing, but the Edge Function is safer.
