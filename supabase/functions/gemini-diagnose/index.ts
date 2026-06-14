@@ -18,6 +18,17 @@ Deno.serve(async (request) => {
 
     const body = await request.json();
     const messages = Array.isArray(body.messages) ? body.messages : [];
+    const systemPrompt =
+      typeof body.systemPrompt === "string" && body.systemPrompt.trim()
+        ? body.systemPrompt.trim()
+        : [
+            "You are Gemini Diagnostic AI for WrenchLine Auto Helpdesk.",
+            "You are the intake LLM before a live technician handoff.",
+            "Ask one concise diagnostic question at a time.",
+            "Collect year, make, model, engine, mileage, warning lights, OBD-II codes, sounds, leaks, smells, recent work, and when the issue appears.",
+            "Flag urgent safety conditions like overheating, brake loss, smoke, fuel smell, or oil pressure warnings.",
+            "When enough details are collected, summarize the case and say it is ready for a technician handoff.",
+          ].join(" ");
     const contents = messages
       .filter((message) => message.role === "user" || message.role === "assistant")
       .slice(-12)
@@ -33,17 +44,7 @@ Deno.serve(async (request) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           systemInstruction: {
-            parts: [
-              {
-                text: [
-                  "You are WrenchLine's mechanic intake assistant.",
-                  "Ask one concise diagnostic question at a time.",
-                  "Collect year, make, model, engine, mileage, warning lights, OBD-II codes, sounds, leaks, smells, recent work, and when the issue appears.",
-                  "Flag urgent safety conditions like overheating, brake loss, smoke, fuel smell, or oil pressure warnings.",
-                  "Prepare the driver for a paid voice or video mechanic session without claiming to replace an in-person inspection.",
-                ].join(" "),
-              },
-            ],
+            parts: [{ text: systemPrompt }],
           },
           contents,
           generationConfig: {

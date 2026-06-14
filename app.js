@@ -2,6 +2,7 @@
   const STORAGE = {
     settings: "wrenchline.settings",
     conversations: "wrenchline.conversations",
+    siteContent: "wrenchline.siteContent",
     session: "wrenchline.session",
   };
 
@@ -17,6 +18,32 @@
     checkoutUrl: "",
     jitsiDomain: "meet.jit.si",
     ...BOOT_CONFIG,
+  };
+
+  const DEFAULT_SITE_CONTENT = {
+    assistantName: "Gemini Diagnostic AI",
+    assistantAvatarText: "AI",
+    welcomeMessage:
+      "Hi, I'm the Gemini diagnostic intake assistant. Tell me the year, make, model, mileage, symptoms, warning lights, sounds, smells, and when the issue happens.",
+    typingMessage: "Gemini is reviewing your symptoms...",
+    systemPrompt: [
+      "You are Gemini Diagnostic AI for WrenchLine Auto Helpdesk.",
+      "You are the intake LLM before a live technician handoff.",
+      "Ask one concise diagnostic question at a time unless the driver has already provided enough information.",
+      "Prioritize year, make, model, engine, mileage, warning lights, OBD-II codes, noises, leaks, smells, recent work, and when the symptom appears.",
+      "Flag urgent safety conditions like overheating, brake loss, smoke, fuel smell, or oil pressure warnings.",
+      "When enough details are collected, summarize the case and say it is ready for a technician handoff.",
+      "Do not claim to replace an in-person mechanic.",
+    ].join(" "),
+    handoffAfterMessages: 3,
+    handoffMessage:
+      "I've organized the symptoms into a technician-ready case. {technicianName} can take over from here on a voice or video call with this brief already in hand.",
+    technicianName: "Elena M.",
+    technicianTitle: "Diagnostic Technician",
+    technicianStats: "4,218 satisfied drivers",
+    technicianExperience: "22 years diagnosing drivability, brake, and electrical issues",
+    technicianAvatar:
+      "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=160&q=80",
   };
 
   const MAKE_WORDS = [
@@ -51,6 +78,7 @@
   const els = {};
   const state = {
     settings: loadSettings(),
+    siteContent: { ...DEFAULT_SITE_CONTENT },
     conversations: [],
     activeId: "",
     vehicle: {},
@@ -78,7 +106,9 @@
     fillSettingsForm();
     renderAll();
     await connectSupabase();
+    await loadSiteContent();
     await loadSupabaseConversations();
+    renderAll();
     renderAds();
     createIcons();
   }
@@ -105,6 +135,11 @@
       "bookingPrice",
       "bookingBtn",
       "bookingResult",
+      "technicianAvatar",
+      "technicianNameTitle",
+      "technicianStats",
+      "technicianExperience",
+      "onlineCopy",
       "authDialog",
       "authForm",
       "authTitle",
@@ -166,6 +201,7 @@
       saveSettingsFromForm();
       els.settingsDialog.close();
       await connectSupabase(true);
+      await loadSiteContent();
       await loadSupabaseConversations();
       renderAds();
       renderAll();
@@ -208,8 +244,8 @@
       messages: [
         {
           role: "assistant",
-          name: "Steve Chatbot, Mechanic's Assistant",
-          content: "Welcome! What's going on with your car?",
+          name: assistantName(),
+          content: state.siteContent.welcomeMessage,
           createdAt,
         },
       ],
@@ -263,13 +299,13 @@
     try {
       const text = await getGeminiReply();
       await addMessage("assistant", text || localDiagnosticReply(latestUserText), {
-        name: "Steve Chatbot, Mechanic's Assistant",
+        name: assistantName(),
         ...classifyReply(text),
       });
     } catch (error) {
       const fallback = localDiagnosticReply(latestUserText);
       await addMessage("assistant", fallback, {
-        name: "Steve Chatbot, Mechanic's Assistant",
+        name: assistantName(),
         ...classifyReply(fallback),
       });
     } finally {
@@ -289,6 +325,8 @@
           messages: conversation.messages,
           vehicle: state.vehicle,
           brief: conversation.brief,
+          siteContent: state.siteContent,
+          systemPrompt: mechanicSystemPrompt(),
         }),
       });
       if (!response.ok) throw new Error("Gemini endpoint failed");
@@ -332,13 +370,15 @@
   }
 
   function mechanicSystemPrompt() {
-    return [
-      "You are WrenchLine's mechanic intake assistant.",
-      "Ask one concise diagnostic question at a time unless the driver has already provided enough information.",
-      "Prioritize year, make, model, engine, mileage, warning lights, OBD-II codes, noises, leaks, smells, recent work, and when the symptom appears.",
-      "Flag urgent safety conditions like overheating, brake loss, smoke, fuel smell, or oil pressure warnings.",
-      "Do not claim to replace an in-person mechanic; prepare a clean brief for a paid voice or video mechanic session.",
-    ].join(" ");
+    return state.siteContent.systemPrompt || DEFAULT_SITE_CONTENT.systemPrompt;
+  }
+
+  function assistantName() {
+    return state.siteContent.assistantName || DEFAULT_SITE_CONTENT.assistantName;
+  }
+
+  function assistantAvatarText() {
+    return (state.siteContent.assistantAvatarText || DEFAULT_SITE_CONTENT.assistantAvatarText).slice(0, 3);
   }
 
   function localDiagnosticReply(latestUserText) {
@@ -364,7 +404,7 @@
       question = "About how many miles are on the vehicle, and has this started suddenly or gradually?";
     } else if (!hasRecentWork) {
       question = "Has any recent maintenance or repair happened before this started, even something routine like a battery, oil, tire, or brake service?";
-    } else if (userMessages.length < 5) {
+    } else if (userMessages.length < state.siteContent.handoffAfterMessages) {
       question = "What changed right before the symptom appeared: weather, fuel stop, pothole, long trip, warning light, or a specific sound or smell?";
     } else {
       return buildSummaryReply(urgent);
@@ -392,6 +432,7 @@
       urgent,
       "Here is the working brief I’d hand to a mechanic:",
       brief,
+      handoffMessage(),
       "A voice call is good for a quick diagnostic readout; choose video if you can show the sound, leak, belt movement, dash warnings, or under-hood area live.",
     ]
       .filter(Boolean)
@@ -399,7 +440,16 @@
   }
 
   function classifyReply(text) {
-    return { alert: Boolean(text && /Safety note:/i.test(text)) };
+    return {
+      alert: Boolean(text && /Safety note:/i.test(text)),
+      handoff: Boolean(text && /handoff|technician-ready|take over/i.test(text)),
+    };
+  }
+
+  function handoffMessage() {
+    return (state.siteContent.handoffMessage || DEFAULT_SITE_CONTENT.handoffMessage)
+      .replaceAll("{technicianName}", state.siteContent.technicianName)
+      .replaceAll("{technicianTitle}", state.siteContent.technicianTitle);
   }
 
   function inferVehicle(text) {
@@ -448,7 +498,7 @@
     persistLocal();
     saveCurrentConversation();
     addMessage("assistant", `Mechanic brief saved:\n\n${conversation.brief}`, {
-      name: "Steve Chatbot, Mechanic's Assistant",
+      name: assistantName(),
     });
   }
 
@@ -598,6 +648,67 @@
     }
     renderAuth();
     renderStatus();
+  }
+
+  async function loadSiteContent() {
+    state.siteContent = { ...DEFAULT_SITE_CONTENT, ...loadLocalSiteContent() };
+    if (!state.supabase) {
+      renderTechnicianProfile();
+      return;
+    }
+
+    try {
+      const { data, error } = await state.supabase.from("site_settings").select("value").eq("key", "public_content").maybeSingle();
+      if (error) throw error;
+      if (data?.value && typeof data.value === "object") {
+        state.siteContent = sanitizeSiteContent(data.value);
+        localStorage.setItem(STORAGE.siteContent, JSON.stringify(state.siteContent));
+      }
+    } catch (error) {
+      state.siteContent = { ...DEFAULT_SITE_CONTENT, ...loadLocalSiteContent() };
+    }
+    renderTechnicianProfile();
+  }
+
+  function loadLocalSiteContent() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE.siteContent) || "{}");
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function sanitizeSiteContent(value) {
+    const merged = { ...DEFAULT_SITE_CONTENT, ...(value || {}) };
+    return {
+      assistantName: cleanText(merged.assistantName, DEFAULT_SITE_CONTENT.assistantName),
+      assistantAvatarText: cleanText(merged.assistantAvatarText, DEFAULT_SITE_CONTENT.assistantAvatarText).slice(0, 3),
+      welcomeMessage: cleanText(merged.welcomeMessage, DEFAULT_SITE_CONTENT.welcomeMessage),
+      typingMessage: cleanText(merged.typingMessage, DEFAULT_SITE_CONTENT.typingMessage),
+      systemPrompt: cleanText(merged.systemPrompt, DEFAULT_SITE_CONTENT.systemPrompt),
+      handoffAfterMessages: Math.max(1, Math.min(12, Number(merged.handoffAfterMessages) || DEFAULT_SITE_CONTENT.handoffAfterMessages)),
+      handoffMessage: cleanText(merged.handoffMessage, DEFAULT_SITE_CONTENT.handoffMessage),
+      technicianName: cleanText(merged.technicianName, DEFAULT_SITE_CONTENT.technicianName),
+      technicianTitle: cleanText(merged.technicianTitle, DEFAULT_SITE_CONTENT.technicianTitle),
+      technicianStats: cleanText(merged.technicianStats, DEFAULT_SITE_CONTENT.technicianStats),
+      technicianExperience: cleanText(merged.technicianExperience, DEFAULT_SITE_CONTENT.technicianExperience),
+      technicianAvatar: cleanUrl(merged.technicianAvatar, DEFAULT_SITE_CONTENT.technicianAvatar),
+    };
+  }
+
+  function cleanText(value, fallback) {
+    const text = String(value || "").trim();
+    return text || fallback;
+  }
+
+  function cleanUrl(value, fallback) {
+    const text = String(value || "").trim();
+    try {
+      const url = new URL(text);
+      return url.protocol === "https:" ? text : fallback;
+    } catch (error) {
+      return fallback;
+    }
   }
 
   async function refreshSupabaseUser() {
@@ -754,12 +865,26 @@
 
   function renderAll() {
     renderAuth();
+    renderTechnicianProfile();
     renderConversations();
     renderMessages();
     renderVehicleDetails();
     renderBooking();
     renderStatus();
     createIcons();
+  }
+
+  function renderTechnicianProfile() {
+    if (!els.technicianAvatar) return;
+    const content = state.siteContent || DEFAULT_SITE_CONTENT;
+    els.technicianAvatar.src = content.technicianAvatar || DEFAULT_SITE_CONTENT.technicianAvatar;
+    els.technicianAvatar.alt = `${content.technicianName || "Technician"} profile`;
+    els.technicianNameTitle.textContent = `${content.technicianName}, ${content.technicianTitle}`;
+    els.technicianStats.textContent = content.technicianStats;
+    els.technicianExperience.textContent = content.technicianExperience;
+    if (els.onlineCopy) {
+      els.onlineCopy.textContent = `${content.technicianName} is ready for live handoff`;
+    }
   }
 
   function renderAuth() {
@@ -789,7 +914,7 @@
         return `
           <button class="conversation-item${active}" type="button" data-conversation-id="${escapeAttr(conversation.id)}">
             <span class="conversation-title">${escapeHtml(conversation.title)}</span>
-            <span class="conversation-meta">${count} driver ${count === 1 ? "note" : "notes"} · ${relativeTime(conversation.updatedAt)}</span>
+            <span class="conversation-meta">${count} driver ${count === 1 ? "note" : "notes"} - ${relativeTime(conversation.updatedAt)}</span>
           </button>
         `;
       })
@@ -811,10 +936,11 @@
       .map((message) => {
         const role = message.role === "user" ? "user" : "assistant";
         const alert = message.alert ? " alert" : "";
-        const avatar = role === "user" ? "You" : "S";
-        const name = message.name || (role === "user" ? "You" : "Steve Chatbot, Mechanic's Assistant");
+        const handoff = message.handoff ? " handoff" : "";
+        const avatar = role === "user" ? "You" : assistantAvatarText();
+        const name = message.name || (role === "user" ? "You" : assistantName());
         return `
-          <article class="message ${role}${alert}">
+          <article class="message ${role}${alert}${handoff}">
             <div class="avatar" aria-hidden="true">${escapeHtml(avatar)}</div>
             <div class="message-body">
               <div class="message-name">${escapeHtml(name)}</div>
@@ -829,7 +955,7 @@
     if (state.typing) {
       els.messages.insertAdjacentHTML(
         "beforeend",
-        `<article class="message assistant typing"><div class="avatar" aria-hidden="true">S</div><div class="message-body"><div class="message-name">Steve Chatbot, Mechanic's Assistant</div><div class="bubble">Checking the next diagnostic question...</div></div></article>`
+        `<article class="message assistant typing"><div class="avatar" aria-hidden="true">${escapeHtml(assistantAvatarText())}</div><div class="message-body"><div class="message-name">${escapeHtml(assistantName())}</div><div class="bubble">${escapeHtml(state.siteContent.typingMessage)}</div></div></article>`
       );
     }
     els.messages.scrollTop = els.messages.scrollHeight;
@@ -919,6 +1045,16 @@
   function loadLocalConversations() {
     try {
       state.conversations = JSON.parse(localStorage.getItem(STORAGE.conversations) || "[]");
+      state.conversations.forEach((conversation) => {
+        (conversation.messages || []).forEach((message) => {
+          if (/chatbot/i.test(message.name || "")) {
+            message.name = assistantName();
+          }
+          if (message.role === "assistant" && message.content === "Welcome! What's going on with your car?") {
+            message.content = state.siteContent.welcomeMessage;
+          }
+        });
+      });
     } catch (error) {
       state.conversations = [];
     }

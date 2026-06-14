@@ -7,5 +7,7 @@ window.WRENCHLINE_CONFIG = {
   adsClient: "",
   adsSlot: "",
   checkoutUrl: "",
-  jitsiDomain: "meet.jit.si"
+  jitsiDomain: "meet.jit.si",
+  adminUsername: "MechanicAdmin",
+  adminEmail: "admin@diagnostica-online.com"
 };

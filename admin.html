@@ -41,8 +41,8 @@
                 <input id="adminSupabaseAnonInput" type="password" autocomplete="off" />
               </label>
               <label>
-                <span>Email</span>
-                <input id="adminEmailInput" type="email" autocomplete="email" required />
+                <span>Admin username</span>
+                <input id="adminUsernameInput" type="text" autocomplete="username" value="MechanicAdmin" required />
               </label>
               <label>
                 <span>Password</span>
@@ -72,6 +72,67 @@
           </div>
 
           <div class="stat-grid" id="adminStats"></div>
+
+          <section class="admin-table-card">
+            <div class="table-heading">
+              <h2>Gemini handoff settings</h2>
+            </div>
+            <form class="site-content-form" id="siteContentForm">
+              <div class="settings-grid">
+                <label>
+                  <span>Assistant name</span>
+                  <input id="assistantNameInput" type="text" />
+                </label>
+                <label>
+                  <span>Assistant badge text</span>
+                  <input id="assistantAvatarTextInput" type="text" maxlength="3" />
+                </label>
+                <label class="span-2">
+                  <span>Welcome message</span>
+                  <textarea id="welcomeMessageInput" rows="3"></textarea>
+                </label>
+                <label class="span-2">
+                  <span>Gemini system prompt</span>
+                  <textarea id="systemPromptInput" rows="6"></textarea>
+                </label>
+                <label>
+                  <span>Handoff after driver messages</span>
+                  <input id="handoffAfterMessagesInput" type="number" min="1" max="12" />
+                </label>
+                <label>
+                  <span>Technician avatar URL</span>
+                  <input id="technicianAvatarInput" type="url" />
+                </label>
+                <label>
+                  <span>Technician name</span>
+                  <input id="technicianNameInput" type="text" />
+                </label>
+                <label>
+                  <span>Technician title</span>
+                  <input id="technicianTitleInput" type="text" />
+                </label>
+                <label>
+                  <span>Technician stats</span>
+                  <input id="technicianStatsInput" type="text" />
+                </label>
+                <label>
+                  <span>Technician experience</span>
+                  <input id="technicianExperienceInput" type="text" />
+                </label>
+                <label class="span-2">
+                  <span>Handoff message</span>
+                  <textarea id="handoffMessageInput" rows="3"></textarea>
+                </label>
+              </div>
+              <p class="form-message" id="siteContentMessage"></p>
+              <div class="dialog-actions">
+                <button class="solid-button" id="saveSiteContentBtn" type="submit">
+                  <i data-lucide="save"></i>
+                  <span>Save handoff settings</span>
+                </button>
+              </div>
+            </form>
+          </section>
 
           <section class="admin-table-card">
             <div class="table-heading">

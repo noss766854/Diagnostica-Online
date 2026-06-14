@@ -16,9 +16,15 @@ Open `index.html` in a browser. The app works in demo mode with local conversati
 ## Integrations
 
 - Supabase: run `supabase-schema.sql`, enable email/password Auth, then add your project URL and anon key in `config.js` or in the app's Integrations panel.
-- Admin: open `admin.html`, log in with a Supabase user whose `profiles.role` is `admin`. Promote your first admin in the SQL editor with:
-  `update public.profiles set role = 'admin' where email = 'you@example.com';`
+- Admin: open `admin.html` and log in with username `MechanicAdmin`. In Supabase Auth, create the mapped email user `admin@diagnostica-online.com`, set the admin password there, then promote it once in the SQL editor:
+  `update public.profiles set role = 'admin' where email = 'admin@diagnostica-online.com';`
+- Admin content: the dashboard can edit the Gemini assistant name, prompt, handoff timing, and technician card. These values are stored in `site_settings`.
 - Gemini: deploy `supabase/functions/gemini-diagnose` and set `GEMINI_API_KEY`. The app can also use a browser API key for local testing, but the Edge Function is safer.
 - Google ads: add your AdSense client ID and slot ID. The app renders multiple side and inline slots; AdSense only serves on approved domains.
 - Paid calls: deploy `supabase/functions/create-checkout`, set `STRIPE_SECRET_KEY` and `PUBLIC_SITE_URL`, then add the function URL in the app. Video is priced at $40/hour and voice at $20/hour.
 - Call rooms: the app creates Jitsi room links after checkout or in demo mode. Replace this with your preferred video provider when you have mechanic scheduling.
+
+## Security notes
+
+- The admin password is not stored in this repo. Supabase Auth verifies it.
+- Database access uses Supabase query APIs and row-level security policies instead of building raw SQL from user input.

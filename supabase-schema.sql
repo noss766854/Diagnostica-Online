@@ -35,6 +35,14 @@ create table if not exists public.call_bookings (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.site_settings (
+  key text primary key,
+  value jsonb not null default '{}'::jsonb,
+  updated_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create index if not exists conversations_owner_updated_idx
   on public.conversations (owner_id, updated_at desc);
 
@@ -69,6 +77,12 @@ create trigger set_call_bookings_updated_at
   for each row
   execute function public.set_updated_at();
 
+drop trigger if exists set_site_settings_updated_at on public.site_settings;
+create trigger set_site_settings_updated_at
+  before update on public.site_settings
+  for each row
+  execute function public.set_updated_at();
+
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -81,7 +95,7 @@ begin
     new.id,
     new.email,
     coalesce(new.raw_user_meta_data->>'display_name', split_part(new.email, '@', 1)),
-    coalesce(nullif(new.raw_user_meta_data->>'role', ''), 'customer')
+    'customer'
   )
   on conflict (id) do nothing;
   return new;
@@ -111,6 +125,7 @@ $$;
 alter table public.profiles enable row level security;
 alter table public.conversations enable row level security;
 alter table public.call_bookings enable row level security;
+alter table public.site_settings enable row level security;
 
 drop policy if exists "Users can read their own profile" on public.profiles;
 drop policy if exists "Admins can read profiles" on public.profiles;
@@ -166,6 +181,40 @@ create policy "Admins can update bookings"
   for update
   using (public.is_admin())
   with check (public.is_admin());
+
+drop policy if exists "Anyone can read public site settings" on public.site_settings;
+drop policy if exists "Admins can manage site settings" on public.site_settings;
+
+create policy "Anyone can read public site settings"
+  on public.site_settings
+  for select
+  using (key = 'public_content');
+
+create policy "Admins can manage site settings"
+  on public.site_settings
+  for all
+  using (public.is_admin())
+  with check (public.is_admin());
+
+insert into public.site_settings (key, value)
+values (
+  'public_content',
+  '{
+    "assistantName": "Gemini Diagnostic AI",
+    "assistantAvatarText": "AI",
+    "welcomeMessage": "Hi, I''m the Gemini diagnostic intake assistant. Tell me the year, make, model, mileage, symptoms, warning lights, sounds, smells, and when the issue happens.",
+    "typingMessage": "Gemini is reviewing your symptoms...",
+    "systemPrompt": "You are Gemini Diagnostic AI for WrenchLine Auto Helpdesk. You are the intake LLM before a live technician handoff. Ask one concise diagnostic question at a time. Prioritize year, make, model, engine, mileage, warning lights, OBD-II codes, noises, leaks, smells, recent work, and when the symptom appears. When enough details are collected, summarize the case and say it is ready for a technician handoff.",
+    "handoffAfterMessages": 3,
+    "handoffMessage": "I''ve organized the symptoms into a technician-ready case. {technicianName} can take over from here on a voice or video call with this brief already in hand.",
+    "technicianName": "Elena M.",
+    "technicianTitle": "Diagnostic Technician",
+    "technicianStats": "4,218 satisfied drivers",
+    "technicianExperience": "22 years diagnosing drivability, brake, and electrical issues",
+    "technicianAvatar": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=160&q=80"
+  }'::jsonb
+)
+on conflict (key) do nothing;
 
 -- After creating your admin user, promote it once from the SQL editor:
 -- update public.profiles set role = 'admin' where email = 'you@example.com';
