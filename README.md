@@ -38,6 +38,7 @@ The app works in demo mode with local conversation storage.
 - Custom verification email: set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, and `PUBLIC_SITE_URL` in Vercel. The signup form calls `/api/auth/signup`, Supabase generates the verification link, and Resend sends your branded email. Add and verify the sender domain in Resend first, then edit the sender name/address in `/admin`.
 - Supabase Auth URLs: add your production URL and `/verify` URL to Supabase Auth URL Configuration so confirmation links can return to the website.
 - Google ads: add your AdSense client ID and slot ID. The app renders multiple side and inline slots; AdSense only serves on approved domains.
+- AdSense ownership: the default publisher ID is `ca-pub-6817388263556075`, and the verification script is rendered in the site `<head>`. You can still override the client ID in Vercel with `NEXT_PUBLIC_ADSENSE_CLIENT` or in `/admin`.
 - Paid calls: deploy `supabase/functions/create-checkout`, set `STRIPE_SECRET_KEY` and `PUBLIC_SITE_URL`, then add the function URL in the app. Video is priced at $40/hour and voice at $20/hour.
 - Call rooms: the app creates Jitsi room links after checkout or in demo mode. Replace this with your preferred video provider when you have mechanic scheduling.
 

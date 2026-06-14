@@ -1,5 +1,7 @@
 import Script from "next/script";
 
+const DEFAULT_ADSENSE_CLIENT = "ca-pub-6817388263556075";
+
 export const metadata = {
   title: "Diagnostica Online",
   description:
@@ -12,7 +14,7 @@ export default function RootLayout({ children }) {
     supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
     geminiEndpoint: "/api/gemini",
     geminiModel: process.env.NEXT_PUBLIC_GEMINI_MODEL || process.env.GEMINI_MODEL || "gemini-2.5-flash",
-    adsClient: process.env.NEXT_PUBLIC_ADSENSE_CLIENT || "",
+    adsClient: process.env.NEXT_PUBLIC_ADSENSE_CLIENT || DEFAULT_ADSENSE_CLIENT,
     adsSlot: process.env.NEXT_PUBLIC_ADSENSE_SLOT || "",
     checkoutUrl: process.env.NEXT_PUBLIC_CHECKOUT_URL || "",
     jitsiDomain: process.env.NEXT_PUBLIC_JITSI_DOMAIN || "meet.jit.si",
@@ -25,6 +27,12 @@ export default function RootLayout({ children }) {
       <head>
         <link rel="stylesheet" href="/styles.css" />
         <link rel="preconnect" href="https://images.unsplash.com" />
+        <script
+          id="adsbygoogle-script"
+          async
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(clientConfig.adsClient)}`}
+          crossOrigin="anonymous"
+        />
       </head>
       <body>
         {children}

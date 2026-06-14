@@ -6,7 +6,7 @@
     supabaseAnonKey: "",
     geminiEndpoint: "/api/gemini",
     geminiModel: "gemini-2.5-flash",
-    adsClient: "",
+    adsClient: "ca-pub-6817388263556075",
     adsSlot: "",
     checkoutUrl: "",
     jitsiDomain: "meet.jit.si",
