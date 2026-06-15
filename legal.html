@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Legal - DiagnosticaOnline</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./config.js"></script>
+  </head>
+  <body>
+    <div class="photo-backdrop" aria-hidden="true"></div>
+    <div class="shade" aria-hidden="true"></div>
+
+    <div class="page-shell legal-page">
+      <header class="masthead">
+        <a class="brand" href="./index.html" aria-label="DiagnosticaOnline home">
+          <span class="brand-kicker">DiagnosticaOnline</span>
+          <span class="brand-name">Legal Center</span>
+        </a>
+        <nav class="nav-actions" aria-label="Legal navigation">
+          <a class="nav-link" href="./index.html">Customer site</a>
+          <a class="nav-link" id="legalContactLink" href="mailto:support@diagnostica-online.com">Contact</a>
+        </nav>
+      </header>
+
+      <main class="legal-shell">
+        <section class="legal-hero">
+          <p class="label-text">Policies</p>
+          <h1>Terms, privacy, cookies, refunds, and service disclaimer.</h1>
+          <p id="legalUpdatedCopy">These policies are editable from the admin dashboard.</p>
+        </section>
+
+        <section class="legal-card">
+          <h2>Operator and Contact</h2>
+          <dl class="legal-meta">
+            <div>
+              <dt>Service</dt>
+              <dd id="legalServiceName">DiagnosticaOnline</dd>
+            </div>
+            <div>
+              <dt>Contact email</dt>
+              <dd id="legalSupportEmail">support@diagnostica-online.com</dd>
+            </div>
+            <div>
+              <dt>Address</dt>
+              <dd id="legalBusinessAddress">Add your business address in admin.</dd>
+            </div>
+            <div>
+              <dt>Service area</dt>
+              <dd id="legalServiceArea">Remote mechanic consulting</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="legal-card">
+          <h2>Terms of Service</h2>
+          <p id="legalTermsText"></p>
+        </section>
+
+        <section class="legal-card">
+          <h2>Privacy Policy</h2>
+          <p id="legalPrivacyText"></p>
+        </section>
+
+        <section class="legal-card">
+          <h2>Cookie Policy and Ads</h2>
+          <p id="legalCookieText"></p>
+        </section>
+
+        <section class="legal-card">
+          <h2>Refund and Cancellation Policy</h2>
+          <p id="legalRefundText"></p>
+        </section>
+
+        <section class="legal-card warning">
+          <h2>Service Disclaimer</h2>
+          <p id="legalDisclaimerText"></p>
+        </section>
+      </main>
+    </div>
+
+    <script src="./legal.js"></script>
+  </body>
+</html>

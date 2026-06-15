@@ -621,6 +621,13 @@ img {
   padding: 0 8px;
 }
 
+.booking-controls input {
+  min-height: 38px;
+  border: 0;
+  border-radius: var(--radius);
+  padding: 0 8px;
+}
+
 .booking-controls strong {
   font-size: 1.18rem;
 }
@@ -642,6 +649,46 @@ img {
 .booking-result a {
   color: var(--teal-dark);
   font-weight: 800;
+}
+
+.consent-banner {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 10;
+  width: min(520px, calc(100vw - 36px));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+  border-radius: var(--radius);
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #cfe0e7;
+  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.28);
+}
+
+.consent-banner strong,
+.consent-banner p,
+.consent-banner a {
+  display: block;
+}
+
+.consent-banner p {
+  margin: 6px 0;
+  color: #3d4752;
+  line-height: 1.4;
+}
+
+.consent-banner a {
+  color: var(--teal-dark);
+  font-weight: 800;
+}
+
+.consent-actions {
+  display: grid;
+  gap: 8px;
 }
 
 .detail-grid {
@@ -856,13 +903,26 @@ img {
   width: min(1040px, calc(100% - 32px));
 }
 
+.legal-page {
+  width: min(980px, calc(100% - 32px));
+}
+
 .admin-shell {
   padding-top: 52px;
 }
 
+.legal-shell {
+  display: grid;
+  gap: 14px;
+  padding-top: 42px;
+  color: var(--ink);
+}
+
 .admin-card,
 .admin-dashboard,
-.admin-table-card {
+.admin-table-card,
+.legal-hero,
+.legal-card {
   color: var(--ink);
   background: rgba(255, 255, 255, 0.94);
   border-radius: var(--radius);
@@ -870,18 +930,75 @@ img {
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
 }
 
-.admin-card {
+.admin-card,
+.legal-hero,
+.legal-card {
   max-width: 760px;
   padding: 24px;
 }
 
+.legal-hero,
+.legal-card {
+  max-width: none;
+}
+
 .admin-card h1,
-.admin-dashboard h1 {
+.admin-dashboard h1,
+.legal-hero h1 {
   margin: 0;
   color: var(--ink);
   font-size: 2rem;
   line-height: 1.12;
   letter-spacing: 0;
+}
+
+.legal-hero h1 {
+  max-width: 760px;
+}
+
+.legal-hero p,
+.legal-card p {
+  margin: 10px 0 0;
+  color: #394653;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.legal-card h2 {
+  margin: 0 0 10px;
+  font-size: 1.16rem;
+}
+
+.legal-card.warning {
+  border-color: rgba(238, 121, 104, 0.55);
+}
+
+.legal-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.legal-meta div {
+  padding: 10px;
+  border-radius: var(--radius);
+  background: #f7fafc;
+  border: 1px solid #e0edf2;
+}
+
+.legal-meta dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.legal-meta dd {
+  margin: 5px 0 0;
+  color: var(--ink);
+  font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .admin-login-form {
@@ -1088,7 +1205,7 @@ details.admin-row summary small {
 }
 
 .transcript-line.customer {
-  border-left: 4px solid var(--salmon);
+  border-left: 4px solid var(--orange);
 }
 
 .transcript-line.assistant {
@@ -1142,6 +1259,64 @@ details.admin-row summary small {
   border-radius: var(--radius);
   padding: 10px;
   color: var(--ink);
+}
+
+.case-workflow-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 10px;
+  align-items: end;
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: var(--radius);
+  border: 1px solid #dce9ef;
+  background: #ffffff;
+}
+
+.case-workflow-form label,
+.case-workflow-form span {
+  display: grid;
+  gap: 6px;
+}
+
+.case-workflow-form span {
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.case-workflow-form select,
+.user-role-form select,
+.user-role-form input {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid #cfe0e7;
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  color: var(--ink);
+  background: #ffffff;
+}
+
+.user-role-form {
+  grid-template-columns: minmax(180px, 1.2fr) minmax(120px, 0.85fr) minmax(110px, 0.7fr) minmax(110px, 0.7fr) minmax(130px, 0.85fr) auto;
+}
+
+.booking-row {
+  grid-template-columns: minmax(130px, 1fr) minmax(110px, 0.7fr) minmax(160px, 1fr) minmax(90px, 0.7fr);
+}
+
+.booking-row a {
+  color: var(--teal-dark);
+  font-weight: 800;
+}
+
+.user-role-form small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .visually-hidden {
@@ -1262,8 +1437,17 @@ svg {
     flex-direction: column;
   }
 
+  .consent-banner {
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    width: auto;
+    grid-template-columns: 1fr;
+  }
+
   .start-chat,
-  .booking-controls select {
+  .booking-controls select,
+  .booking-controls input {
     width: 100%;
   }
 
@@ -1275,7 +1459,11 @@ svg {
   .config-status-grid,
   .admin-row,
   .case-detail-grid,
+  .legal-meta,
   .technician-reply-form,
+  .case-workflow-form,
+  .user-role-form,
+  .booking-row,
   details.admin-row summary {
     grid-template-columns: 1fr;
   }

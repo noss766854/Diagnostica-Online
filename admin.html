@@ -60,6 +60,13 @@
             <div class="config-status-grid" id="configStatus"></div>
           </section>
 
+          <section class="admin-table-card" id="adminStaffCard">
+            <div class="table-heading">
+              <h2>Users and mechanics</h2>
+            </div>
+            <div class="admin-table" id="adminUsers"></div>
+          </section>
+
           <section class="admin-table-card">
             <div class="table-heading">
               <h2>Ready cases</h2>
@@ -136,6 +143,47 @@
                   <span>Verification email intro</span>
                   <textarea id="emailIntroInput" rows="3"></textarea>
                 </label>
+                <div class="settings-section-title span-2">Business, staff, and notifications</div>
+                <label>
+                  <span>Support email</span>
+                  <input id="supportEmailInput" type="email" />
+                </label>
+                <label>
+                  <span>Staff notification email</span>
+                  <input id="staffNotificationEmailInput" type="email" />
+                </label>
+                <label>
+                  <span>Business address</span>
+                  <input id="businessAddressInput" type="text" />
+                </label>
+                <label>
+                  <span>Service area</span>
+                  <input id="serviceAreaInput" type="text" />
+                </label>
+                <label class="span-2">
+                  <span>Response time copy</span>
+                  <input id="responseTimeCopyInput" type="text" />
+                </label>
+                <label class="span-2">
+                  <span>Emergency/safety disclaimer</span>
+                  <textarea id="emergencyDisclaimerInput" rows="3"></textarea>
+                </label>
+                <label class="span-2">
+                  <span>Text chat started message</span>
+                  <textarea id="textChatStartedMessageInput" rows="3"></textarea>
+                </label>
+                <label class="span-2">
+                  <span>Text chat waiting message</span>
+                  <textarea id="textChatWaitingMessageInput" rows="3"></textarea>
+                </label>
+                <label>
+                  <span>Booking email subject</span>
+                  <input id="bookingConfirmationSubjectInput" type="text" />
+                </label>
+                <label>
+                  <span>Text chat email subject</span>
+                  <input id="textChatConfirmationSubjectInput" type="text" />
+                </label>
                 <div class="settings-section-title span-2">Ads and calls</div>
                 <label>
                   <span>Gemini endpoint</span>
@@ -207,11 +255,79 @@
                 </label>
                 <label>
                   <span>Checkout URL</span>
-                  <input id="checkoutUrlInput" type="url" />
+                  <input id="checkoutUrlInput" type="text" />
                 </label>
                 <label>
                   <span>Jitsi domain</span>
                   <input id="jitsiDomainInput" type="text" />
+                </label>
+                <label>
+                  <span>Video rate USD/hour</span>
+                  <input id="videoRateUsdInput" type="number" min="1" step="1" />
+                </label>
+                <label>
+                  <span>Voice rate USD/hour</span>
+                  <input id="voiceRateUsdInput" type="number" min="1" step="1" />
+                </label>
+                <label>
+                  <span>Minimum paid minutes</span>
+                  <input id="minimumCallMinutesInput" type="number" min="5" step="5" />
+                </label>
+                <label>
+                  <span>Maximum paid minutes</span>
+                  <input id="maximumCallMinutesInput" type="number" min="5" step="5" />
+                </label>
+                <label class="span-2">
+                  <span>Duration options (minutes)</span>
+                  <input id="durationOptionsInput" type="text" placeholder="30,60,90,120" />
+                </label>
+                <label class="span-2">
+                  <span>Refund policy summary</span>
+                  <textarea id="refundPolicySummaryInput" rows="3"></textarea>
+                </label>
+                <div class="settings-section-title span-2">Consent and legal pages</div>
+                <label>
+                  <span>Consent enabled</span>
+                  <select id="consentEnabledInput">
+                    <option value="true">Enabled</option>
+                    <option value="false">Disabled</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Consent title</span>
+                  <input id="consentTitleInput" type="text" />
+                </label>
+                <label class="span-2">
+                  <span>Consent body</span>
+                  <textarea id="consentBodyInput" rows="3"></textarea>
+                </label>
+                <label>
+                  <span>Accept button text</span>
+                  <input id="consentAcceptTextInput" type="text" />
+                </label>
+                <label>
+                  <span>Essential-only button text</span>
+                  <input id="consentRejectTextInput" type="text" />
+                </label>
+                <label class="span-2">
+                  <span>Terms of service</span>
+                  <textarea id="termsTextInput" rows="5"></textarea>
+                </label>
+                <label class="span-2">
+                  <span>Privacy policy</span>
+                  <textarea id="privacyTextInput" rows="5"></textarea>
+                </label>
+                <label class="span-2">
+                  <span>Cookie policy</span>
+                  <textarea id="cookieTextInput" rows="4"></textarea>
+                </label>
+                <label class="span-2">
+                  <span>Refund policy</span>
+                  <textarea id="refundTextInput" rows="4"></textarea>
+                </label>
+                <label class="span-2">
+                  <span>Service disclaimer</span>
+                  <textarea id="disclaimerTextInput" rows="4"></textarea>
                 </label>
               </div>
               <p class="form-message" id="siteContentMessage"></p>

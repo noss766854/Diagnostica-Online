@@ -4,13 +4,13 @@ import { Resend } from "resend";
 export const runtime = "nodejs";
 
 const DEFAULT_SITE_CONTENT = {
-  emailFromName: "Diagnostica Online",
+  emailFromName: "DiagnosticaOnline",
   emailFromAddress: "verify@diagnostica-online.com",
-  emailSubject: "Verify your Diagnostica Online account",
+  emailSubject: "Verify your DiagnosticaOnline account",
   emailIntro: "Confirm your email so your mechanic conversations stay saved to your account.",
 };
 
-const SUCCESS_MESSAGE = "Check your email for the Diagnostica Online verification link, then log in.";
+const SUCCESS_MESSAGE = "Check your email for the DiagnosticaOnline verification link, then log in.";
 
 export async function POST(request) {
   try {
@@ -130,14 +130,14 @@ function verificationEmailHtml({ actionLink, intro, siteUrl }) {
   return `<!doctype html>
 <html>
   <body style="margin:0;background:#f4f7f8;color:#18212a;font-family:Arial,Helvetica,sans-serif;">
-    <div style="display:none;max-height:0;overflow:hidden;">Verify your Diagnostica Online account.</div>
+    <div style="display:none;max-height:0;overflow:hidden;">Verify your DiagnosticaOnline account.</div>
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f7f8;padding:32px 12px;">
       <tr>
         <td align="center">
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #dce7eb;border-radius:12px;overflow:hidden;">
             <tr>
               <td style="background:#10262d;padding:28px 32px;color:#ffffff;">
-                <div style="font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#57c7d9;">Diagnostica Online</div>
+                <div style="font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#57c7d9;">DiagnosticaOnline</div>
                 <h1 style="margin:8px 0 0;font-size:28px;line-height:1.15;">Confirm your email</h1>
               </td>
             </tr>
@@ -160,7 +160,7 @@ function verificationEmailHtml({ actionLink, intro, siteUrl }) {
 
 function verificationEmailText({ actionLink, intro, siteUrl }) {
   return [
-    "Diagnostica Online email verification",
+    "DiagnosticaOnline email verification",
     "",
     intro,
     "",

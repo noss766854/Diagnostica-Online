@@ -46,7 +46,8 @@
           <button class="nav-link" id="loginNavBtn" type="button">Login</button>
           <button class="nav-link" id="signupNavBtn" type="button">Create account</button>
           <button class="nav-link" id="adminNavBtn" type="button" hidden>Admin</button>
-          <a class="nav-link" href="mailto:support@diagnostica-online.com">Contact us</a>
+          <a class="nav-link" id="contactNavLink" href="mailto:support@diagnostica-online.com">Contact us</a>
+          <a class="nav-link" href="./legal.html">Legal</a>
           <button class="nav-link" id="logoutBtn" type="button" hidden>Sign out</button>
           <button class="icon-link" id="settingsBtn" type="button" title="Integrations" aria-label="Integrations" hidden>
             <i data-lucide="settings"></i>
@@ -160,6 +161,11 @@
               <strong id="bookingPrice">$40.00</strong>
             </div>
 
+            <div class="booking-controls schedule-controls" id="scheduleControls">
+              <label for="scheduledStartInput">Preferred time</label>
+              <input id="scheduledStartInput" type="datetime-local" />
+            </div>
+
             <button class="reserve-button" id="bookingBtn" type="button">
               <i data-lucide="calendar-check"></i>
               <span>Reserve mechanic</span>
@@ -184,6 +190,18 @@
         </section>
       </main>
     </div>
+
+    <aside class="consent-banner" id="consentBanner" hidden>
+      <div>
+        <strong id="consentTitle">Cookie and ad consent</strong>
+        <p id="consentBody">We use essential storage for login and saved cases. With your consent, we also use ads to keep free text help available.</p>
+        <a href="./legal.html">Legal and privacy</a>
+      </div>
+      <div class="consent-actions">
+        <button class="ghost-button" id="consentRejectBtn" type="button">Essential only</button>
+        <button class="solid-button" id="consentAcceptBtn" type="button">Accept ads</button>
+      </div>
+    </aside>
 
     <dialog class="auth-dialog" id="authDialog">
       <form class="auth-form" id="authForm">
@@ -257,7 +275,7 @@
           </label>
           <label>
             <span>Stripe checkout function</span>
-            <input id="checkoutUrlInput" type="url" placeholder="https://project.functions.supabase.co/create-checkout" />
+            <input id="checkoutUrlInput" type="text" placeholder="/api/checkout" />
           </label>
           <label>
             <span>Jitsi domain</span>

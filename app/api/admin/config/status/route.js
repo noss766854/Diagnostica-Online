@@ -21,6 +21,8 @@ export async function GET(request) {
       envItem("Resend API key", Boolean(process.env.RESEND_API_KEY), "Vercel", true),
       envItem("Public site URL", Boolean(process.env.PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL), "Vercel"),
       envItem("Gemini API key", Boolean(process.env.GEMINI_API_KEY), "Vercel", true),
+      envItem("Stripe secret key", Boolean(process.env.STRIPE_SECRET_KEY), "Vercel", true),
+      envItem("Sentry DSN", Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN), "Vercel"),
     ],
   });
 }

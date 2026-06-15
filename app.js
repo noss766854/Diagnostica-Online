@@ -4,6 +4,7 @@
     conversations: "wrenchline.conversations",
     siteContent: "wrenchline.siteContent",
     session: "wrenchline.session",
+    consent: "wrenchline.consent",
   };
 
   const BOOT_CONFIG = window.WRENCHLINE_CONFIG || {};
@@ -15,7 +16,7 @@
     adsClient: "ca-pub-6817388263556075",
     adsSlot: "",
     adSlots: {},
-    checkoutUrl: "",
+    checkoutUrl: "/api/checkout",
     jitsiDomain: "meet.jit.si",
     adminUsername: "MechanicAdmin",
     adminEmail: "admin@diagnostica-online.com",
@@ -51,6 +52,40 @@
     emailFromAddress: "verify@diagnostica-online.com",
     emailSubject: "Verify your DiagnosticaOnline account",
     emailIntro: "Confirm your email so your mechanic conversations stay saved to your account.",
+    supportEmail: "support@diagnostica-online.com",
+    businessAddress: "Add your business address in admin.",
+    serviceArea: "Remote mechanic consulting",
+    responseTimeCopy: "A technician will reply as soon as one is available.",
+    emergencyDisclaimer:
+      "If the vehicle may be unsafe, leaking fuel, smoking, losing brakes, or overheating severely, stop driving and contact local emergency or roadside assistance.",
+    staffNotificationEmail: "support@diagnostica-online.com",
+    textChatStartedMessage:
+      "Free technician text chat is open. Keep typing in this same conversation and a technician can answer from the dashboard.",
+    textChatWaitingMessage: "A technician has your case. Keep this page open or check saved cases for replies.",
+    bookingConfirmationSubject: "Your DiagnosticaOnline mechanic booking",
+    textChatConfirmationSubject: "Your DiagnosticaOnline technician text chat",
+    videoRateUsd: 40,
+    voiceRateUsd: 20,
+    minimumCallMinutes: 30,
+    maximumCallMinutes: 240,
+    durationOptions: "30,60,90,120",
+    refundPolicySummary: "Paid calls can be refunded or rescheduled if no technician joins the scheduled session.",
+    consentEnabled: true,
+    consentTitle: "Cookie and ad consent",
+    consentBody:
+      "We use essential storage for login and saved cases. With your consent, we also use ads to keep free text help available.",
+    consentAcceptText: "Accept ads",
+    consentRejectText: "Essential only",
+    termsText:
+      "DiagnosticaOnline provides remote automotive information, AI intake, saved case notes, free text chat when available, and paid voice or video consulting. Remote advice is informational and does not replace an in-person inspection, repair estimate, recall check, or safety inspection. Users are responsible for deciding whether a vehicle is safe to operate.",
+    privacyText:
+      "We collect account information, saved conversations, vehicle details you provide, booking records, and technical data needed to run the service. We use this data to provide mechanic consulting, save cases, send account and booking emails, improve the service, and protect against abuse. Configure your final privacy policy with your legal entity, address, analytics, ad partners, and data retention requirements before launch.",
+    cookieText:
+      "We use local storage for login state, saved draft conversations, consent choices, and site preferences. Advertising partners such as Google AdSense may use cookies or similar technologies when ads are enabled and allowed by consent settings.",
+    refundText:
+      "Free text chat is not charged. Paid voice or video calls are charged based on the selected duration and rate shown at checkout. Add your final refund, cancellation, no-show, and rescheduling rules in admin before accepting production payments.",
+    disclaimerText:
+      "AI intake and remote mechanic consulting are not emergency services and cannot guarantee diagnosis or repair. If there is smoke, fire risk, fuel smell, brake loss, steering loss, severe overheating, or any immediate safety concern, stop driving and seek local professional or emergency assistance.",
     geminiEndpoint: DEFAULT_SETTINGS.geminiEndpoint,
     geminiModel: DEFAULT_SETTINGS.geminiModel,
     adsClient: DEFAULT_SETTINGS.adsClient,
@@ -118,6 +153,7 @@
     authMode: "login",
     saving: false,
     typing: false,
+    checkoutNoticeShown: false,
   };
 
   if (document.readyState === "loading") {
@@ -142,6 +178,7 @@
     await loadSiteContent();
     await loadSupabaseConversations();
     renderAll();
+    renderCheckoutReturnNotice();
     renderAds();
     startTextChatPolling();
     createIcons();
@@ -169,6 +206,8 @@
       "durationSelect",
       "bookingPrice",
       "bookingControls",
+      "scheduleControls",
+      "scheduledStartInput",
       "bookingBtn",
       "bookingResult",
       "technicianAvatar",
@@ -176,6 +215,12 @@
       "technicianStats",
       "technicianExperience",
       "onlineCopy",
+      "contactNavLink",
+      "consentBanner",
+      "consentTitle",
+      "consentBody",
+      "consentAcceptBtn",
+      "consentRejectBtn",
       "authDialog",
       "authForm",
       "authTitle",
@@ -274,6 +319,8 @@
     });
     els.durationSelect.addEventListener("change", renderBooking);
     els.bookingBtn.addEventListener("click", reserveMechanic);
+    els.consentAcceptBtn.addEventListener("click", () => saveConsent("ads"));
+    els.consentRejectBtn.addEventListener("click", () => saveConsent("essential"));
   }
 
   function createConversation(makeActive) {
@@ -292,6 +339,8 @@
         },
       ],
       brief: "",
+      status: "ai_intake",
+      priority: "normal",
       createdAt,
       updatedAt: createdAt,
       source: "local",
@@ -337,6 +386,12 @@
     });
     if (role === "user" && conversation.title === "New mechanic case") {
       conversation.title = titleFromText(content);
+    }
+    if (role === "user" && isTechnicianTextMode(conversation)) {
+      conversation.status = "waiting_for_mechanic";
+    }
+    if (meta.technicianReply) {
+      conversation.status = "answered";
     }
     conversation.vehicle = { ...state.vehicle };
     conversation.updatedAt = new Date().toISOString();
@@ -543,6 +598,7 @@
       durationMinutes: duration,
       hourlyRate: rate,
       totalUsd: total,
+      scheduledStartAt: els.scheduledStartInput?.value || "",
       conversationId: conversation?.id,
       title: conversation?.title || "Mechanic consultation",
       brief: conversation?.brief || buildMechanicBrief(),
@@ -558,22 +614,34 @@
         return;
       }
       if (state.settings.checkoutUrl) {
+        const headers = { "Content-Type": "application/json" };
+        const { data: sessionData } = state.supabase ? await state.supabase.auth.getSession() : { data: null };
+        if (sessionData?.session?.access_token) headers.Authorization = `Bearer ${sessionData.session.access_token}`;
         const response = await fetch(state.settings.checkoutUrl, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify(payload),
         });
-        if (!response.ok) throw new Error("Checkout function failed");
-        const data = await response.json();
-        if (data.url) {
-          await saveBooking(payload, data.url, "checkout_started");
-          window.location.href = data.url;
+        const checkoutData = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(checkoutData.error || "Checkout function failed");
+        if (checkoutData.url) {
+          if (!usesBuiltInCheckout(state.settings.checkoutUrl)) {
+            await saveBooking(payload, checkoutData.url, "checkout_started");
+          }
+          window.location.href = checkoutData.url;
           return;
         }
       }
       await showDemoBooking(payload);
     } catch (error) {
-      await showDemoBooking(payload);
+      if (state.settings.checkoutUrl && !isTextChat) {
+        els.bookingResult.innerHTML = `
+          <strong>Checkout is not ready yet.</strong><br>
+          ${escapeHtml(error.message || "Ask the admin to finish Stripe checkout configuration.")}
+        `;
+      } else {
+        await showDemoBooking(payload);
+      }
     } finally {
       els.bookingBtn.disabled = false;
     }
@@ -598,7 +666,8 @@
   async function startTechnicianTextChat(payload) {
     const conversation = currentConversation();
     if (conversation && !isTechnicianTextMode(conversation)) {
-      await addMessage("assistant", "Free technician text chat is open. Keep typing in this same conversation and a technician can answer from the admin dashboard.", {
+      conversation.status = "waiting_for_mechanic";
+      await addMessage("assistant", state.siteContent.textChatStartedMessage || DEFAULT_SITE_CONTENT.textChatStartedMessage, {
         name: "Technician desk",
         handoff: true,
         technicianText: true,
@@ -609,6 +678,10 @@
       No checkout is needed. Keep typing in this case thread.
     `;
     await saveBooking(payload, "", "text_chat_open");
+    await notifyStaff("text_chat_started", {
+      conversationId: payload.conversationId,
+      title: payload.title,
+    });
   }
 
   async function saveBooking(payload, meetingUrl, status) {
@@ -622,11 +695,37 @@
         hourly_rate_usd: payload.hourlyRate,
         total_usd: payload.totalUsd,
         meeting_url: meetingUrl,
+        scheduled_start_at: payload.scheduledStartAt ? new Date(payload.scheduledStartAt).toISOString() : null,
+        customer_email: state.supabaseUser.email || null,
         status,
       });
     } catch (error) {
       // The booking still works in demo mode if the optional table is not present yet.
     }
+  }
+
+  async function notifyStaff(type, payload = {}) {
+    if (!state.supabase || !state.supabaseUser) return;
+    try {
+      const { data: sessionData } = await state.supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) return;
+      await fetch("/api/notifications", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ type, ...payload }),
+      });
+    } catch (error) {
+      // Notifications are useful, but the chat should still open if email is unavailable.
+    }
+  }
+
+  function usesBuiltInCheckout(value) {
+    const text = String(value || "").trim();
+    return text === "/api/checkout" || text.startsWith("/api/checkout?");
   }
 
   async function connectSupabase(forceReset = false) {
@@ -730,6 +829,16 @@
       emailFromAddress: cleanEmail(merged.emailFromAddress, DEFAULT_SITE_CONTENT.emailFromAddress),
       emailSubject: cleanText(merged.emailSubject, DEFAULT_SITE_CONTENT.emailSubject),
       emailIntro: cleanText(merged.emailIntro, DEFAULT_SITE_CONTENT.emailIntro),
+      supportEmail: cleanEmail(merged.supportEmail, DEFAULT_SITE_CONTENT.supportEmail),
+      staffNotificationEmail: cleanEmail(merged.staffNotificationEmail, DEFAULT_SITE_CONTENT.staffNotificationEmail),
+      businessAddress: cleanText(merged.businessAddress, DEFAULT_SITE_CONTENT.businessAddress),
+      serviceArea: cleanText(merged.serviceArea, DEFAULT_SITE_CONTENT.serviceArea),
+      responseTimeCopy: cleanText(merged.responseTimeCopy, DEFAULT_SITE_CONTENT.responseTimeCopy),
+      emergencyDisclaimer: cleanText(merged.emergencyDisclaimer, DEFAULT_SITE_CONTENT.emergencyDisclaimer),
+      textChatStartedMessage: cleanText(merged.textChatStartedMessage, DEFAULT_SITE_CONTENT.textChatStartedMessage),
+      textChatWaitingMessage: cleanText(merged.textChatWaitingMessage, DEFAULT_SITE_CONTENT.textChatWaitingMessage),
+      bookingConfirmationSubject: cleanText(merged.bookingConfirmationSubject, DEFAULT_SITE_CONTENT.bookingConfirmationSubject),
+      textChatConfirmationSubject: cleanText(merged.textChatConfirmationSubject, DEFAULT_SITE_CONTENT.textChatConfirmationSubject),
       geminiEndpoint: cleanEndpoint(merged.geminiEndpoint, DEFAULT_SETTINGS.geminiEndpoint),
       geminiModel: cleanText(merged.geminiModel, DEFAULT_SETTINGS.geminiModel),
       adsClient: cleanAdsClient(merged.adsClient),
@@ -737,6 +846,22 @@
       adSlots: cleanAdSlots(merged.adSlots),
       checkoutUrl: cleanOptionalUrl(merged.checkoutUrl),
       jitsiDomain: cleanDomain(merged.jitsiDomain, DEFAULT_SETTINGS.jitsiDomain),
+      videoRateUsd: cleanMoneyNumber(merged.videoRateUsd, DEFAULT_SITE_CONTENT.videoRateUsd),
+      voiceRateUsd: cleanMoneyNumber(merged.voiceRateUsd, DEFAULT_SITE_CONTENT.voiceRateUsd),
+      minimumCallMinutes: cleanMinuteNumber(merged.minimumCallMinutes, DEFAULT_SITE_CONTENT.minimumCallMinutes),
+      maximumCallMinutes: cleanMinuteNumber(merged.maximumCallMinutes, DEFAULT_SITE_CONTENT.maximumCallMinutes),
+      durationOptions: cleanDurationOptions(merged.durationOptions, DEFAULT_SITE_CONTENT.durationOptions),
+      refundPolicySummary: cleanText(merged.refundPolicySummary, DEFAULT_SITE_CONTENT.refundPolicySummary),
+      consentEnabled: merged.consentEnabled !== false && merged.consentEnabled !== "false",
+      consentTitle: cleanText(merged.consentTitle, DEFAULT_SITE_CONTENT.consentTitle),
+      consentBody: cleanText(merged.consentBody, DEFAULT_SITE_CONTENT.consentBody),
+      consentAcceptText: cleanText(merged.consentAcceptText, DEFAULT_SITE_CONTENT.consentAcceptText),
+      consentRejectText: cleanText(merged.consentRejectText, DEFAULT_SITE_CONTENT.consentRejectText),
+      termsText: cleanText(merged.termsText, DEFAULT_SITE_CONTENT.termsText),
+      privacyText: cleanText(merged.privacyText, DEFAULT_SITE_CONTENT.privacyText),
+      cookieText: cleanText(merged.cookieText, DEFAULT_SITE_CONTENT.cookieText),
+      refundText: cleanText(merged.refundText, DEFAULT_SITE_CONTENT.refundText),
+      disclaimerText: cleanText(merged.disclaimerText, DEFAULT_SITE_CONTENT.disclaimerText),
     };
   }
 
@@ -752,6 +877,25 @@
 
   function cleanOptionalText(value) {
     return String(value || "").trim();
+  }
+
+  function cleanMoneyNumber(value, fallback) {
+    const number = Number(value);
+    return Number.isFinite(number) && number > 0 ? Math.round(number) : fallback;
+  }
+
+  function cleanMinuteNumber(value, fallback) {
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 5 ? Math.round(number) : fallback;
+  }
+
+  function cleanDurationOptions(value, fallback) {
+    const options = String(value || "")
+      .split(",")
+      .map((item) => Math.round(Number(item.trim())))
+      .filter((number) => Number.isFinite(number) && number >= 5 && number <= 480);
+    const unique = Array.from(new Set(options)).sort((a, b) => a - b);
+    return unique.length ? unique.join(",") : fallback;
   }
 
   function cleanAdsClient(value) {
@@ -804,6 +948,7 @@
   function cleanOptionalUrl(value) {
     const text = cleanOptionalText(value);
     if (!text) return "";
+    if (text.startsWith("/")) return text;
     try {
       const url = new URL(text);
       return url.protocol === "https:" ? text : "";
@@ -930,7 +1075,7 @@
     try {
       const { data, error } = await state.supabase
         .from("conversations")
-        .select("id,title,vehicle,messages,brief,created_at,updated_at")
+        .select("id,title,vehicle,messages,brief,status,priority,assigned_mechanic_id,last_customer_message_at,last_staff_message_at,created_at,updated_at")
         .order("updated_at", { ascending: false })
         .limit(30);
       if (error) throw error;
@@ -951,7 +1096,7 @@
     try {
       const { data, error } = await state.supabase
         .from("conversations")
-        .select("id,title,vehicle,messages,brief,created_at,updated_at")
+        .select("id,title,vehicle,messages,brief,status,priority,assigned_mechanic_id,last_customer_message_at,last_staff_message_at,created_at,updated_at")
         .eq("id", conversation.id)
         .maybeSingle();
       if (error || !data) return false;
@@ -993,6 +1138,10 @@
         vehicle: conversation.vehicle || {},
         messages: conversation.messages || [],
         brief: conversation.brief || "",
+        status: conversationStatus(conversation),
+        priority: conversationPriority(conversation),
+        last_customer_message_at: lastMessageTime(conversation, "user"),
+        last_staff_message_at: lastStaffMessageTime(conversation),
         updated_at: new Date().toISOString(),
       };
       if (isUuid(conversation.id) && conversation.source === "supabase") {
@@ -1022,6 +1171,11 @@
       vehicle: row.vehicle || {},
       messages: Array.isArray(row.messages) ? row.messages : [],
       brief: row.brief || "",
+      status: row.status || "ai_intake",
+      priority: row.priority || "normal",
+      assignedMechanicId: row.assigned_mechanic_id || "",
+      lastCustomerMessageAt: row.last_customer_message_at || "",
+      lastStaffMessageAt: row.last_staff_message_at || "",
       createdAt: row.created_at || new Date().toISOString(),
       updatedAt: row.updated_at || new Date().toISOString(),
       source: "supabase",
@@ -1036,6 +1190,7 @@
     renderVehicleDetails();
     renderBooking();
     renderStatus();
+    renderConsent();
     createIcons();
   }
 
@@ -1050,6 +1205,33 @@
     if (els.onlineCopy) {
       els.onlineCopy.textContent = `${content.technicianName} is ready for live handoff`;
     }
+    if (els.contactNavLink) {
+      els.contactNavLink.href = `mailto:${content.supportEmail || DEFAULT_SITE_CONTENT.supportEmail}`;
+    }
+  }
+
+  function renderConsent() {
+    if (!els.consentBanner) return;
+    const content = state.siteContent || DEFAULT_SITE_CONTENT;
+    els.consentTitle.textContent = content.consentTitle || DEFAULT_SITE_CONTENT.consentTitle;
+    els.consentBody.textContent = content.consentBody || DEFAULT_SITE_CONTENT.consentBody;
+    els.consentAcceptBtn.textContent = content.consentAcceptText || DEFAULT_SITE_CONTENT.consentAcceptText;
+    els.consentRejectBtn.textContent = content.consentRejectText || DEFAULT_SITE_CONTENT.consentRejectText;
+    els.consentBanner.hidden = !content.consentEnabled || Boolean(loadConsent());
+  }
+
+  function saveConsent(value) {
+    localStorage.setItem(STORAGE.consent, value);
+    renderConsent();
+    renderAds();
+  }
+
+  function loadConsent() {
+    return localStorage.getItem(STORAGE.consent) || "";
+  }
+
+  function canRenderAds() {
+    return !state.siteContent.consentEnabled || loadConsent() === "ads";
   }
 
   function renderAuth() {
@@ -1161,17 +1343,61 @@
 
   function renderBooking() {
     const isTextChat = state.callType === "text";
+    syncDurationOptions();
     els.callOptions.forEach((button) => {
       const active = button.dataset.callType === state.callType;
       button.classList.toggle("active", active);
       button.setAttribute("aria-selected", String(active));
+      const price = button.querySelector("strong");
+      if (price && button.dataset.callType === "video") price.textContent = `$${state.siteContent.videoRateUsd}/hr`;
+      if (price && button.dataset.callType === "voice") price.textContent = `$${state.siteContent.voiceRateUsd}/hr`;
     });
     els.bookingControls.hidden = isTextChat;
+    els.scheduleControls.hidden = isTextChat;
     const duration = isTextChat ? 0 : Number(els.durationSelect.value || 60);
     const rate = rateForCallType(state.callType);
     const total = (rate * duration) / 60;
     els.bookingPrice.textContent = isTextChat ? "Free" : `$${total.toFixed(2)}`;
     els.bookingBtn.querySelector("span").textContent = isTextChat ? "Start free text chat" : "Reserve mechanic";
+  }
+
+  function renderCheckoutReturnNotice() {
+    if (state.checkoutNoticeShown || !els.bookingResult) return;
+    const params = new URLSearchParams(window.location.search);
+    const checkout = params.get("checkout");
+    if (!checkout) return;
+    state.checkoutNoticeShown = true;
+    els.bookingResult.hidden = false;
+    if (checkout === "success") {
+      const callType = params.get("call") === "voice" ? "voice" : "video";
+      els.bookingResult.innerHTML = `
+        <strong>Payment received.</strong><br>
+        Your ${escapeHtml(callType)} booking is saved. A technician will confirm the meeting details.
+      `;
+    } else {
+      els.bookingResult.innerHTML = `
+        <strong>Checkout cancelled.</strong><br>
+        No paid booking was completed.
+      `;
+    }
+    params.delete("checkout");
+    params.delete("call");
+    const cleanQuery = params.toString();
+    const cleanUrl = `${window.location.pathname}${cleanQuery ? `?${cleanQuery}` : ""}${window.location.hash}`;
+    window.history.replaceState({}, "", cleanUrl);
+  }
+
+  function syncDurationOptions() {
+    if (!els.durationSelect) return;
+    const options = durationOptions();
+    const current = Number(els.durationSelect.value || 0);
+    const signature = options.join(",");
+    if (els.durationSelect.dataset.optionsSignature === signature) return;
+    els.durationSelect.dataset.optionsSignature = signature;
+    els.durationSelect.innerHTML = options
+      .map((minutes) => `<option value="${minutes}">${durationLabel(minutes)}</option>`)
+      .join("");
+    els.durationSelect.value = String(options.includes(current) ? current : options[0]);
   }
 
   function renderStatus() {
@@ -1188,7 +1414,7 @@
 
   function renderAds() {
     const mounts = els.adMounts || [];
-    if (!state.settings.adsClient || !hasAnyAdSlot()) {
+    if (!state.settings.adsClient || !hasAnyAdSlot() || !canRenderAds()) {
       mounts.forEach((mount) => {
         mount.innerHTML = "<span>Advertisement</span>";
       });
@@ -1241,13 +1467,53 @@
   }
 
   function rateForCallType(callType) {
-    if (callType === "video") return 40;
-    if (callType === "voice") return 20;
+    if (callType === "video") return Number(state.siteContent.videoRateUsd || DEFAULT_SITE_CONTENT.videoRateUsd);
+    if (callType === "voice") return Number(state.siteContent.voiceRateUsd || DEFAULT_SITE_CONTENT.voiceRateUsd);
     return 0;
+  }
+
+  function durationOptions() {
+    const options = String(state.siteContent.durationOptions || DEFAULT_SITE_CONTENT.durationOptions)
+      .split(",")
+      .map((item) => Math.round(Number(item.trim())))
+      .filter((number) => Number.isFinite(number) && number >= state.siteContent.minimumCallMinutes && number <= state.siteContent.maximumCallMinutes);
+    return options.length ? options : [DEFAULT_SITE_CONTENT.minimumCallMinutes, 60].filter((value, index, list) => list.indexOf(value) === index);
+  }
+
+  function durationLabel(minutes) {
+    if (minutes === 60) return "1 hour";
+    if (minutes % 60 === 0) return `${minutes / 60} hours`;
+    return `${minutes} minutes`;
   }
 
   function isTechnicianTextMode(conversation = currentConversation()) {
     return Boolean((conversation?.messages || []).some((message) => message.technicianText));
+  }
+
+  function conversationStatus(conversation) {
+    if (conversation.status === "closed") return "closed";
+    const messages = Array.isArray(conversation.messages) ? conversation.messages : [];
+    if (messages.some((message) => message.technicianReply)) return "answered";
+    if (isTechnicianTextMode(conversation)) return conversation.status === "assigned" ? "assigned" : "waiting_for_mechanic";
+    if (conversation.brief || messages.some((message) => message.handoff)) return "waiting_for_mechanic";
+    return "ai_intake";
+  }
+
+  function conversationPriority(conversation) {
+    if (conversation.priority && ["low", "normal", "urgent"].includes(conversation.priority)) return conversation.priority;
+    const text = [
+      conversation.brief || "",
+      ...(Array.isArray(conversation.messages) ? conversation.messages.map((message) => message.content || "") : []),
+    ].join(" ");
+    return /brake loss|no brakes|fuel smell|smoke|fire|overheat|oil pressure|steering loss|unsafe/i.test(text) ? "urgent" : "normal";
+  }
+
+  function lastMessageTime(conversation, role) {
+    return [...(conversation.messages || [])].reverse().find((message) => message.role === role)?.createdAt || null;
+  }
+
+  function lastStaffMessageTime(conversation) {
+    return [...(conversation.messages || [])].reverse().find((message) => message.technicianReply || (message.role === "assistant" && message.technicianText))?.createdAt || null;
   }
 
   function loadLocalConversations() {
