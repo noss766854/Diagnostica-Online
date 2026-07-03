@@ -69,6 +69,103 @@
 
           <section class="admin-table-card">
             <div class="table-heading">
+              <div>
+                <h2>AI usage and cost</h2>
+                <p>Rolling 30-day platform usage.</p>
+              </div>
+            </div>
+            <div class="stat-grid platform-stat-grid" id="platformUsageStats"></div>
+            <div class="admin-table" id="platformUsageByUser"></div>
+          </section>
+
+          <section class="admin-table-card">
+            <div class="table-heading">
+              <div>
+                <h2>Structured diagnostic cases</h2>
+                <p>Assign, prioritize, review, and reply to normalized cases.</p>
+              </div>
+            </div>
+            <div class="admin-table" id="platformCases"></div>
+          </section>
+
+          <section class="admin-table-card">
+            <div class="table-heading">
+              <div>
+                <h2>Diagnostic uploads</h2>
+                <p>Private file metadata. ECU binaries remain storage-only.</p>
+              </div>
+            </div>
+            <div class="admin-table" id="platformUploads"></div>
+          </section>
+
+          <section class="admin-table-card">
+            <div class="table-heading">
+              <div>
+                <h2>Recommended tools and affiliate rules</h2>
+                <p>Products only appear when their tags, category, or DTC prefixes match a case.</p>
+              </div>
+            </div>
+            <form class="tool-admin-form" id="recommendedToolForm">
+              <input id="recommendedToolId" type="hidden" />
+              <div class="settings-grid">
+                <label>
+                  <span>Product name</span>
+                  <input id="recommendedToolName" type="text" maxlength="120" required />
+                </label>
+                <label>
+                  <span>Category</span>
+                  <select id="recommendedToolCategory" required>
+                    <option value="obd_scanner">OBD scanner</option>
+                    <option value="scan_tool">Scan tool</option>
+                    <option value="multimeter">Multimeter</option>
+                    <option value="smoke_tester">Smoke tester</option>
+                    <option value="vacuum_pump">Vacuum pump</option>
+                    <option value="repair_manual">Repair manual provider</option>
+                    <option value="other">Other</option>
+                  </select>
+                </label>
+                <label class="span-2">
+                  <span>Description</span>
+                  <textarea id="recommendedToolDescription" rows="3" maxlength="1000" required></textarea>
+                </label>
+                <label class="span-2">
+                  <span>Affiliate URL (HTTPS)</span>
+                  <input id="recommendedToolUrl" type="url" required />
+                </label>
+                <label>
+                  <span>Rule tags</span>
+                  <input id="recommendedToolTags" type="text" placeholder="misfire, electrical, vacuum leak" />
+                </label>
+                <label>
+                  <span>DTC prefixes</span>
+                  <input id="recommendedToolDtc" type="text" placeholder="P03, P017, U0" />
+                </label>
+                <label>
+                  <span>Priority</span>
+                  <input id="recommendedToolPriority" type="number" min="0" max="1000" value="100" />
+                </label>
+                <label>
+                  <span>Status</span>
+                  <select id="recommendedToolActive">
+                    <option value="true">Active</option>
+                    <option value="false">Disabled</option>
+                  </select>
+                </label>
+              </div>
+              <p class="form-message" id="recommendedToolMessage"></p>
+              <div class="dialog-actions">
+                <button class="ghost-button" id="resetRecommendedToolBtn" type="button">Clear</button>
+                <button class="solid-button" id="saveRecommendedToolBtn" type="submit">
+                  <i data-lucide="save"></i>
+                  <span>Save tool</span>
+                </button>
+              </div>
+            </form>
+            <div class="admin-table" id="recommendedTools"></div>
+          </section>
+
+          <section class="admin-table-card">
+            <div class="table-heading">
               <h2>Ready cases</h2>
             </div>
             <div class="admin-table" id="adminReadyCases"></div>
@@ -201,6 +298,10 @@
                   <span>Default AdSense slot fallback</span>
                   <input id="adsSlotInput" type="text" />
                 </label>
+                <label class="span-2">
+                  <span>Top banner slot</span>
+                  <input id="adSlotTopBannerInput" type="text" />
+                </label>
                 <label>
                   <span>Left rail top slot</span>
                   <input id="adSlotLeftTopInput" type="text" />
@@ -252,6 +353,10 @@
                 <label class="span-2">
                   <span>Mobile typing-area slot</span>
                   <input id="adSlotMobileChatInput" type="text" />
+                </label>
+                <label class="span-2">
+                  <span>Bottom banner slot</span>
+                  <input id="adSlotBottomBannerInput" type="text" />
                 </label>
                 <label>
                   <span>Checkout URL</span>

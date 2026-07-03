@@ -1,14 +1,15 @@
+import type { Metadata } from "next";
 import Script from "next/script";
+import type { ReactNode } from "react";
 
 const DEFAULT_ADSENSE_CLIENT = "ca-pub-6817388263556075";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "DiagnosticaOnline",
-  description:
-    "AI-assisted mechanic intake, saved conversations, ads, free technician text chat, and paid voice or video technician handoff.",
+  description: "AI-assisted mechanic diagnostics, saved cases, file uploads, free technician text chat, and paid voice or video handoff.",
 };
 
-export default function RootLayout({ children }) {
+export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   const clientConfig = {
     supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "",
     supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
@@ -16,7 +17,7 @@ export default function RootLayout({ children }) {
     geminiModel: process.env.NEXT_PUBLIC_GEMINI_MODEL || process.env.GEMINI_MODEL || "gemini-2.5-flash",
     adsClient: process.env.NEXT_PUBLIC_ADSENSE_CLIENT || DEFAULT_ADSENSE_CLIENT,
     adsSlot: process.env.NEXT_PUBLIC_ADSENSE_SLOT || "",
-    checkoutUrl: process.env.NEXT_PUBLIC_CHECKOUT_URL || "",
+    checkoutUrl: process.env.NEXT_PUBLIC_CHECKOUT_URL || "/api/checkout",
     jitsiDomain: process.env.NEXT_PUBLIC_JITSI_DOMAIN || "meet.jit.si",
     adminUsername: "MechanicAdmin",
     adminEmail: "admin@diagnostica-online.com",
@@ -27,12 +28,6 @@ export default function RootLayout({ children }) {
       <head>
         <link rel="stylesheet" href="/styles.css" />
         <link rel="preconnect" href="https://images.unsplash.com" />
-        <script
-          id="adsbygoogle-script"
-          async
-          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(clientConfig.adsClient)}`}
-          crossOrigin="anonymous"
-        />
       </head>
       <body>
         {children}

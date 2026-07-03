@@ -1,5 +1,5 @@
 import Script from "next/script";
-import { legacyBody } from "../../lib/legacy-html";
+import { legacyBody } from "@/lib/legacy-html";
 
 export const dynamic = "force-static";
 

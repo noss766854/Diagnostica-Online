@@ -30,13 +30,17 @@ export async function POST(request) {
     });
     const { data: userData, error: userError } = await supabase.auth.getUser(token);
     if (userError || !userData?.user) return json({ error: "User session could not be verified." }, 401);
+    const { data: profile } = await supabase.from("profiles").select("is_disabled,disabled_reason").eq("id", userData.user.id).maybeSingle();
+    if (profile?.is_disabled) return json({ error: profile.disabled_reason || "This account has been disabled." }, 403);
 
     const body = await request.json().catch(() => ({}));
     const type = cleanToken(body.type);
     if (type !== "text_chat_started") return json({ error: "Unsupported notification type." }, 400);
 
     const siteContent = await loadSiteContent(supabase);
-    const conversation = await loadConversation(supabase, body.conversationId, userData.user.id);
+    const conversation = body.diagnosticCaseId
+      ? await loadDiagnosticCase(supabase, body.diagnosticCaseId, userData.user.id)
+      : await loadConversation(supabase, body.conversationId, userData.user.id);
     const resend = new Resend(resendKey);
     const sends = [];
 
@@ -104,6 +108,37 @@ async function loadConversation(supabase, conversationId, ownerId) {
     brief: cleanBodyText(data.brief, "", 2000),
     vehicle: data.vehicle && typeof data.vehicle === "object" ? data.vehicle : {},
     messages: Array.isArray(data.messages) ? data.messages.slice(-8) : [],
+  };
+}
+
+async function loadDiagnosticCase(supabase, caseId, ownerId) {
+  if (!isUuid(caseId)) return { title: "Diagnostic case", brief: "", vehicle: {}, messages: [] };
+  const [{ data: diagnosticCase }, { data: messages }] = await Promise.all([
+    supabase
+      .from("diagnostic_cases")
+      .select("id,title,ai_summary,symptoms,dtc_codes,previous_work,vehicle:vehicles(year,make,model,engine,fuel_type,gearbox)")
+      .eq("id", caseId)
+      .eq("owner_id", ownerId)
+      .maybeSingle(),
+    supabase.from("diagnostic_messages").select("sender_type,content,created_at").eq("case_id", caseId).eq("owner_id", ownerId).order("created_at", { ascending: false }).limit(8),
+  ]);
+  if (!diagnosticCase) return { title: "Diagnostic case", brief: "", vehicle: {}, messages: [] };
+  return {
+    title: cleanBodyText(diagnosticCase.title, "Diagnostic case", 140),
+    brief: cleanBodyText(
+      [diagnosticCase.ai_summary, `Symptoms: ${diagnosticCase.symptoms}`, `DTCs: ${(diagnosticCase.dtc_codes || []).join(", ") || "None"}`, `Previous work: ${diagnosticCase.previous_work || "None"}`]
+        .filter(Boolean)
+        .join("\n\n"),
+      "",
+      3000
+    ),
+    vehicle: diagnosticCase.vehicle || {},
+    messages: (messages || []).reverse().map((message) => ({
+      role: message.sender_type === "user" ? "user" : "assistant",
+      technicianReply: message.sender_type === "mechanic",
+      content: message.content,
+      createdAt: message.created_at,
+    })),
   };
 }
 

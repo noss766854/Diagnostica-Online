@@ -78,12 +78,119 @@ create table if not exists public.admin_audit_logs (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.vehicles (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  make text not null,
+  model text not null,
+  year integer not null check (year between 1886 and 2100),
+  engine text not null,
+  fuel_type text not null check (fuel_type in ('petrol', 'diesel', 'hybrid', 'electric', 'lpg', 'cng', 'other')),
+  gearbox text not null check (gearbox in ('manual', 'automatic', 'cvt', 'dct', 'single_speed', 'other')),
+  vin text,
+  ecu text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check (vin is null or vin ~ '^[A-HJ-NPR-Z0-9]{11,17}$')
+);
+
+create table if not exists public.diagnostic_cases (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  vehicle_id uuid not null references public.vehicles(id) on delete restrict,
+  title text not null default 'Diagnostic case',
+  status text not null default 'active' check (status in ('active', 'waiting_for_mechanic', 'assigned', 'resolved', 'archived')),
+  priority text not null default 'normal' check (priority in ('low', 'normal', 'urgent')),
+  symptoms text not null,
+  dtc_codes text[] not null default '{}',
+  previous_work text not null default '',
+  ai_summary text not null default '',
+  assigned_mechanic_id uuid references public.profiles(id) on delete set null,
+  last_message_at timestamptz,
+  closed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.diagnostic_messages (
+  id uuid primary key default gen_random_uuid(),
+  case_id uuid not null references public.diagnostic_cases(id) on delete cascade,
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  sender_type text not null check (sender_type in ('user', 'assistant', 'mechanic', 'system')),
+  content text not null check (char_length(content) between 1 and 12000),
+  provider text,
+  model text,
+  input_tokens integer not null default 0 check (input_tokens >= 0),
+  output_tokens integer not null default 0 check (output_tokens >= 0),
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.diagnostic_uploads (
+  id uuid primary key default gen_random_uuid(),
+  case_id uuid not null references public.diagnostic_cases(id) on delete cascade,
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  storage_bucket text not null default 'diagnostic-uploads',
+  storage_path text not null unique,
+  file_name text not null,
+  mime_type text not null,
+  size_bytes bigint not null check (size_bytes between 1 and 52428800),
+  upload_kind text not null check (upload_kind in ('image', 'pdf', 'text', 'csv', 'obd_scan', 'ecu_binary')),
+  analysis_status text not null default 'stored' check (analysis_status in ('stored', 'queued', 'processed', 'unsupported', 'failed')),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.user_plans (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  plan_tier text not null default 'free' check (plan_tier in ('free', 'premium', 'admin')),
+  status text not null default 'active' check (status in ('active', 'trialing', 'past_due', 'canceled')),
+  provider_customer_id text,
+  provider_subscription_id text,
+  starts_at timestamptz not null default now(),
+  ends_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.usage_events (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  case_id uuid references public.diagnostic_cases(id) on delete set null,
+  event_type text not null check (event_type in ('ai_message', 'case_created', 'upload', 'mechanic_message', 'checkout')),
+  provider text,
+  model text,
+  input_tokens integer not null default 0 check (input_tokens >= 0),
+  output_tokens integer not null default 0 check (output_tokens >= 0),
+  estimated_cost_usd numeric(12, 6) not null default 0 check (estimated_cost_usd >= 0),
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.recommended_tools (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  category text not null check (category in ('obd_scanner', 'multimeter', 'smoke_tester', 'vacuum_pump', 'repair_manual', 'scan_tool', 'other')),
+  description text not null,
+  affiliate_url text not null,
+  image_url text,
+  rule_tags text[] not null default '{}',
+  dtc_prefixes text[] not null default '{}',
+  priority integer not null default 100 check (priority between 0 and 1000),
+  active boolean not null default true,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 alter table public.profiles
   add column if not exists availability_status text not null default 'offline',
   add column if not exists mechanic_title text,
   add column if not exists mechanic_bio text,
   add column if not exists avatar_url text,
-  add column if not exists last_seen_at timestamptz;
+  add column if not exists last_seen_at timestamptz,
+  add column if not exists is_disabled boolean not null default false,
+  add column if not exists disabled_reason text,
+  add column if not exists disabled_at timestamptz;
 
 alter table public.conversations
   add column if not exists status text not null default 'ai_intake',
@@ -96,7 +203,8 @@ alter table public.conversations
 alter table public.call_bookings
   add column if not exists scheduled_start_at timestamptz,
   add column if not exists checkout_session_id text,
-  add column if not exists customer_email text;
+  add column if not exists customer_email text,
+  add column if not exists diagnostic_case_id uuid references public.diagnostic_cases(id) on delete set null;
 
 do $$
 begin
@@ -127,6 +235,30 @@ create index if not exists call_bookings_owner_created_idx
 
 create index if not exists call_bookings_status_scheduled_idx
   on public.call_bookings (status, scheduled_start_at);
+
+create index if not exists vehicles_owner_updated_idx
+  on public.vehicles (owner_id, updated_at desc);
+
+create index if not exists diagnostic_cases_owner_status_updated_idx
+  on public.diagnostic_cases (owner_id, status, updated_at desc);
+
+create index if not exists diagnostic_cases_assigned_updated_idx
+  on public.diagnostic_cases (assigned_mechanic_id, updated_at desc);
+
+create index if not exists diagnostic_messages_case_created_idx
+  on public.diagnostic_messages (case_id, created_at);
+
+create index if not exists diagnostic_uploads_case_created_idx
+  on public.diagnostic_uploads (case_id, created_at desc);
+
+create index if not exists usage_events_user_type_created_idx
+  on public.usage_events (user_id, event_type, created_at desc);
+
+create index if not exists usage_events_created_idx
+  on public.usage_events (created_at desc);
+
+create index if not exists recommended_tools_active_priority_idx
+  on public.recommended_tools (active, priority, updated_at desc);
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -162,6 +294,30 @@ create trigger set_site_settings_updated_at
   for each row
   execute function public.set_updated_at();
 
+drop trigger if exists set_vehicles_updated_at on public.vehicles;
+create trigger set_vehicles_updated_at
+  before update on public.vehicles
+  for each row
+  execute function public.set_updated_at();
+
+drop trigger if exists set_diagnostic_cases_updated_at on public.diagnostic_cases;
+create trigger set_diagnostic_cases_updated_at
+  before update on public.diagnostic_cases
+  for each row
+  execute function public.set_updated_at();
+
+drop trigger if exists set_user_plans_updated_at on public.user_plans;
+create trigger set_user_plans_updated_at
+  before update on public.user_plans
+  for each row
+  execute function public.set_updated_at();
+
+drop trigger if exists set_recommended_tools_updated_at on public.recommended_tools;
+create trigger set_recommended_tools_updated_at
+  before update on public.recommended_tools
+  for each row
+  execute function public.set_updated_at();
+
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -180,6 +336,17 @@ begin
     end
   )
   on conflict (id) do nothing;
+
+  insert into public.user_plans (user_id, plan_tier, status)
+  values (
+    new.id,
+    case
+      when lower(new.email) = 'admin@diagnostica-online.com' then 'admin'
+      else 'free'
+    end,
+    'active'
+  )
+  on conflict (user_id) do nothing;
   return new;
 end;
 $$;
@@ -218,11 +385,145 @@ as $$
   );
 $$;
 
+create or replace function public.enforce_active_case_limit()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  account_role text;
+  account_plan text;
+  account_plan_status text;
+  active_count integer;
+  active_limit integer;
+begin
+  if new.status not in ('active', 'waiting_for_mechanic', 'assigned') then
+    return new;
+  end if;
+
+  select role into account_role
+  from public.profiles
+  where id = new.owner_id;
+
+  select plan_tier, status into account_plan, account_plan_status
+  from public.user_plans
+  where user_id = new.owner_id;
+
+  if account_role = 'admin' or (account_plan = 'admin' and account_plan_status in ('active', 'trialing')) then
+    return new;
+  end if;
+
+  active_limit := case
+    when account_plan = 'premium' and account_plan_status in ('active', 'trialing') then 25
+    else 3
+  end;
+
+  select count(*) into active_count
+  from public.diagnostic_cases
+  where owner_id = new.owner_id
+    and status in ('active', 'waiting_for_mechanic', 'assigned')
+    and id <> new.id;
+
+  if active_count >= active_limit then
+    raise exception 'Active case limit reached for this plan.' using errcode = 'P0001';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists enforce_diagnostic_case_limit on public.diagnostic_cases;
+create trigger enforce_diagnostic_case_limit
+  before insert or update of status on public.diagnostic_cases
+  for each row
+  execute function public.enforce_active_case_limit();
+
+create or replace function public.claim_ai_message(
+  p_user_id uuid,
+  p_case_id uuid,
+  p_provider text,
+  p_model text,
+  p_free_limit integer default 5,
+  p_premium_limit integer default 100
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  account_role text;
+  account_disabled boolean;
+  account_plan text;
+  account_plan_status text;
+  daily_count integer;
+  daily_limit integer;
+  event_id uuid;
+begin
+  perform pg_advisory_xact_lock(hashtextextended(p_user_id::text || current_date::text, 0));
+
+  select role, is_disabled into account_role, account_disabled
+  from public.profiles
+  where id = p_user_id;
+
+  if coalesce(account_disabled, false) then
+    raise exception 'This account has been disabled.' using errcode = 'P0001';
+  end if;
+
+  if not exists (
+    select 1 from public.diagnostic_cases
+    where id = p_case_id and owner_id = p_user_id
+  ) then
+    raise exception 'Diagnostic case not found.' using errcode = 'P0001';
+  end if;
+
+  select plan_tier, status into account_plan, account_plan_status
+  from public.user_plans
+  where user_id = p_user_id;
+
+  if account_role = 'admin' or (account_plan = 'admin' and account_plan_status in ('active', 'trialing')) then
+    daily_limit := null;
+  elsif account_plan = 'premium' and account_plan_status in ('active', 'trialing') then
+    daily_limit := greatest(1, p_premium_limit);
+  else
+    daily_limit := greatest(1, p_free_limit);
+  end if;
+
+  select count(*) into daily_count
+  from public.usage_events
+  where user_id = p_user_id
+    and event_type = 'ai_message'
+    and created_at >= date_trunc('day', now() at time zone 'utc') at time zone 'utc';
+
+  if daily_limit is not null and daily_count >= daily_limit then
+    raise exception 'Daily AI message limit reached.' using errcode = 'P0001';
+  end if;
+
+  insert into public.usage_events (user_id, case_id, event_type, provider, model, metadata)
+  values (p_user_id, p_case_id, 'ai_message', p_provider, p_model, jsonb_build_object('status', 'reserved'))
+  returning id into event_id;
+
+  return event_id;
+end;
+$$;
+
+revoke all on function public.claim_ai_message(uuid, uuid, text, text, integer, integer) from public;
+revoke all on function public.claim_ai_message(uuid, uuid, text, text, integer, integer) from authenticated;
+grant execute on function public.claim_ai_message(uuid, uuid, text, text, integer, integer) to service_role;
+
 alter table public.profiles enable row level security;
 alter table public.conversations enable row level security;
 alter table public.call_bookings enable row level security;
 alter table public.site_settings enable row level security;
 alter table public.admin_audit_logs enable row level security;
+alter table public.vehicles enable row level security;
+alter table public.diagnostic_cases enable row level security;
+alter table public.diagnostic_messages enable row level security;
+alter table public.diagnostic_uploads enable row level security;
+alter table public.user_plans enable row level security;
+alter table public.usage_events enable row level security;
+alter table public.recommended_tools enable row level security;
 
 drop policy if exists "Users can read their own profile" on public.profiles;
 drop policy if exists "Admins can read profiles" on public.profiles;
@@ -350,6 +651,223 @@ create policy "Admins can insert audit logs"
   for insert
   with check (public.is_admin());
 
+drop policy if exists "Users can manage their own vehicles" on public.vehicles;
+drop policy if exists "Admins can read all vehicles" on public.vehicles;
+
+create policy "Users can manage their own vehicles"
+  on public.vehicles
+  for all
+  using (owner_id = auth.uid())
+  with check (owner_id = auth.uid());
+
+create policy "Admins can read all vehicles"
+  on public.vehicles
+  for select
+  using (public.is_admin());
+
+drop policy if exists "Users can manage their own diagnostic cases" on public.diagnostic_cases;
+drop policy if exists "Staff can read diagnostic queue" on public.diagnostic_cases;
+drop policy if exists "Staff can update assigned diagnostic cases" on public.diagnostic_cases;
+drop policy if exists "Admins can manage all diagnostic cases" on public.diagnostic_cases;
+
+create policy "Users can manage their own diagnostic cases"
+  on public.diagnostic_cases
+  for all
+  using (owner_id = auth.uid())
+  with check (owner_id = auth.uid());
+
+create policy "Staff can read diagnostic queue"
+  on public.diagnostic_cases
+  for select
+  using (
+    public.is_staff()
+    and (
+      assigned_mechanic_id = auth.uid()
+      or status in ('waiting_for_mechanic', 'assigned')
+    )
+  );
+
+create policy "Staff can update assigned diagnostic cases"
+  on public.diagnostic_cases
+  for update
+  using (
+    public.is_staff()
+    and (assigned_mechanic_id = auth.uid() or assigned_mechanic_id is null)
+  )
+  with check (public.is_staff());
+
+create policy "Admins can manage all diagnostic cases"
+  on public.diagnostic_cases
+  for all
+  using (public.is_admin())
+  with check (public.is_admin());
+
+drop policy if exists "Users can read their diagnostic messages" on public.diagnostic_messages;
+drop policy if exists "Users can add their diagnostic messages" on public.diagnostic_messages;
+drop policy if exists "Staff can read diagnostic messages" on public.diagnostic_messages;
+drop policy if exists "Staff can add mechanic messages" on public.diagnostic_messages;
+drop policy if exists "Admins can manage all diagnostic messages" on public.diagnostic_messages;
+
+create policy "Users can read their diagnostic messages"
+  on public.diagnostic_messages
+  for select
+  using (owner_id = auth.uid());
+
+create policy "Users can add their diagnostic messages"
+  on public.diagnostic_messages
+  for insert
+  with check (
+    owner_id = auth.uid()
+    and sender_type = 'user'
+    and exists (
+      select 1 from public.diagnostic_cases dc
+      where dc.id = case_id and dc.owner_id = auth.uid()
+    )
+  );
+
+create policy "Staff can read diagnostic messages"
+  on public.diagnostic_messages
+  for select
+  using (
+    public.is_staff()
+    and exists (
+      select 1 from public.diagnostic_cases dc
+      where dc.id = case_id
+        and (dc.assigned_mechanic_id = auth.uid() or dc.status in ('waiting_for_mechanic', 'assigned'))
+    )
+  );
+
+create policy "Staff can add mechanic messages"
+  on public.diagnostic_messages
+  for insert
+  with check (
+    public.is_staff()
+    and sender_type = 'mechanic'
+    and exists (
+      select 1 from public.diagnostic_cases dc
+      where dc.id = case_id
+        and (dc.assigned_mechanic_id = auth.uid() or dc.assigned_mechanic_id is null)
+    )
+  );
+
+create policy "Admins can manage all diagnostic messages"
+  on public.diagnostic_messages
+  for all
+  using (public.is_admin())
+  with check (public.is_admin());
+
+drop policy if exists "Users can manage their diagnostic upload metadata" on public.diagnostic_uploads;
+drop policy if exists "Admins can manage diagnostic upload metadata" on public.diagnostic_uploads;
+
+create policy "Users can manage their diagnostic upload metadata"
+  on public.diagnostic_uploads
+  for all
+  using (owner_id = auth.uid())
+  with check (
+    owner_id = auth.uid()
+    and exists (
+      select 1 from public.diagnostic_cases dc
+      where dc.id = case_id and dc.owner_id = auth.uid()
+    )
+  );
+
+create policy "Admins can manage diagnostic upload metadata"
+  on public.diagnostic_uploads
+  for all
+  using (public.is_admin())
+  with check (public.is_admin());
+
+drop policy if exists "Users can read their own plan" on public.user_plans;
+drop policy if exists "Admins can manage user plans" on public.user_plans;
+
+create policy "Users can read their own plan"
+  on public.user_plans
+  for select
+  using (user_id = auth.uid());
+
+create policy "Admins can manage user plans"
+  on public.user_plans
+  for all
+  using (public.is_admin())
+  with check (public.is_admin());
+
+drop policy if exists "Users can read their own usage" on public.usage_events;
+drop policy if exists "Admins can read all usage" on public.usage_events;
+
+create policy "Users can read their own usage"
+  on public.usage_events
+  for select
+  using (user_id = auth.uid());
+
+create policy "Admins can read all usage"
+  on public.usage_events
+  for select
+  using (public.is_admin());
+
+drop policy if exists "Anyone can read active recommended tools" on public.recommended_tools;
+drop policy if exists "Admins can manage recommended tools" on public.recommended_tools;
+
+create policy "Anyone can read active recommended tools"
+  on public.recommended_tools
+  for select
+  using (active = true or public.is_admin());
+
+create policy "Admins can manage recommended tools"
+  on public.recommended_tools
+  for all
+  using (public.is_admin())
+  with check (public.is_admin());
+
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('diagnostic-uploads', 'diagnostic-uploads', false, 52428800)
+on conflict (id) do update
+set public = false,
+    file_size_limit = 52428800;
+
+drop policy if exists "Users can upload their diagnostic files" on storage.objects;
+drop policy if exists "Users can read their diagnostic files" on storage.objects;
+drop policy if exists "Users can delete their diagnostic files" on storage.objects;
+drop policy if exists "Admins can manage diagnostic files" on storage.objects;
+
+create policy "Users can upload their diagnostic files"
+  on storage.objects
+  for insert
+  to authenticated
+  with check (
+    bucket_id = 'diagnostic-uploads'
+    and (storage.foldername(name))[1] = auth.uid()::text
+    and exists (
+      select 1 from public.diagnostic_cases dc
+      where dc.id::text = (storage.foldername(name))[2]
+        and dc.owner_id = auth.uid()
+    )
+  );
+
+create policy "Users can read their diagnostic files"
+  on storage.objects
+  for select
+  to authenticated
+  using (
+    bucket_id = 'diagnostic-uploads'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+create policy "Users can delete their diagnostic files"
+  on storage.objects
+  for delete
+  to authenticated
+  using (
+    bucket_id = 'diagnostic-uploads'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+create policy "Admins can manage diagnostic files"
+  on storage.objects
+  for all
+  to authenticated
+  using (bucket_id = 'diagnostic-uploads' and public.is_admin())
+  with check (bucket_id = 'diagnostic-uploads' and public.is_admin());
+
 insert into public.site_settings (key, value)
 values (
   'public_content',
@@ -391,16 +909,17 @@ values (
     "consentBody": "We use essential storage for login and saved cases. With your consent, we also use ads to keep free text help available.",
     "consentAcceptText": "Accept ads",
     "consentRejectText": "Essential only",
-    "termsText": "DiagnosticaOnline provides remote automotive information, AI intake, saved case notes, free text chat when available, and paid voice or video consulting. Remote advice is informational and does not replace an in-person inspection, repair estimate, recall check, or safety inspection. Users are responsible for deciding whether a vehicle is safe to operate.",
-    "privacyText": "We collect account information, saved conversations, vehicle details you provide, booking records, and technical data needed to run the service. We use this data to provide mechanic consulting, save cases, send account and booking emails, improve the service, and protect against abuse. Configure your final privacy policy with your legal entity, address, analytics, ad partners, and data retention requirements before launch.",
-    "cookieText": "We use local storage for login state, saved draft conversations, consent choices, and site preferences. Advertising partners such as Google AdSense may use cookies or similar technologies when ads are enabled and allowed by consent settings.",
+    "termsText": "DiagnosticaOnline provides AI-assisted automotive diagnostics, saved cases, file storage, free text chat when available, and optional paid voice or video consulting. Guidance is informational, may be incomplete, and does not replace an in-person inspection, factory service information, recall check, repair estimate, or safety inspection. You must have lawful authority to diagnose or modify the vehicle and remain responsible for safe tools, lifting, isolation, protective equipment, and deciding whether the vehicle can be operated.",
+    "privacyText": "We collect account details; vehicle information such as VIN or ECU identifiers when supplied; symptoms, DTCs, messages, uploads, AI usage and token estimates; booking/payment identifiers; and technical security logs. We use this data to provide and secure the service, enforce plan limits, send account or booking emails, and improve diagnostics. Data may be processed by Supabase, the configured AI provider, Resend, Stripe, Jitsi, and, after consent on free plans, Google AdSense. Contact the listed support address for access or deletion requests, subject to legal and fraud-prevention retention duties.",
+    "cookieText": "We use essential browser storage for login state, saved drafts, consent choices, and site preferences. Advertising is disabled for premium and admin plans. On free plans, Google AdSense may use cookies or similar technologies only after ad consent is accepted. Choosing Essential only keeps ad storage and personalized ad loading disabled.",
     "refundText": "Free text chat is not charged. Paid voice or video calls are charged based on the selected duration and rate shown at checkout. Add your final refund, cancellation, no-show, and rescheduling rules in admin before accepting production payments.",
-    "disclaimerText": "AI intake and remote mechanic consulting are not emergency services and cannot guarantee diagnosis or repair. If there is smoke, fire risk, fuel smell, brake loss, steering loss, severe overheating, or any immediate safety concern, stop driving and seek local professional or emergency assistance.",
+    "disclaimerText": "AI intake and remote consulting are not emergency services and cannot guarantee a diagnosis or repair. Vehicle work can involve fire, fuel, toxic chemicals, high voltage, moving components, stored pressure, air bags, and crushing hazards. Stop driving and seek qualified local help for smoke, fire risk, fuel leaks, brake or steering loss, severe overheating, oil-pressure warnings, or other immediate danger. ECU, immobilizer, and emissions laws vary by location. DiagnosticaOnline refuses emissions defeat, immobilizer bypass without lawful ownership procedures, odometer fraud, theft enablement, and unsafe bypass instructions, while allowing lawful diagnostics, repair, and restoration of original or factory software.",
     "geminiEndpoint": "/api/gemini",
     "geminiModel": "gemini-2.5-flash",
     "adsClient": "ca-pub-6817388263556075",
     "adsSlot": "",
     "adSlots": {
+      "topBanner": "",
       "leftTop": "",
       "leftUpper": "",
       "leftMiddle": "",
@@ -413,7 +932,8 @@ values (
       "rightBottom": "",
       "inlineOne": "",
       "inlineTwo": "",
-      "mobileChat": ""
+      "mobileChat": "",
+      "bottomBanner": ""
     },
     "checkoutUrl": "/api/checkout",
     "jitsiDomain": "meet.jit.si"
@@ -421,9 +941,53 @@ values (
 )
 on conflict (key) do nothing;
 
+update public.site_settings
+set value = jsonb_set(
+  value || jsonb_build_object(
+    'termsText', case
+      when coalesce(value->>'termsText', '') = '' or value->>'termsText' like 'DiagnosticaOnline provides remote automotive information%'
+        then 'DiagnosticaOnline provides AI-assisted automotive diagnostics, saved cases, file storage, free text chat when available, and optional paid voice or video consulting. Guidance is informational, may be incomplete, and does not replace an in-person inspection, factory service information, recall check, repair estimate, or safety inspection. You must have lawful authority to diagnose or modify the vehicle and remain responsible for safe tools, lifting, isolation, protective equipment, and deciding whether the vehicle can be operated.'
+      else value->>'termsText'
+    end,
+    'privacyText', case
+      when coalesce(value->>'privacyText', '') = '' or value->>'privacyText' like 'We collect account information, saved conversations%'
+        then 'We collect account details; vehicle information such as VIN or ECU identifiers when supplied; symptoms, DTCs, messages, uploads, AI usage and token estimates; booking/payment identifiers; and technical security logs. We use this data to provide and secure the service, enforce plan limits, send account or booking emails, and improve diagnostics. Data may be processed by Supabase, the configured AI provider, Resend, Stripe, Jitsi, and, after consent on free plans, Google AdSense. Contact the listed support address for access or deletion requests, subject to legal and fraud-prevention retention duties.'
+      else value->>'privacyText'
+    end,
+    'cookieText', case
+      when coalesce(value->>'cookieText', '') = '' or value->>'cookieText' like 'We use local storage for login state%'
+        then 'We use essential browser storage for login state, saved drafts, consent choices, and site preferences. Advertising is disabled for premium and admin plans. On free plans, Google AdSense may use cookies or similar technologies only after ad consent is accepted. Choosing Essential only keeps ad storage and personalized ad loading disabled.'
+      else value->>'cookieText'
+    end,
+    'disclaimerText', case
+      when coalesce(value->>'disclaimerText', '') = '' or value->>'disclaimerText' like 'AI intake and remote mechanic consulting%'
+        then 'AI intake and remote consulting are not emergency services and cannot guarantee a diagnosis or repair. Vehicle work can involve fire, fuel, toxic chemicals, high voltage, moving components, stored pressure, air bags, and crushing hazards. Stop driving and seek qualified local help for smoke, fire risk, fuel leaks, brake or steering loss, severe overheating, oil-pressure warnings, or other immediate danger. ECU, immobilizer, and emissions laws vary by location. DiagnosticaOnline refuses emissions defeat, immobilizer bypass without lawful ownership procedures, odometer fraud, theft enablement, and unsafe bypass instructions, while allowing lawful diagnostics, repair, and restoration of original or factory software.'
+      else value->>'disclaimerText'
+    end
+  ),
+  '{adSlots}',
+  jsonb_build_object('topBanner', '', 'bottomBanner', '') || coalesce(value->'adSlots', '{}'::jsonb),
+  true
+)
+where key = 'public_content';
+
 update public.profiles
 set role = 'admin'
 where lower(email) = 'admin@diagnostica-online.com';
+
+insert into public.user_plans (user_id, plan_tier, status)
+select
+  id,
+  case when role = 'admin' then 'admin' else 'free' end,
+  'active'
+from public.profiles
+on conflict (user_id) do nothing;
+
+update public.user_plans up
+set plan_tier = 'admin', status = 'active'
+from public.profiles p
+where p.id = up.user_id
+  and p.role = 'admin';
 
 -- After creating your admin user, promote it once from the SQL editor:
 -- update public.profiles set role = 'admin' where email = 'you@example.com';

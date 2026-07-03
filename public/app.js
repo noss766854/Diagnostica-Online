@@ -77,20 +77,21 @@
     consentAcceptText: "Accept ads",
     consentRejectText: "Essential only",
     termsText:
-      "DiagnosticaOnline provides remote automotive information, AI intake, saved case notes, free text chat when available, and paid voice or video consulting. Remote advice is informational and does not replace an in-person inspection, repair estimate, recall check, or safety inspection. Users are responsible for deciding whether a vehicle is safe to operate.",
+      "DiagnosticaOnline provides AI-assisted automotive diagnostics, saved cases, file storage, free text chat when available, and optional paid voice or video consulting. Guidance is informational, may be incomplete, and does not replace an in-person inspection, factory service information, recall check, repair estimate, or safety inspection. You must have lawful authority to diagnose or modify the vehicle and remain responsible for safe tools, lifting, isolation, protective equipment, and deciding whether the vehicle can be operated.",
     privacyText:
-      "We collect account information, saved conversations, vehicle details you provide, booking records, and technical data needed to run the service. We use this data to provide mechanic consulting, save cases, send account and booking emails, improve the service, and protect against abuse. Configure your final privacy policy with your legal entity, address, analytics, ad partners, and data retention requirements before launch.",
+      "We collect account details; vehicle information such as VIN or ECU identifiers when supplied; symptoms, DTCs, messages, uploads, AI usage and token estimates; booking/payment identifiers; and technical security logs. We use this data to provide and secure the service, enforce plan limits, send account or booking emails, and improve diagnostics. Data may be processed by Supabase, the configured AI provider, Resend, Stripe, Jitsi, and, after consent on free plans, Google AdSense. Contact the listed support address for access or deletion requests, subject to legal and fraud-prevention retention duties.",
     cookieText:
-      "We use local storage for login state, saved draft conversations, consent choices, and site preferences. Advertising partners such as Google AdSense may use cookies or similar technologies when ads are enabled and allowed by consent settings.",
+      "We use essential browser storage for login state, saved drafts, consent choices, and site preferences. Advertising is disabled for premium and admin plans. On free plans, Google AdSense may use cookies or similar technologies only after ad consent is accepted. Choosing Essential only keeps ad storage and personalized ad loading disabled.",
     refundText:
       "Free text chat is not charged. Paid voice or video calls are charged based on the selected duration and rate shown at checkout. Add your final refund, cancellation, no-show, and rescheduling rules in admin before accepting production payments.",
     disclaimerText:
-      "AI intake and remote mechanic consulting are not emergency services and cannot guarantee diagnosis or repair. If there is smoke, fire risk, fuel smell, brake loss, steering loss, severe overheating, or any immediate safety concern, stop driving and seek local professional or emergency assistance.",
+      "AI intake and remote consulting are not emergency services and cannot guarantee a diagnosis or repair. Vehicle work can involve fire, fuel, toxic chemicals, high voltage, moving components, stored pressure, air bags, and crushing hazards. Stop driving and seek qualified local help for smoke, fire risk, fuel leaks, brake or steering loss, severe overheating, oil-pressure warnings, or other immediate danger. ECU, immobilizer, and emissions laws vary by location. DiagnosticaOnline refuses emissions defeat, immobilizer bypass without lawful ownership procedures, odometer fraud, theft enablement, and unsafe bypass instructions, while allowing lawful diagnostics, repair, and restoration of original or factory software.",
     geminiEndpoint: DEFAULT_SETTINGS.geminiEndpoint,
     geminiModel: DEFAULT_SETTINGS.geminiModel,
     adsClient: DEFAULT_SETTINGS.adsClient,
     adsSlot: DEFAULT_SETTINGS.adsSlot,
     adSlots: {
+      topBanner: "",
       leftTop: "",
       leftUpper: "",
       leftMiddle: "",
@@ -104,6 +105,7 @@
       inlineOne: "",
       inlineTwo: "",
       mobileChat: "",
+      bottomBanner: "",
     },
     checkoutUrl: DEFAULT_SETTINGS.checkoutUrl,
     jitsiDomain: DEFAULT_SETTINGS.jitsiDomain,
@@ -154,6 +156,22 @@
     saving: false,
     typing: false,
     checkoutNoticeShown: false,
+    entitlements: {
+      plan: "free",
+      status: "active",
+      isAdmin: false,
+      isDisabled: false,
+      showAds: true,
+      aiMessagesUsedToday: 0,
+      aiMessagesDailyLimit: 5,
+      activeCases: 0,
+      activeCaseLimit: 3,
+      canSendAiMessage: true,
+      canCreateCase: true,
+    },
+    uploads: [],
+    recommendations: [],
+    platformError: "",
   };
 
   if (document.readyState === "loading") {
@@ -177,6 +195,7 @@
     await connectSupabase();
     await loadSiteContent();
     await loadSupabaseConversations();
+    await loadDiagnosticCases();
     renderAll();
     renderCheckoutReturnNotice();
     renderAds();
@@ -194,6 +213,8 @@
       "adminNavBtn",
       "newConversationBtn",
       "savedCasesToggle",
+      "diagnosticsTab",
+      "repairLibraryToggle",
       "savedDrawer",
       "refreshConversationsBtn",
       "conversationList",
@@ -203,6 +224,18 @@
       "briefBtn",
       "clearCaseBtn",
       "vehicleDetails",
+      "caseStatusPill",
+      "planStrip",
+      "planBadge",
+      "planUsageCopy",
+      "usageMeterFill",
+      "caseUploadsPanel",
+      "caseUploadInput",
+      "caseUploadBtn",
+      "caseUploadMessage",
+      "caseUploadList",
+      "recommendationsPanel",
+      "recommendationList",
       "durationSelect",
       "bookingPrice",
       "bookingControls",
@@ -221,6 +254,24 @@
       "consentBody",
       "consentAcceptBtn",
       "consentRejectBtn",
+      "caseDialog",
+      "caseForm",
+      "closeCaseDialogBtn",
+      "cancelCaseBtn",
+      "createCaseBtn",
+      "caseTitleInput",
+      "caseYearInput",
+      "caseMakeInput",
+      "caseModelInput",
+      "caseEngineInput",
+      "caseFuelInput",
+      "caseGearboxInput",
+      "caseVinInput",
+      "caseEcuInput",
+      "caseSymptomsInput",
+      "caseDtcInput",
+      "casePreviousWorkInput",
+      "caseFormMessage",
       "authDialog",
       "authForm",
       "authTitle",
@@ -255,10 +306,22 @@
       els.savedDrawer.hidden = !els.savedDrawer.hidden;
       renderConversations();
     });
-    els.newConversationBtn.addEventListener("click", () => createConversation(true));
+    els.newConversationBtn.addEventListener("click", openCaseDialog);
     els.refreshConversationsBtn.addEventListener("click", async () => {
       await loadSupabaseConversations();
+      await loadDiagnosticCases();
       renderAll();
+    });
+    els.repairLibraryToggle.addEventListener("click", () => {
+      if (!isDiagnosticCase()) {
+        openCaseDialog();
+        return;
+      }
+      els.recommendationsPanel.hidden = false;
+      els.recommendationsPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    els.diagnosticsTab.addEventListener("click", () => {
+      els.messageInput.focus();
     });
     els.loginNavBtn.addEventListener("click", () => openAuth("login"));
     els.signupNavBtn.addEventListener("click", () => openAuth("signup"));
@@ -290,6 +353,7 @@
       await connectSupabase(true);
       await loadSiteContent();
       await loadSupabaseConversations();
+      await loadDiagnosticCases();
       renderAds();
       renderAll();
     });
@@ -321,6 +385,14 @@
     els.bookingBtn.addEventListener("click", reserveMechanic);
     els.consentAcceptBtn.addEventListener("click", () => saveConsent("ads"));
     els.consentRejectBtn.addEventListener("click", () => saveConsent("essential"));
+    els.caseForm.addEventListener("submit", handleCreateDiagnosticCase);
+    els.closeCaseDialogBtn.addEventListener("click", () => els.caseDialog.close());
+    els.cancelCaseBtn.addEventListener("click", () => els.caseDialog.close());
+    els.caseUploadInput.addEventListener("change", () => {
+      els.caseUploadBtn.disabled = !els.caseUploadInput.files?.length;
+      els.caseUploadMessage.textContent = els.caseUploadInput.files?.[0]?.name || "";
+    });
+    els.caseUploadBtn.addEventListener("click", uploadDiagnosticFile);
   }
 
   function createConversation(makeActive) {
@@ -354,11 +426,312 @@
     renderAll();
   }
 
+  function openCaseDialog(message = "") {
+    if (typeof message !== "string") message = "";
+    if (!state.supabaseUser) {
+      openAuth("login", "Log in or create an account before starting a saved diagnostic case.");
+      return;
+    }
+    if (!state.entitlements.canCreateCase) {
+      const limit = state.entitlements.activeCaseLimit ?? "unlimited";
+      els.bookingResult.hidden = false;
+      els.bookingResult.textContent = `Your ${state.entitlements.plan} plan allows ${limit} active cases. Resolve or archive one before creating another.`;
+      return;
+    }
+    const prefilledSymptoms = message ? els.caseSymptomsInput.value : "";
+    els.caseForm.reset();
+    els.caseSymptomsInput.value = prefilledSymptoms;
+    els.caseFormMessage.textContent = message;
+    els.caseDialog.showModal();
+    els.caseYearInput.focus();
+    createIcons();
+  }
+
+  async function handleCreateDiagnosticCase(event) {
+    event.preventDefault();
+    if (!els.caseForm.reportValidity()) return;
+    const payload = {
+      title: els.caseTitleInput.value.trim() || undefined,
+      vehicle: {
+        year: Number(els.caseYearInput.value),
+        make: els.caseMakeInput.value.trim(),
+        model: els.caseModelInput.value.trim(),
+        engine: els.caseEngineInput.value.trim(),
+        fuelType: els.caseFuelInput.value,
+        gearbox: els.caseGearboxInput.value,
+        vin: els.caseVinInput.value.trim().toUpperCase(),
+        ecu: els.caseEcuInput.value.trim(),
+      },
+      symptoms: els.caseSymptomsInput.value.trim(),
+      dtcCodes: normalizeDtcInput(els.caseDtcInput.value),
+      previousWork: els.casePreviousWorkInput.value.trim(),
+    };
+
+    els.createCaseBtn.disabled = true;
+    els.caseFormMessage.textContent = "Saving the diagnostic case...";
+    try {
+      const data = await platformRequest("/api/diagnostics/cases", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      const conversation = fromDiagnosticCaseRow(data.case, data.messages || []);
+      state.conversations = [conversation, ...state.conversations.filter((item) => item.id !== conversation.id)];
+      state.activeId = conversation.id;
+      state.vehicle = { ...conversation.vehicle };
+      state.entitlements = data.entitlements || state.entitlements;
+      state.uploads = [];
+      state.recommendations = [];
+      state.platformError = "";
+      els.savedDrawer.hidden = false;
+      els.caseDialog.close();
+      renderAll();
+      renderAds();
+      els.messageInput.focus();
+    } catch (error) {
+      els.caseFormMessage.textContent = error.message || "The diagnostic case could not be saved.";
+    } finally {
+      els.createCaseBtn.disabled = false;
+    }
+  }
+
+  async function loadDiagnosticCases() {
+    if (!state.supabase || !state.supabaseUser) return;
+    try {
+      const data = await platformRequest("/api/diagnostics/cases");
+      const diagnosticRows = (data.cases || []).map((row) => fromDiagnosticCaseRow(row, []));
+      const compatibilityRows = state.conversations.filter((conversation) => conversation.source !== "diagnostic" && conversation.source !== "local");
+      const currentId = state.activeId;
+      state.conversations = [...diagnosticRows, ...compatibilityRows];
+      state.entitlements = data.entitlements || state.entitlements;
+      state.platformError = "";
+      if (!state.conversations.some((conversation) => conversation.id === currentId)) {
+        state.activeId = state.conversations[0]?.id || "";
+      }
+      const active = currentConversation();
+      state.vehicle = { ...(active?.vehicle || {}) };
+      if (active?.source === "diagnostic") await loadDiagnosticCase(active.id, false);
+    } catch (error) {
+      state.platformError = error.message || "Structured diagnostic cases are unavailable until the latest Supabase schema is installed.";
+    }
+  }
+
+  async function loadDiagnosticCase(caseId, renderAfter = true) {
+    if (!state.supabaseUser || !isUuid(caseId)) return false;
+    try {
+      const data = await platformRequest(`/api/diagnostics/cases/${encodeURIComponent(caseId)}`);
+      const conversation = fromDiagnosticCaseRow(data.case, data.messages || []);
+      const index = state.conversations.findIndex((item) => item.id === caseId);
+      if (index >= 0) state.conversations[index] = conversation;
+      else state.conversations.unshift(conversation);
+      state.activeId = caseId;
+      state.vehicle = { ...conversation.vehicle };
+      state.uploads = data.uploads || [];
+      state.recommendations = data.recommendations || [];
+      state.entitlements = data.entitlements || state.entitlements;
+      state.platformError = "";
+      if (renderAfter) {
+        renderAll();
+        renderAds();
+      }
+      return true;
+    } catch (error) {
+      state.platformError = error.message || "This diagnostic case could not be opened.";
+      if (renderAfter) renderAll();
+      return false;
+    }
+  }
+
+  function fromDiagnosticCaseRow(row, messageRows) {
+    const vehicle = row.vehicle || {};
+    return {
+      id: row.id,
+      title: row.title || "Diagnostic case",
+      vehicle: {
+        year: vehicle.year ? String(vehicle.year) : "",
+        make: vehicle.make || "",
+        model: vehicle.model || "",
+        engine: vehicle.engine || "",
+        fuelType: vehicle.fuel_type || "",
+        gearbox: vehicle.gearbox || "",
+        vin: vehicle.vin || "",
+        ecu: vehicle.ecu || "",
+        category: row.dtc_codes?.length ? "Fault-code diagnosis" : "Symptom diagnosis",
+      },
+      messages: (messageRows || []).map(fromDiagnosticMessage),
+      brief: row.ai_summary || "",
+      status: row.status || "active",
+      priority: row.priority || "normal",
+      caseData: row,
+      createdAt: row.created_at || new Date().toISOString(),
+      updatedAt: row.updated_at || new Date().toISOString(),
+      source: "diagnostic",
+    };
+  }
+
+  function fromDiagnosticMessage(message) {
+    const isUser = message.sender_type === "user";
+    const isMechanic = message.sender_type === "mechanic";
+    const isSystem = message.sender_type === "system";
+    return {
+      id: message.id,
+      role: isUser ? "user" : "assistant",
+      name: isUser ? "You" : isMechanic ? state.siteContent.technicianName : isSystem ? "Case setup" : assistantName(),
+      content: message.content || "",
+      createdAt: message.created_at || new Date().toISOString(),
+      technicianReply: isMechanic,
+      systemMessage: isSystem,
+      provider: message.provider || "",
+      model: message.model || "",
+      inputTokens: Number(message.input_tokens || 0),
+      outputTokens: Number(message.output_tokens || 0),
+    };
+  }
+
+  async function sendDiagnosticMessage(text) {
+    const conversation = currentConversation();
+    if (!conversation || conversation.source !== "diagnostic") return;
+    if (!state.entitlements.canSendAiMessage) {
+      showLocalCaseNotice(`Daily AI limit reached for the ${state.entitlements.plan} plan. Your allowance resets at 00:00 UTC.`, true);
+      return;
+    }
+
+    const tempId = `temp-${newId()}`;
+    conversation.messages.push({ role: "user", name: "You", content: text, createdAt: new Date().toISOString(), id: tempId });
+    conversation.updatedAt = new Date().toISOString();
+    state.typing = true;
+    renderMessages();
+    renderPlanStatus();
+    try {
+      const data = await platformRequest(`/api/diagnostics/cases/${encodeURIComponent(conversation.id)}/messages`, {
+        method: "POST",
+        body: JSON.stringify({ content: text }),
+      });
+      conversation.messages = conversation.messages.filter((message) => message.id !== tempId);
+      conversation.messages.push(fromDiagnosticMessage(data.userMessage), fromDiagnosticMessage(data.assistantMessage));
+      conversation.updatedAt = data.assistantMessage?.created_at || new Date().toISOString();
+      conversation.brief = data.assistantMessage?.content || conversation.brief;
+      state.entitlements = data.entitlements || state.entitlements;
+      state.recommendations = data.recommendations || state.recommendations;
+      state.platformError = "";
+      renderAll();
+      renderAds();
+    } catch (error) {
+      conversation.messages = conversation.messages.filter((message) => message.id !== tempId);
+      await loadDiagnosticCase(conversation.id, false);
+      showLocalCaseNotice(error.message || "The AI diagnostic reply could not be generated.", true);
+    } finally {
+      state.typing = false;
+      renderAll();
+    }
+  }
+
+  function showLocalCaseNotice(content, alert = false) {
+    const conversation = currentConversation();
+    if (!conversation) return;
+    conversation.messages.push({
+      id: `local-${newId()}`,
+      role: "assistant",
+      name: "DiagnosticaOnline",
+      content,
+      createdAt: new Date().toISOString(),
+      alert,
+      localOnly: true,
+    });
+    renderMessages();
+  }
+
+  async function uploadDiagnosticFile() {
+    const conversation = currentConversation();
+    const file = els.caseUploadInput.files?.[0];
+    if (!conversation || conversation.source !== "diagnostic" || !file || !state.supabase) return;
+    els.caseUploadBtn.disabled = true;
+    els.caseUploadMessage.textContent = `Preparing ${file.name}...`;
+    try {
+      const mimeType = file.type || "application/octet-stream";
+      const signed = await platformRequest(`/api/diagnostics/cases/${encodeURIComponent(conversation.id)}/uploads`, {
+        method: "POST",
+        body: JSON.stringify({ action: "sign", fileName: file.name, mimeType, sizeBytes: file.size }),
+      });
+      els.caseUploadMessage.textContent = `Uploading ${file.name}...`;
+      const { error: uploadError } = await state.supabase.storage
+        .from(signed.bucket)
+        .uploadToSignedUrl(signed.storagePath, signed.token, file, { contentType: mimeType });
+      if (uploadError) throw uploadError;
+      const completed = await platformRequest(`/api/diagnostics/cases/${encodeURIComponent(conversation.id)}/uploads`, {
+        method: "POST",
+        body: JSON.stringify({
+          action: "complete",
+          storagePath: signed.storagePath,
+          fileName: file.name,
+          mimeType,
+          sizeBytes: file.size,
+          uploadKind: signed.uploadKind,
+        }),
+      });
+      state.uploads = [completed.upload, ...state.uploads.filter((upload) => upload.id !== completed.upload.id)];
+      els.caseUploadInput.value = "";
+      els.caseUploadMessage.textContent = signed.uploadKind === "ecu_binary" ? "ECU binary stored securely. Binary analysis is not enabled yet." : "File uploaded and linked to this case.";
+      renderUploads();
+      createIcons();
+    } catch (error) {
+      els.caseUploadMessage.textContent = error.message || "The diagnostic file could not be uploaded.";
+    } finally {
+      els.caseUploadBtn.disabled = !els.caseUploadInput.files?.length;
+    }
+  }
+
+  async function platformRequest(url, options = {}) {
+    if (!state.supabase) throw new Error("Supabase is not connected.");
+    const { data } = await state.supabase.auth.getSession();
+    const token = data?.session?.access_token;
+    if (!token) throw new Error("Log in to continue.");
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...(options.headers || {}),
+      },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "The server request failed.");
+    return payload;
+  }
+
+  function normalizeDtcInput(value) {
+    return Array.from(
+      new Set(
+        String(value || "")
+          .toUpperCase()
+          .split(/[\s,;]+/)
+          .map((item) => item.trim())
+          .filter(Boolean)
+      )
+    );
+  }
+
+  function isDiagnosticCase(conversation = currentConversation()) {
+    return conversation?.source === "diagnostic";
+  }
+
   async function handleSend(event) {
     event.preventDefault();
     const text = els.messageInput.value.trim();
     if (!text || state.typing) return;
+    if (state.supabase && !state.supabaseUser) {
+      openAuth("login", "Log in or create an account to use the AI diagnostic workspace and save your cases.");
+      return;
+    }
+    if (state.supabaseUser && !isDiagnosticCase()) {
+      els.caseSymptomsInput.value = text;
+      openCaseDialog("Create a structured case before sending the first AI diagnostic message.");
+      return;
+    }
     els.messageInput.value = "";
+    if (isDiagnosticCase()) {
+      await sendDiagnosticMessage(text);
+      return;
+    }
     const technicianTextMode = isTechnicianTextMode();
     if (technicianTextMode) {
       await refreshCurrentConversation();
@@ -502,9 +875,26 @@
       .join(" ");
   }
 
-  function createBrief() {
+  async function createBrief() {
     const conversation = currentConversation();
     if (!conversation) return;
+    if (conversation.source === "diagnostic") {
+      try {
+        const data = await platformRequest(`/api/diagnostics/cases/${encodeURIComponent(conversation.id)}`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "waiting_for_mechanic" }),
+        });
+        conversation.caseData = data.case;
+        conversation.status = data.case.status;
+        els.bookingResult.hidden = false;
+        els.bookingResult.textContent = "This structured case is now in the mechanic queue with its vehicle details, messages, tests, and uploads attached.";
+        renderVehicleDetails();
+      } catch (error) {
+        els.bookingResult.hidden = false;
+        els.bookingResult.textContent = error.message || "The case could not be sent to the mechanic queue.";
+      }
+      return;
+    }
     conversation.brief = buildMechanicBrief();
     conversation.updatedAt = new Date().toISOString();
     persistLocal();
@@ -568,9 +958,24 @@
     ].join("\n");
   }
 
-  function clearCurrentCase() {
+  async function clearCurrentCase() {
     const conversation = currentConversation();
     if (!conversation) return;
+    if (conversation.source === "diagnostic") {
+      if (!window.confirm("Archive this diagnostic case? Its messages and uploads will remain saved.")) return;
+      try {
+        await platformRequest(`/api/diagnostics/cases/${encodeURIComponent(conversation.id)}`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "archived" }),
+        });
+        await loadDiagnosticCases();
+        renderAll();
+        renderAds();
+      } catch (error) {
+        showLocalCaseNotice(error.message || "The case could not be archived.", true);
+      }
+      return;
+    }
     conversation.messages = conversation.messages.slice(0, 1);
     conversation.vehicle = {};
     conversation.brief = "";
@@ -599,7 +1004,8 @@
       hourlyRate: rate,
       totalUsd: total,
       scheduledStartAt: els.scheduledStartInput?.value || "",
-      conversationId: conversation?.id,
+      conversationId: conversation?.source === "diagnostic" ? null : conversation?.id,
+      diagnosticCaseId: conversation?.source === "diagnostic" ? conversation.id : null,
       title: conversation?.title || "Mechanic consultation",
       brief: conversation?.brief || buildMechanicBrief(),
     };
@@ -665,6 +1071,23 @@
 
   async function startTechnicianTextChat(payload) {
     const conversation = currentConversation();
+    if (conversation?.source === "diagnostic") {
+      await platformRequest(`/api/diagnostics/cases/${encodeURIComponent(conversation.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "waiting_for_mechanic" }),
+      });
+      conversation.status = "waiting_for_mechanic";
+      if (conversation.caseData) conversation.caseData.status = "waiting_for_mechanic";
+      showLocalCaseNotice(state.siteContent.textChatWaitingMessage || DEFAULT_SITE_CONTENT.textChatWaitingMessage);
+      els.bookingResult.innerHTML = `
+        <strong>Free technician text chat requested.</strong><br>
+        Your structured case and files are now visible in the mechanic queue. Keep using this case for updates.
+      `;
+      await saveBooking(payload, "", "text_chat_open");
+      await notifyStaff("text_chat_started", { conversationId: null, diagnosticCaseId: conversation.id, title: conversation.title });
+      renderVehicleDetails();
+      return;
+    }
     if (conversation && !isTechnicianTextMode(conversation)) {
       conversation.status = "waiting_for_mechanic";
       await addMessage("assistant", state.siteContent.textChatStartedMessage || DEFAULT_SITE_CONTENT.textChatStartedMessage, {
@@ -690,6 +1113,7 @@
       await state.supabase.from("call_bookings").insert({
         owner_id: state.supabaseUser.id,
         conversation_id: isUuid(payload.conversationId) ? payload.conversationId : null,
+        diagnostic_case_id: isUuid(payload.diagnosticCaseId) ? payload.diagnosticCaseId : null,
         call_type: payload.callType,
         duration_minutes: payload.durationMinutes,
         hourly_rate_usd: payload.hourlyRate,
@@ -917,6 +1341,7 @@
   function cleanAdSlots(value) {
     const slots = value && typeof value === "object" ? value : {};
     return {
+      topBanner: cleanAdSlot(slots.topBanner),
       leftTop: cleanAdSlot(slots.leftTop),
       leftUpper: cleanAdSlot(slots.leftUpper),
       leftMiddle: cleanAdSlot(slots.leftMiddle),
@@ -930,6 +1355,7 @@
       inlineOne: cleanAdSlot(slots.inlineOne),
       inlineTwo: cleanAdSlot(slots.inlineTwo),
       mobileChat: cleanAdSlot(slots.mobileChat),
+      bottomBanner: cleanAdSlot(slots.bottomBanner),
     };
   }
 
@@ -986,7 +1412,7 @@
     try {
       const { data, error } = await state.supabase
         .from("profiles")
-        .select("id,email,role,display_name")
+        .select("id,email,role,display_name,is_disabled,disabled_reason")
         .eq("id", state.supabaseUser.id)
         .maybeSingle();
       if (error) throw error;
@@ -1034,7 +1460,7 @@
         if (error) throw error;
         await refreshSupabaseUser();
         await loadSupabaseConversations();
-        await saveCurrentConversation();
+        await loadDiagnosticCases();
         els.authDialog.close();
       } else {
         const response = await fetch("/api/auth/signup", {
@@ -1050,6 +1476,7 @@
         els.authMessage.textContent = data.message || "Check your email for the verification link, then log in.";
       }
       renderAll();
+      renderAds();
     } catch (error) {
       els.authMessage.textContent = error.message || "Authentication failed.";
     } finally {
@@ -1063,11 +1490,27 @@
     }
     state.supabaseUser = null;
     state.profile = null;
+    state.entitlements = {
+      plan: "free",
+      status: "active",
+      isAdmin: false,
+      isDisabled: false,
+      showAds: true,
+      aiMessagesUsedToday: 0,
+      aiMessagesDailyLimit: 5,
+      activeCases: 0,
+      activeCaseLimit: 3,
+      canSendAiMessage: true,
+      canCreateCase: true,
+    };
+    state.uploads = [];
+    state.recommendations = [];
     loadLocalConversations();
     if (!state.conversations.length) createConversation(false);
     state.activeId = state.conversations[0].id;
     state.vehicle = { ...(currentConversation()?.vehicle || {}) };
     renderAll();
+    renderAds();
   }
 
   async function loadSupabaseConversations() {
@@ -1119,6 +1562,11 @@
 
   function startTextChatPolling() {
     window.setInterval(async () => {
+      const conversation = currentConversation();
+      if (conversation?.source === "diagnostic" && ["waiting_for_mechanic", "assigned"].includes(conversation.status)) {
+        await loadDiagnosticCase(conversation.id, true);
+        return;
+      }
       if (!isTechnicianTextMode()) return;
       await refreshCurrentConversation(true);
     }, 10000);
@@ -1188,6 +1636,9 @@
     renderConversations();
     renderMessages();
     renderVehicleDetails();
+    renderPlanStatus();
+    renderUploads();
+    renderRecommendations();
     renderBooking();
     renderStatus();
     renderConsent();
@@ -1217,7 +1668,8 @@
     els.consentBody.textContent = content.consentBody || DEFAULT_SITE_CONTENT.consentBody;
     els.consentAcceptBtn.textContent = content.consentAcceptText || DEFAULT_SITE_CONTENT.consentAcceptText;
     els.consentRejectBtn.textContent = content.consentRejectText || DEFAULT_SITE_CONTENT.consentRejectText;
-    els.consentBanner.hidden = !content.consentEnabled || Boolean(loadConsent());
+    const planShowsAds = !state.supabaseUser || state.entitlements.showAds !== false;
+    els.consentBanner.hidden = !content.consentEnabled || !planShowsAds || Boolean(loadConsent());
   }
 
   function saveConsent(value) {
@@ -1231,7 +1683,8 @@
   }
 
   function canRenderAds() {
-    return !state.siteContent.consentEnabled || loadConsent() === "ads";
+    const planAllowsAds = !state.supabaseUser || state.entitlements.showAds !== false;
+    return planAllowsAds && (!state.siteContent.consentEnabled || loadConsent() === "ads");
   }
 
   function renderAuth() {
@@ -1263,26 +1716,37 @@
 
   function renderConversations() {
     if (!state.conversations.length) {
-      els.conversationList.innerHTML = `<div class="empty-state">No saved cases yet.</div>`;
+      els.conversationList.innerHTML = `<div class="empty-state">No saved cases yet. Create a structured case to start diagnosing.</div>`;
       return;
     }
     els.conversationList.innerHTML = state.conversations
       .map((conversation) => {
         const active = conversation.id === state.activeId ? " active" : "";
         const count = conversation.messages.filter((message) => message.role === "user").length;
+        const diagnosticMeta = conversation.source === "diagnostic"
+          ? `${formatLabel(conversation.status || "active")} - ${[conversation.vehicle?.year, conversation.vehicle?.make, conversation.vehicle?.model].filter(Boolean).join(" ")}`
+          : `${count} driver ${count === 1 ? "note" : "notes"}`;
         return `
           <button class="conversation-item${active}" type="button" data-conversation-id="${escapeAttr(conversation.id)}">
             <span class="conversation-title">${escapeHtml(conversation.title)}</span>
-            <span class="conversation-meta">${count} driver ${count === 1 ? "note" : "notes"} - ${relativeTime(conversation.updatedAt)}</span>
+            <span class="conversation-meta">${escapeHtml(diagnosticMeta)} - ${relativeTime(conversation.updatedAt)}</span>
           </button>
         `;
       })
       .join("");
 
     Array.from(els.conversationList.querySelectorAll("[data-conversation-id]")).forEach((button) => {
-      button.addEventListener("click", () => {
-        state.activeId = button.dataset.conversationId;
-        state.vehicle = { ...(currentConversation()?.vehicle || {}) };
+      button.addEventListener("click", async () => {
+        const conversationId = button.dataset.conversationId;
+        const target = state.conversations.find((conversation) => conversation.id === conversationId);
+        state.activeId = conversationId;
+        if (target?.source === "diagnostic") {
+          await loadDiagnosticCase(conversationId);
+          return;
+        }
+        state.uploads = [];
+        state.recommendations = [];
+        state.vehicle = { ...(target?.vehicle || {}) };
         renderAll();
       });
     });
@@ -1291,19 +1755,31 @@
   function renderMessages() {
     const conversation = currentConversation();
     const messages = conversation?.messages || [];
+    if (!messages.length) {
+      const emptyCopy = state.platformError
+        ? state.platformError
+        : state.supabaseUser
+          ? "Create or open a saved diagnostic case to start the AI mechanic workflow."
+          : "Log in to create a saved diagnostic case and begin the AI mechanic workflow.";
+      els.messages.innerHTML = `<div class="empty-state chat-empty-state">${escapeHtml(emptyCopy)}</div>`;
+      return;
+    }
     els.messages.innerHTML = messages
       .map((message) => {
         const role = message.role === "user" ? "user" : "assistant";
         const alert = message.alert ? " alert" : "";
         const handoff = message.handoff ? " handoff" : "";
+        const system = message.systemMessage ? " system" : "";
         const avatar = role === "user" ? "You" : message.technicianReply ? "Tech" : assistantAvatarText();
         const name = message.name || (role === "user" ? "You" : message.technicianReply ? state.siteContent.technicianName : assistantName());
+        const modelMeta = message.model ? `${message.model}${message.outputTokens ? ` - ${message.outputTokens} output tokens` : ""}` : "";
         return `
-          <article class="message ${role}${alert}${handoff}">
+          <article class="message ${role}${alert}${handoff}${system}">
             <div class="avatar" aria-hidden="true">${escapeHtml(avatar)}</div>
             <div class="message-body">
               <div class="message-name">${escapeHtml(name)}</div>
               <div class="bubble">${escapeHtml(message.content)}</div>
+              ${modelMeta ? `<div class="message-model">${escapeHtml(modelMeta)}</div>` : ""}
               <div class="message-time">${formatTime(message.createdAt)}</div>
             </div>
           </article>
@@ -1321,14 +1797,29 @@
   }
 
   function renderVehicleDetails() {
-    const details = [
-      ["Year", state.vehicle.year || "Unknown"],
-      ["Make", state.vehicle.make || "Unknown"],
-      ["Model", state.vehicle.model || "Unknown"],
-      ["Mileage", state.vehicle.mileage || "Unknown"],
-      ["Area", state.vehicle.category || "Not tagged"],
-      ["Brief", currentConversation()?.brief ? "Saved" : "Pending"],
-    ];
+    const conversation = currentConversation();
+    const diagnostic = conversation?.caseData;
+    const details = diagnostic
+      ? [
+          ["Year", state.vehicle.year || "Unknown"],
+          ["Make", state.vehicle.make || "Unknown"],
+          ["Model", state.vehicle.model || "Unknown"],
+          ["Engine", state.vehicle.engine || "Unknown"],
+          ["Fuel", formatLabel(state.vehicle.fuelType || "Unknown")],
+          ["Gearbox", formatLabel(state.vehicle.gearbox || "Unknown")],
+          ["VIN", state.vehicle.vin || "Not supplied"],
+          ["ECU", state.vehicle.ecu || "Not supplied"],
+          ["DTC codes", diagnostic.dtc_codes?.length ? diagnostic.dtc_codes.join(", ") : "None supplied"],
+          ["Priority", formatLabel(diagnostic.priority || "normal")],
+        ]
+      : [
+          ["Year", state.vehicle.year || "Unknown"],
+          ["Make", state.vehicle.make || "Unknown"],
+          ["Model", state.vehicle.model || "Unknown"],
+          ["Mileage", state.vehicle.mileage || "Unknown"],
+          ["Area", state.vehicle.category || "Not tagged"],
+          ["Brief", conversation?.brief ? "Saved" : "Pending"],
+        ];
     els.vehicleDetails.innerHTML = details
       .map(
         ([label, value]) => `
@@ -1336,6 +1827,87 @@
             <span class="vehicle-label">${escapeHtml(label)}</span>
             <span class="vehicle-value">${escapeHtml(value)}</span>
           </div>
+        `
+      )
+      .join("");
+    if (els.caseStatusPill) {
+      els.caseStatusPill.textContent = diagnostic ? formatLabel(diagnostic.status || "active") : "Draft";
+      els.caseStatusPill.className = `case-status-pill ${diagnostic?.priority === "urgent" ? "urgent" : ""}`;
+    }
+  }
+
+  function renderPlanStatus() {
+    if (!els.planStrip) return;
+    els.planStrip.hidden = !state.supabaseUser;
+    if (!state.supabaseUser) return;
+    const entitlements = state.entitlements;
+    els.planBadge.textContent = formatLabel(entitlements.plan || "free");
+    els.planBadge.className = `plan-badge ${entitlements.plan || "free"}`;
+    if (entitlements.isDisabled) {
+      els.planUsageCopy.textContent = "Account disabled";
+      els.usageMeterFill.style.width = "100%";
+      return;
+    }
+    if (entitlements.aiMessagesDailyLimit === null) {
+      els.planUsageCopy.textContent = "Unlimited AI diagnostics";
+      els.usageMeterFill.style.width = "0%";
+      return;
+    }
+    const used = Number(entitlements.aiMessagesUsedToday || 0);
+    const limit = Number(entitlements.aiMessagesDailyLimit || 0);
+    els.planUsageCopy.textContent = `${used} of ${limit} AI messages used today`;
+    els.usageMeterFill.style.width = `${Math.min(100, limit ? (used / limit) * 100 : 0)}%`;
+  }
+
+  function renderUploads() {
+    if (!els.caseUploadsPanel) return;
+    const diagnostic = isDiagnosticCase();
+    els.caseUploadsPanel.hidden = !diagnostic;
+    if (!diagnostic) return;
+    if (!state.uploads.length) {
+      els.caseUploadList.innerHTML = `<div class="empty-state compact">No files uploaded to this case.</div>`;
+      return;
+    }
+    els.caseUploadList.innerHTML = state.uploads
+      .map(
+        (upload) => `
+          <article class="upload-row">
+            <i data-lucide="${uploadIcon(upload.upload_kind)}"></i>
+            <div>
+              <strong>${escapeHtml(upload.file_name || "Diagnostic file")}</strong>
+              <span>${escapeHtml(formatLabel(upload.upload_kind || "file"))} - ${escapeHtml(formatFileSize(upload.size_bytes))}</span>
+            </div>
+            ${upload.download_url ? `<a class="icon-link dark" href="${escapeAttr(upload.download_url)}" target="_blank" rel="noopener" title="Open file" aria-label="Open ${escapeAttr(upload.file_name || "file")}"><i data-lucide="external-link"></i></a>` : ""}
+          </article>
+        `
+      )
+      .join("");
+  }
+
+  function renderRecommendations() {
+    if (!els.recommendationsPanel) return;
+    const diagnostic = isDiagnosticCase();
+    els.recommendationsPanel.hidden = !diagnostic;
+    if (!diagnostic) return;
+    if (!state.recommendations.length) {
+      els.recommendationList.innerHTML = `<div class="empty-state compact">No tool rules match this case yet. The admin can add affiliate products and diagnostic-tool rules.</div>`;
+      return;
+    }
+    els.recommendationList.innerHTML = state.recommendations
+      .map(
+        (tool) => `
+          <article class="recommendation-row">
+            <div class="recommendation-icon"><i data-lucide="${toolIcon(tool.category)}"></i></div>
+            <div>
+              <strong>${escapeHtml(tool.name)}</strong>
+              <span>${escapeHtml(tool.description)}</span>
+              <small>${escapeHtml(tool.match_reason || "Relevant diagnostic tool")}</small>
+            </div>
+            <a class="secondary-button" href="${escapeAttr(tool.affiliate_url)}" target="_blank" rel="sponsored nofollow noopener">
+              <span>View tool</span>
+              <i data-lucide="external-link"></i>
+            </a>
+          </article>
         `
       )
       .join("");
@@ -1414,7 +1986,12 @@
 
   function renderAds() {
     const mounts = els.adMounts || [];
-    if (!state.settings.adsClient || !hasAnyAdSlot() || !canRenderAds()) {
+    const adsAllowed = canRenderAds();
+    mounts.forEach((mount) => {
+      mount.hidden = !adsAllowed;
+    });
+    if (!adsAllowed) return;
+    if (!state.settings.adsClient || !hasAnyAdSlot()) {
       mounts.forEach((mount) => {
         mount.innerHTML = "<span>Advertisement</span>";
       });
@@ -1616,6 +2193,36 @@
   function capitalize(value) {
     if (!value) return "";
     return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+  }
+
+  function formatLabel(value) {
+    return String(value || "")
+      .replaceAll("_", " ")
+      .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  }
+
+  function formatFileSize(value) {
+    const bytes = Number(value || 0);
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  }
+
+  function uploadIcon(kind) {
+    if (kind === "image") return "image";
+    if (kind === "pdf") return "file-text";
+    if (kind === "ecu_binary") return "binary";
+    if (kind === "obd_scan") return "scan-line";
+    return "file-code-2";
+  }
+
+  function toolIcon(category) {
+    if (category === "multimeter") return "gauge";
+    if (category === "repair_manual") return "book-open-check";
+    if (category === "smoke_tester") return "wind";
+    if (category === "vacuum_pump") return "circle-gauge";
+    if (category === "obd_scanner" || category === "scan_tool") return "scan-line";
+    return "wrench";
   }
 
   function escapeHtml(value) {

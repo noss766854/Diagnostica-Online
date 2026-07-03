@@ -30,6 +30,8 @@ export async function POST(request) {
     });
     const { data: userData, error: userError } = await supabase.auth.getUser(token);
     if (userError || !userData?.user) return json({ error: "User session could not be verified." }, 401);
+    const { data: profile } = await supabase.from("profiles").select("is_disabled,disabled_reason").eq("id", userData.user.id).maybeSingle();
+    if (profile?.is_disabled) return json({ error: profile.disabled_reason || "This account has been disabled." }, 403);
 
     const body = await request.json();
     const callType = body.callType === "voice" ? "voice" : body.callType === "video" ? "video" : "";
@@ -41,9 +43,10 @@ export async function POST(request) {
     const totalCents = Math.max(50, Math.round(hourlyRate * 100 * (durationMinutes / 60)));
     const totalUsd = Math.round(totalCents / 100);
     const conversationId = isUuid(body.conversationId) ? body.conversationId : null;
+    const diagnosticCaseId = isUuid(body.diagnosticCaseId) ? body.diagnosticCaseId : null;
     const scheduledStartAt = cleanIsoDate(body.scheduledStartAt);
     const siteUrl = siteOrigin(request);
-    const meetingUrl = meetingUrlFor(siteContent, callType, conversationId);
+    const meetingUrl = meetingUrlFor(siteContent, callType, diagnosticCaseId || conversationId);
 
     const session = await createStripeSession({
       stripeKey,
@@ -53,6 +56,7 @@ export async function POST(request) {
       hourlyRate,
       totalCents,
       conversationId,
+      diagnosticCaseId,
       userId: userData.user.id,
       customerEmail: userData.user.email || "",
       scheduledStartAt,
@@ -62,6 +66,7 @@ export async function POST(request) {
     await supabase.from("call_bookings").insert({
       owner_id: userData.user.id,
       conversation_id: conversationId,
+      diagnostic_case_id: diagnosticCaseId,
       call_type: callType,
       duration_minutes: durationMinutes,
       hourly_rate_usd: hourlyRate,
@@ -79,7 +84,7 @@ export async function POST(request) {
   }
 }
 
-async function createStripeSession({ stripeKey, siteUrl, callType, durationMinutes, hourlyRate, totalCents, conversationId, userId, customerEmail, scheduledStartAt, meetingUrl }) {
+async function createStripeSession({ stripeKey, siteUrl, callType, durationMinutes, hourlyRate, totalCents, conversationId, diagnosticCaseId, userId, customerEmail, scheduledStartAt, meetingUrl }) {
   const params = new URLSearchParams();
   params.set("mode", "payment");
   params.set("success_url", `${siteUrl}/?checkout=success&call=${encodeURIComponent(callType)}`);
@@ -88,6 +93,7 @@ async function createStripeSession({ stripeKey, siteUrl, callType, durationMinut
   params.set("metadata[callType]", callType);
   params.set("metadata[durationMinutes]", String(durationMinutes));
   params.set("metadata[conversationId]", conversationId || "");
+  params.set("metadata[diagnosticCaseId]", diagnosticCaseId || "");
   params.set("metadata[userId]", userId);
   params.set("metadata[scheduledStartAt]", scheduledStartAt || "");
   params.set("metadata[meetingUrl]", meetingUrl);

@@ -60,20 +60,21 @@
     consentAcceptText: "Accept ads",
     consentRejectText: "Essential only",
     termsText:
-      "DiagnosticaOnline provides remote automotive information, AI intake, saved case notes, free text chat when available, and paid voice or video consulting. Remote advice is informational and does not replace an in-person inspection, repair estimate, recall check, or safety inspection. Users are responsible for deciding whether a vehicle is safe to operate.",
+      "DiagnosticaOnline provides AI-assisted automotive diagnostics, saved cases, file storage, free text chat when available, and optional paid voice or video consulting. Guidance is informational, may be incomplete, and does not replace an in-person inspection, factory service information, recall check, repair estimate, or safety inspection. You must have lawful authority to diagnose or modify the vehicle and remain responsible for safe tools, lifting, isolation, protective equipment, and deciding whether the vehicle can be operated.",
     privacyText:
-      "We collect account information, saved conversations, vehicle details you provide, booking records, and technical data needed to run the service. We use this data to provide mechanic consulting, save cases, send account and booking emails, improve the service, and protect against abuse. Configure your final privacy policy with your legal entity, address, analytics, ad partners, and data retention requirements before launch.",
+      "We collect account details; vehicle information such as VIN or ECU identifiers when supplied; symptoms, DTCs, messages, uploads, AI usage and token estimates; booking/payment identifiers; and technical security logs. We use this data to provide and secure the service, enforce plan limits, send account or booking emails, and improve diagnostics. Data may be processed by Supabase, the configured AI provider, Resend, Stripe, Jitsi, and, after consent on free plans, Google AdSense. Contact the listed support address for access or deletion requests, subject to legal and fraud-prevention retention duties.",
     cookieText:
-      "We use local storage for login state, saved draft conversations, consent choices, and site preferences. Advertising partners such as Google AdSense may use cookies or similar technologies when ads are enabled and allowed by consent settings.",
+      "We use essential browser storage for login state, saved drafts, consent choices, and site preferences. Advertising is disabled for premium and admin plans. On free plans, Google AdSense may use cookies or similar technologies only after ad consent is accepted. Choosing Essential only keeps ad storage and personalized ad loading disabled.",
     refundText:
       "Free text chat is not charged. Paid voice or video calls are charged based on the selected duration and rate shown at checkout. Add your final refund, cancellation, no-show, and rescheduling rules in admin before accepting production payments.",
     disclaimerText:
-      "AI intake and remote mechanic consulting are not emergency services and cannot guarantee diagnosis or repair. If there is smoke, fire risk, fuel smell, brake loss, steering loss, severe overheating, or any immediate safety concern, stop driving and seek local professional or emergency assistance.",
+      "AI intake and remote consulting are not emergency services and cannot guarantee a diagnosis or repair. Vehicle work can involve fire, fuel, toxic chemicals, high voltage, moving components, stored pressure, air bags, and crushing hazards. Stop driving and seek qualified local help for smoke, fire risk, fuel leaks, brake or steering loss, severe overheating, oil-pressure warnings, or other immediate danger. ECU, immobilizer, and emissions laws vary by location. DiagnosticaOnline refuses emissions defeat, immobilizer bypass without lawful ownership procedures, odometer fraud, theft enablement, and unsafe bypass instructions, while allowing lawful diagnostics, repair, and restoration of original or factory software.",
     geminiEndpoint: DEFAULT_SETTINGS.geminiEndpoint,
     geminiModel: DEFAULT_SETTINGS.geminiModel,
     adsClient: DEFAULT_SETTINGS.adsClient,
     adsSlot: DEFAULT_SETTINGS.adsSlot,
     adSlots: {
+      topBanner: "",
       leftTop: "",
       leftUpper: "",
       leftMiddle: "",
@@ -87,6 +88,7 @@
       inlineOne: "",
       inlineTwo: "",
       mobileChat: "",
+      bottomBanner: "",
     },
     checkoutUrl: DEFAULT_SETTINGS.checkoutUrl,
     jitsiDomain: DEFAULT_SETTINGS.jitsiDomain,
@@ -99,6 +101,15 @@
     supabase: null,
     user: null,
     profile: null,
+    platform: {
+      profiles: [],
+      plans: [],
+      cases: [],
+      uploads: [],
+      usage: [],
+      usageSummary: {},
+      tools: [],
+    },
   };
 
   if (document.readyState === "loading") {
@@ -136,6 +147,24 @@
       "adminReadyCases",
       "adminConversations",
       "adminBookings",
+      "platformUsageStats",
+      "platformUsageByUser",
+      "platformCases",
+      "platformUploads",
+      "recommendedToolForm",
+      "recommendedToolId",
+      "recommendedToolName",
+      "recommendedToolCategory",
+      "recommendedToolDescription",
+      "recommendedToolUrl",
+      "recommendedToolTags",
+      "recommendedToolDtc",
+      "recommendedToolPriority",
+      "recommendedToolActive",
+      "recommendedToolMessage",
+      "resetRecommendedToolBtn",
+      "saveRecommendedToolBtn",
+      "recommendedTools",
       "siteContentForm",
       "assistantNameInput",
       "assistantAvatarTextInput",
@@ -166,6 +195,7 @@
       "geminiModelInput",
       "adsClientInput",
       "adsSlotInput",
+      "adSlotTopBannerInput",
       "adSlotLeftTopInput",
       "adSlotLeftUpperInput",
       "adSlotLeftMiddleInput",
@@ -179,6 +209,7 @@
       "adSlotInlineOneInput",
       "adSlotInlineTwoInput",
       "adSlotMobileChatInput",
+      "adSlotBottomBannerInput",
       "checkoutUrlInput",
       "jitsiDomainInput",
       "videoRateUsdInput",
@@ -208,6 +239,8 @@
     els.adminLogoutBtn.addEventListener("click", logout);
     els.refreshAdminBtn.addEventListener("click", verifyAdminAndLoad);
     els.siteContentForm.addEventListener("submit", saveSiteContent);
+    els.recommendedToolForm.addEventListener("submit", saveRecommendedTool);
+    els.resetRecommendedToolBtn.addEventListener("click", resetRecommendedToolForm);
   }
 
   async function connectSupabase() {
@@ -254,6 +287,7 @@
     await loadSiteContent();
     await loadConfigStatus();
     await loadDashboard();
+    if (isAdmin) await loadPlatformDashboard();
   }
 
   async function loadConfigStatus() {
@@ -338,6 +372,361 @@
     createIcons();
   }
 
+  async function loadPlatformDashboard() {
+    setPlatformLoading();
+    try {
+      const data = await adminPlatformRequest("/api/admin/platform");
+      state.platform = data;
+      renderPlatformUsage(data);
+      renderPlatformUsers(data.profiles || [], data.plans || []);
+      renderPlatformCases(data.cases || [], data.profiles || []);
+      renderPlatformUploads(data.uploads || [], data.cases || [], data.profiles || []);
+      renderRecommendedTools(data.tools || []);
+      els.adminStats.insertAdjacentHTML(
+        "beforeend",
+        `<div class="stat-card"><span>Structured cases</span><strong>${escapeHtml((data.cases || []).length)}</strong></div>`
+      );
+      bindPlatformUserForms();
+      bindPlatformCaseForms();
+      bindRecommendedToolActions();
+      createIcons();
+    } catch (error) {
+      const message = escapeHtml(error.message || "Platform data is unavailable. Run the latest Supabase schema.");
+      [els.platformUsageStats, els.platformUsageByUser, els.platformCases, els.platformUploads, els.recommendedTools].forEach((element) => {
+        if (element) element.innerHTML = `<div class="empty-state">${message}</div>`;
+      });
+    }
+  }
+
+  function setPlatformLoading() {
+    [els.platformUsageStats, els.platformUsageByUser, els.platformCases, els.platformUploads, els.recommendedTools].forEach((element) => {
+      if (element) element.innerHTML = `<div class="empty-state">Loading platform data...</div>`;
+    });
+  }
+
+  function renderPlatformUsage(data) {
+    const summary = data.usageSummary || {};
+    els.platformUsageStats.innerHTML = [
+      ["AI messages", summary.aiMessages || 0],
+      ["Input tokens", formatNumber(summary.inputTokens || 0)],
+      ["Output tokens", formatNumber(summary.outputTokens || 0)],
+      ["Estimated AI cost", `$${Number(summary.estimatedCostUsd || 0).toFixed(4)}`],
+      ["Uploads", summary.uploads || 0],
+      ["Cases created", summary.casesCreated || 0],
+    ]
+      .map(([label, value]) => `<div class="stat-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`)
+      .join("");
+
+    const profiles = new Map((data.profiles || []).map((profile) => [profile.id, profile]));
+    const grouped = new Map();
+    (data.usage || [])
+      .filter((event) => event.event_type === "ai_message")
+      .forEach((event) => {
+        const current = grouped.get(event.user_id) || { messages: 0, input: 0, output: 0, cost: 0, models: new Set() };
+        current.messages += 1;
+        current.input += Number(event.input_tokens || 0);
+        current.output += Number(event.output_tokens || 0);
+        current.cost += Number(event.estimated_cost_usd || 0);
+        if (event.model) current.models.add(event.model);
+        grouped.set(event.user_id, current);
+      });
+    const rows = Array.from(grouped.entries()).sort((a, b) => b[1].messages - a[1].messages);
+    els.platformUsageByUser.innerHTML = rows.length
+      ? rows
+          .slice(0, 50)
+          .map(([userId, usage]) => {
+            const profile = profiles.get(userId) || {};
+            return `
+              <div class="admin-row usage-row">
+                <span><strong>${escapeHtml(profile.email || userId)}</strong><small>${escapeHtml(Array.from(usage.models).join(", ") || "No model")}</small></span>
+                <span>${escapeHtml(`${usage.messages} messages`)}</span>
+                <span>${escapeHtml(`${formatNumber(usage.input + usage.output)} tokens`)}</span>
+                <span>${escapeHtml(`$${usage.cost.toFixed(4)}`)}</span>
+              </div>
+            `;
+          })
+          .join("")
+      : `<div class="empty-state">No AI usage recorded in the last 30 days.</div>`;
+  }
+
+  function renderPlatformUsers(profiles, plans) {
+    const planMap = new Map(plans.map((plan) => [plan.user_id, plan]));
+    els.adminUsers.innerHTML = profiles.length
+      ? profiles
+          .map((profile) => {
+            const plan = planMap.get(profile.id) || { plan_tier: profile.role === "admin" ? "admin" : "free", status: "active" };
+            return `
+              <form class="admin-row platform-user-form" data-user-id="${escapeAttr(profile.id)}">
+                <span>
+                  <strong>${escapeHtml(profile.email || "No email")}</strong>
+                  <small>${escapeHtml(profile.display_name || profile.id)}</small>
+                </span>
+                <select name="role" aria-label="Role for ${escapeAttr(profile.email || profile.id)}">
+                  ${workflowOption("customer", "Customer", profile.role)}
+                  ${workflowOption("mechanic", "Mechanic", profile.role)}
+                  ${workflowOption("admin", "Admin", profile.role)}
+                </select>
+                <select name="planTier" aria-label="Plan for ${escapeAttr(profile.email || profile.id)}">
+                  ${workflowOption("free", "Free", plan.plan_tier)}
+                  ${workflowOption("premium", "Premium", plan.plan_tier)}
+                  ${workflowOption("admin", "Admin", plan.plan_tier)}
+                </select>
+                <select name="planStatus" aria-label="Plan status for ${escapeAttr(profile.email || profile.id)}">
+                  ${workflowOption("active", "Active", plan.status)}
+                  ${workflowOption("trialing", "Trialing", plan.status)}
+                  ${workflowOption("past_due", "Past due", plan.status)}
+                  ${workflowOption("canceled", "Canceled", plan.status)}
+                </select>
+                <label class="disable-control">
+                  <input name="isDisabled" type="checkbox" ${profile.is_disabled ? "checked" : ""} />
+                  <span>Disabled</span>
+                </label>
+                <input name="disabledReason" type="text" maxlength="500" value="${escapeAttr(profile.disabled_reason || "")}" placeholder="Reason" />
+                <button class="secondary-button" type="submit"><i data-lucide="save"></i><span>Save</span></button>
+              </form>
+            `;
+          })
+          .join("")
+      : `<div class="empty-state">No users found.</div>`;
+  }
+
+  function renderPlatformCases(cases, profiles) {
+    const mechanics = profiles.filter((profile) => ["admin", "mechanic"].includes(profile.role));
+    els.platformCases.innerHTML = cases.length
+      ? cases
+          .map((diagnosticCase) => {
+            const vehicle = diagnosticCase.vehicle || {};
+            return `
+              <details class="admin-row platform-case-row ${diagnosticCase.priority === "urgent" ? "case-urgent" : ""}">
+                <summary>
+                  <span>
+                    <strong>${escapeHtml(diagnosticCase.title)}</strong>
+                    <small>${escapeHtml(`${formatLabel(diagnosticCase.status)} - ${vehicle.year || ""} ${vehicle.make || ""} ${vehicle.model || ""} - ${formatDate(diagnosticCase.updated_at)}`)}</small>
+                  </span>
+                  <span>${escapeHtml((diagnosticCase.dtc_codes || []).join(", ") || "No DTCs")}</span>
+                </summary>
+                <div class="case-detail-grid">
+                  <div><span class="vehicle-label">Vehicle</span><span class="vehicle-value dark">${escapeHtml(`${vehicle.year || ""} ${vehicle.make || ""} ${vehicle.model || ""} - ${vehicle.engine || "Unknown engine"}`)}</span></div>
+                  <div><span class="vehicle-label">Symptoms</span><span class="vehicle-value dark">${escapeHtml(diagnosticCase.symptoms || "None")}</span></div>
+                  <div><span class="vehicle-label">Previous work</span><span class="vehicle-value dark">${escapeHtml(diagnosticCase.previous_work || "None")}</span></div>
+                  <div><span class="vehicle-label">Owner ID</span><span class="vehicle-value dark">${escapeHtml(diagnosticCase.owner_id)}</span></div>
+                </div>
+                <form class="platform-case-form" data-case-id="${escapeAttr(diagnosticCase.id)}">
+                  <label><span>Status</span><select name="status">
+                    ${workflowOption("active", "Active", diagnosticCase.status)}
+                    ${workflowOption("waiting_for_mechanic", "Waiting for mechanic", diagnosticCase.status)}
+                    ${workflowOption("assigned", "Assigned", diagnosticCase.status)}
+                    ${workflowOption("resolved", "Resolved", diagnosticCase.status)}
+                    ${workflowOption("archived", "Archived", diagnosticCase.status)}
+                  </select></label>
+                  <label><span>Priority</span><select name="priority">
+                    ${workflowOption("low", "Low", diagnosticCase.priority)}
+                    ${workflowOption("normal", "Normal", diagnosticCase.priority)}
+                    ${workflowOption("urgent", "Urgent", diagnosticCase.priority)}
+                  </select></label>
+                  <label><span>Assigned mechanic</span><select name="assignedMechanicId">
+                    <option value="">Unassigned</option>
+                    ${mechanics.map((profile) => workflowOption(profile.id, profile.display_name || profile.email || "Mechanic", diagnosticCase.assigned_mechanic_id || "")).join("")}
+                  </select></label>
+                  <label class="platform-case-reply"><span>Mechanic reply</span><textarea name="reply" rows="3" maxlength="5000" placeholder="Reply to this case without exposing internal notes..."></textarea></label>
+                  <button class="solid-button" type="submit"><i data-lucide="send-horizontal"></i><span>Update case</span></button>
+                </form>
+              </details>
+            `;
+          })
+          .join("")
+      : `<div class="empty-state">No structured diagnostic cases yet.</div>`;
+  }
+
+  function renderPlatformUploads(uploads, cases, profiles) {
+    const caseMap = new Map(cases.map((item) => [item.id, item]));
+    const profileMap = new Map(profiles.map((item) => [item.id, item]));
+    els.platformUploads.innerHTML = uploads.length
+      ? uploads
+          .map((upload) => {
+            const diagnosticCase = caseMap.get(upload.case_id) || {};
+            const profile = profileMap.get(upload.owner_id) || {};
+            return `
+              <div class="admin-row upload-admin-row">
+                <span><strong>${escapeHtml(upload.file_name)}</strong><small>${escapeHtml(formatLabel(upload.upload_kind))} - ${escapeHtml(formatFileSize(upload.size_bytes))}</small></span>
+                <span>${escapeHtml(diagnosticCase.title || upload.case_id)}</span>
+                <span>${escapeHtml(profile.email || upload.owner_id)}</span>
+                <span>${escapeHtml(`${formatLabel(upload.analysis_status)} - ${formatDate(upload.created_at)}`)}</span>
+              </div>
+            `;
+          })
+          .join("")
+      : `<div class="empty-state">No diagnostic uploads yet.</div>`;
+  }
+
+  function renderRecommendedTools(tools) {
+    els.recommendedTools.innerHTML = tools.length
+      ? tools
+          .map(
+            (tool) => `
+              <div class="admin-row recommended-tool-row ${tool.active ? "" : "disabled-row"}">
+                <span><strong>${escapeHtml(tool.name)}</strong><small>${escapeHtml(formatLabel(tool.category))}</small></span>
+                <span>${escapeHtml((tool.rule_tags || []).join(", ") || "No tags")}</span>
+                <span>${escapeHtml((tool.dtc_prefixes || []).join(", ") || "No DTC prefixes")}</span>
+                <span>${tool.active ? "Active" : "Disabled"}</span>
+                <button class="secondary-button edit-tool-button" type="button" data-tool-id="${escapeAttr(tool.id)}"><i data-lucide="pencil"></i><span>Edit</span></button>
+                ${tool.active ? `<button class="icon-link dark disable-tool-button" type="button" data-tool-id="${escapeAttr(tool.id)}" title="Disable tool" aria-label="Disable ${escapeAttr(tool.name)}"><i data-lucide="circle-off"></i></button>` : ""}
+              </div>
+            `
+          )
+          .join("")
+      : `<div class="empty-state">No affiliate tools configured. Add one above to enable rule-based recommendations.</div>`;
+  }
+
+  function bindPlatformUserForms() {
+    Array.from(document.querySelectorAll(".platform-user-form")).forEach((form) => form.addEventListener("submit", updatePlatformUser));
+  }
+
+  function bindPlatformCaseForms() {
+    Array.from(document.querySelectorAll(".platform-case-form")).forEach((form) => form.addEventListener("submit", updatePlatformCase));
+  }
+
+  function bindRecommendedToolActions() {
+    Array.from(document.querySelectorAll(".edit-tool-button")).forEach((button) => button.addEventListener("click", editRecommendedTool));
+    Array.from(document.querySelectorAll(".disable-tool-button")).forEach((button) => button.addEventListener("click", disableRecommendedTool));
+  }
+
+  async function updatePlatformUser(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = form.querySelector("button[type='submit']");
+    button.disabled = true;
+    try {
+      await adminPlatformRequest("/api/admin/platform", {
+        method: "PATCH",
+        body: JSON.stringify({
+          action: "update_user",
+          userId: form.dataset.userId,
+          role: form.elements.role.value,
+          planTier: form.elements.planTier.value,
+          planStatus: form.elements.planStatus.value,
+          isDisabled: form.elements.isDisabled.checked,
+          disabledReason: form.elements.disabledReason.value.trim(),
+        }),
+      });
+      await loadPlatformDashboard();
+    } catch (error) {
+      reportFormError(form, error.message || "The user could not be updated.");
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function updatePlatformCase(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = form.querySelector("button[type='submit']");
+    button.disabled = true;
+    try {
+      await adminPlatformRequest("/api/admin/platform", {
+        method: "PATCH",
+        body: JSON.stringify({
+          action: "update_case",
+          caseId: form.dataset.caseId,
+          status: form.elements.status.value,
+          priority: form.elements.priority.value,
+          assignedMechanicId: form.elements.assignedMechanicId.value || null,
+          reply: form.elements.reply.value.trim(),
+        }),
+      });
+      await loadPlatformDashboard();
+    } catch (error) {
+      reportFormError(form, error.message || "The diagnostic case could not be updated.");
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function saveRecommendedTool(event) {
+    event.preventDefault();
+    els.saveRecommendedToolBtn.disabled = true;
+    els.recommendedToolMessage.textContent = "Saving tool...";
+    try {
+      await adminPlatformRequest("/api/admin/platform", {
+        method: "PATCH",
+        body: JSON.stringify({
+          action: "upsert_tool",
+          toolId: els.recommendedToolId.value || undefined,
+          name: els.recommendedToolName.value.trim(),
+          category: els.recommendedToolCategory.value,
+          description: els.recommendedToolDescription.value.trim(),
+          affiliateUrl: els.recommendedToolUrl.value.trim(),
+          imageUrl: "",
+          ruleTags: commaList(els.recommendedToolTags.value),
+          dtcPrefixes: commaList(els.recommendedToolDtc.value).map((value) => value.toUpperCase()),
+          priority: Number(els.recommendedToolPriority.value || 100),
+          active: els.recommendedToolActive.value === "true",
+        }),
+      });
+      resetRecommendedToolForm();
+      els.recommendedToolMessage.textContent = "Tool saved.";
+      await loadPlatformDashboard();
+    } catch (error) {
+      els.recommendedToolMessage.textContent = error.message || "The recommended tool could not be saved.";
+    } finally {
+      els.saveRecommendedToolBtn.disabled = false;
+    }
+  }
+
+  function editRecommendedTool(event) {
+    const tool = (state.platform.tools || []).find((item) => item.id === event.currentTarget.dataset.toolId);
+    if (!tool) return;
+    els.recommendedToolId.value = tool.id;
+    els.recommendedToolName.value = tool.name || "";
+    els.recommendedToolCategory.value = tool.category || "other";
+    els.recommendedToolDescription.value = tool.description || "";
+    els.recommendedToolUrl.value = tool.affiliate_url || "";
+    els.recommendedToolTags.value = (tool.rule_tags || []).join(", ");
+    els.recommendedToolDtc.value = (tool.dtc_prefixes || []).join(", ");
+    els.recommendedToolPriority.value = tool.priority || 100;
+    els.recommendedToolActive.value = String(tool.active !== false);
+    els.recommendedToolMessage.textContent = `Editing ${tool.name}`;
+    els.recommendedToolName.focus();
+  }
+
+  async function disableRecommendedTool(event) {
+    const toolId = event.currentTarget.dataset.toolId;
+    try {
+      await adminPlatformRequest("/api/admin/platform", {
+        method: "PATCH",
+        body: JSON.stringify({ action: "disable_tool", toolId }),
+      });
+      await loadPlatformDashboard();
+    } catch (error) {
+      els.recommendedToolMessage.textContent = error.message || "The tool could not be disabled.";
+    }
+  }
+
+  function resetRecommendedToolForm() {
+    els.recommendedToolForm.reset();
+    els.recommendedToolId.value = "";
+    els.recommendedToolPriority.value = "100";
+    els.recommendedToolActive.value = "true";
+    els.recommendedToolMessage.textContent = "";
+  }
+
+  async function adminPlatformRequest(url, options = {}) {
+    const { data } = await state.supabase.auth.getSession();
+    const token = data?.session?.access_token;
+    if (!token) throw new Error("Admin login is required.");
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...(options.headers || {}),
+      },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "The admin request failed.");
+    return payload;
+  }
+
   async function loadSiteContent() {
     state.siteContent = { ...DEFAULT_SITE_CONTENT };
     try {
@@ -391,6 +780,7 @@
       adsClient: els.adsClientInput.value,
       adsSlot: els.adsSlotInput.value,
       adSlots: {
+        topBanner: els.adSlotTopBannerInput.value,
         leftTop: els.adSlotLeftTopInput.value,
         leftUpper: els.adSlotLeftUpperInput.value,
         leftMiddle: els.adSlotLeftMiddleInput.value,
@@ -404,6 +794,7 @@
         inlineOne: els.adSlotInlineOneInput.value,
         inlineTwo: els.adSlotInlineTwoInput.value,
         mobileChat: els.adSlotMobileChatInput.value,
+        bottomBanner: els.adSlotBottomBannerInput.value,
       },
       checkoutUrl: els.checkoutUrlInput.value,
       jitsiDomain: els.jitsiDomainInput.value,
@@ -477,6 +868,7 @@
     els.geminiModelInput.value = content.geminiModel;
     els.adsClientInput.value = content.adsClient;
     els.adsSlotInput.value = content.adsSlot;
+    els.adSlotTopBannerInput.value = content.adSlots.topBanner || "";
     els.adSlotLeftTopInput.value = content.adSlots.leftTop || "";
     els.adSlotLeftUpperInput.value = content.adSlots.leftUpper || "";
     els.adSlotLeftMiddleInput.value = content.adSlots.leftMiddle || "";
@@ -490,6 +882,7 @@
     els.adSlotInlineOneInput.value = content.adSlots.inlineOne || "";
     els.adSlotInlineTwoInput.value = content.adSlots.inlineTwo || "";
     els.adSlotMobileChatInput.value = content.adSlots.mobileChat || "";
+    els.adSlotBottomBannerInput.value = content.adSlots.bottomBanner || "";
     els.checkoutUrlInput.value = content.checkoutUrl;
     els.jitsiDomainInput.value = content.jitsiDomain;
     els.videoRateUsdInput.value = content.videoRateUsd;
@@ -617,6 +1010,7 @@
   function cleanAdSlots(value) {
     const slots = value && typeof value === "object" ? value : {};
     return {
+      topBanner: cleanAdSlot(slots.topBanner),
       leftTop: cleanAdSlot(slots.leftTop),
       leftUpper: cleanAdSlot(slots.leftUpper),
       leftMiddle: cleanAdSlot(slots.leftMiddle),
@@ -630,6 +1024,7 @@
       inlineOne: cleanAdSlot(slots.inlineOne),
       inlineTwo: cleanAdSlot(slots.inlineTwo),
       mobileChat: cleanAdSlot(slots.mobileChat),
+      bottomBanner: cleanAdSlot(slots.bottomBanner),
     };
   }
 
@@ -1083,6 +1478,34 @@
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
+  }
+
+  function formatLabel(value) {
+    return String(value || "")
+      .replaceAll("_", " ")
+      .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  }
+
+  function formatNumber(value) {
+    return new Intl.NumberFormat().format(Number(value || 0));
+  }
+
+  function formatFileSize(value) {
+    const bytes = Number(value || 0);
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  }
+
+  function commaList(value) {
+    return Array.from(
+      new Set(
+        String(value || "")
+          .split(/[,;]+/)
+          .map((item) => item.trim())
+          .filter(Boolean)
+      )
+    );
   }
 
   function escapeAttr(value) {

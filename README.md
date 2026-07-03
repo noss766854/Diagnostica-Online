@@ -1,55 +1,115 @@
 # DiagnosticaOnline
 
-A mechanic-consulting web app with AI intake, Supabase login, saved conversations, side and mobile ad slots, free technician text chat, paid live-call upgrades, and an admin dashboard.
+DiagnosticaOnline is a Next.js mechanic-diagnostic platform with structured vehicle cases, normalized AI messages, private diagnostic uploads, Supabase authentication and RLS, free/premium/admin limits, rule-based affiliate recommendations, consent-aware ads, and a protected operations dashboard.
 
-## Run
+The current automotive helpdesk design and legacy conversation tables remain available for compatibility. New cases use the normalized diagnostic platform.
 
-Run it as a Next.js app:
+## Local development
 
 ```bash
-npm install
-npm run dev
+pnpm install
+Copy-Item .env.example .env.local
+pnpm dev
 ```
 
-The app works in demo mode with local conversation storage.
+Open [http://localhost:3000](http://localhost:3000). Use `pnpm typecheck` for strict TypeScript validation and `pnpm build` for the production build.
 
-## Vercel
+## Supabase setup
 
-- Framework preset: `Next.js`
-- Build command: `next build`
-- Output directory: leave empty
-- Environment variables:
-  - `GEMINI_API_KEY`
-  - `SUPABASE_URL`
-  - `NEXT_PUBLIC_SUPABASE_URL`
-  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-  - `SUPABASE_SERVICE_ROLE_KEY`
-  - `RESEND_API_KEY`
-  - `STRIPE_SECRET_KEY`
-  - `PUBLIC_SITE_URL` or `NEXT_PUBLIC_SITE_URL`
-  - Optional: `GEMINI_MODEL`
+1. Create or open the Supabase project.
+2. Open **SQL Editor**.
+3. Paste the complete contents of `supabase-schema.sql` and run it. Do not type the filename into SQL Editor.
+4. Confirm that the private `diagnostic-uploads` Storage bucket exists.
+5. Enable email/password authentication.
+6. Add the production site URL and `/verify` callback to Supabase Auth URL Configuration.
+7. Create `admin@diagnostica-online.com`, then confirm its profile has role `admin`. The migration also promotes that email and sets its plan to `admin`.
 
-## Integrations
+The migration is additive and repeatable. It preserves the existing `conversations`, `call_bookings`, `site_settings`, and admin audit data.
 
-- Supabase: run `supabase-schema.sql`, enable email/password Auth, then set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in Vercel. For local/static testing, you can still add the URL and anon key in `config.js`.
-- Admin: use the normal site Login button with username `MechanicAdmin`. In Supabase Auth, create the mapped email user `admin@diagnostica-online.com`, set the admin password there, then promote it once in the SQL editor:
-  `update public.profiles set role = 'admin' where email = 'admin@diagnostica-online.com';`
-- Admin content: the public site hides admin controls from logged-out users and non-admin customers. Admin users see an Admin dashboard button, but they can still browse the customer site normally. In `/admin`, admins can review ready customer cases, past conversations, bookings, users/mechanics, production configuration status, Gemini handoff copy, technician details, verification email sender/copy, support and staff notification emails, AdSense client/placement slots, checkout URL, Jitsi domain, paid-call rates, duration options, consent copy, and legal-page copy. These editable values are stored in `site_settings`.
-- Gemini: set `GEMINI_API_KEY` in Vercel project environment variables. The Next.js route `/api/gemini` calls Gemini from the server, so the browser never stores the Gemini key.
-- Custom verification email: set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, and `PUBLIC_SITE_URL` in Vercel. The signup form calls `/api/auth/signup`, Supabase generates the verification link, and Resend sends your branded email. Add and verify the sender domain in Resend first, then edit the sender name/address in `/admin`.
-- Supabase Auth URLs: add your production URL and `/verify` URL to Supabase Auth URL Configuration so confirmation links can return to the website.
-- Google ads: keep the AdSense client ID as your publisher ID, such as `ca-pub-6817388263556075`. For the visible ad boxes, open each existing AdSense ad unit, copy the number from `data-ad-slot="1234567890"`, and paste it into the matching placement field in `/admin`. The app also accepts `pub-...` and normalizes it to `ca-pub-...` when saved. The default slot is a fallback for any placement left blank. The app renders five left rail slots, five right rail slots, two inline slots, and one mobile typing-area slot; AdSense only serves on approved domains.
-- AdSense ownership: the default publisher ID is `ca-pub-6817388263556075`, and the verification script is rendered in the site `<head>`. You can still override the client ID in Vercel with `NEXT_PUBLIC_ADSENSE_CLIENT` or in `/admin`.
-- Legal pages: `/legal` displays operator/contact, terms, privacy, cookie/ad, refund, and service-disclaimer sections. Edit those sections in `/admin` before launch. Even if you are operating as an individual instead of a company, list the operator/contact email you want customers to use and have the text reviewed for your location.
-- Technician text chat: customers can start a free technician text chat from the main upgrade panel. Admins can reply from `/admin`, and those replies show in the customer's saved conversation. The `/api/notifications` route can email the staff notification address when free text chat starts.
-- Paid calls: `/api/checkout` creates Stripe Checkout sessions from the server. Keep the checkout URL set to `/api/checkout`, set `STRIPE_SECRET_KEY` and `PUBLIC_SITE_URL` in Vercel, then edit video/voice rates and duration options in `/admin`. The browser never decides the final price; the server recalculates it from admin settings.
-- Call rooms: the app creates Jitsi room links for paid bookings and demo mode. Replace this with your preferred video provider when you have mechanic scheduling.
+## Environment variables
 
-## Security notes
+Use `.env.example` locally and add the equivalent values in Vercel.
 
-- The admin password is not stored in this repo. Supabase Auth verifies it.
-- The Supabase service role key and Resend API key must stay in Vercel environment variables only. Do not put them in `config.js` or browser storage.
-- Private server keys such as `GEMINI_API_KEY`, `RESEND_API_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` stay in Vercel, not in the admin dashboard.
-- Stripe and other payment secrets also stay in Vercel, not in browser storage or `site_settings`.
-- `/admin` shows whether those private keys are configured, but it never displays their values.
-- Database access uses Supabase query APIs and row-level security policies instead of building raw SQL from user input.
+Public values:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `NEXT_PUBLIC_SITE_URL`
+- `NEXT_PUBLIC_ADSENSE_CLIENT`
+- `NEXT_PUBLIC_ADSENSE_SLOT`
+- `NEXT_PUBLIC_JITSI_DOMAIN`
+- `NEXT_PUBLIC_CHECKOUT_URL`
+- `NEXT_PUBLIC_GEMINI_MODEL`
+
+Server-only secrets:
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `GEMINI_API_KEY`
+- `OPENAI_API_KEY` when `AI_PROVIDER=openai`
+- `RESEND_API_KEY`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET` for future payment-status synchronization
+
+Platform configuration:
+
+- `AI_PROVIDER=gemini` or `openai`
+- `GEMINI_MODEL`
+- `GEMINI_API_BASE_URL`
+- `OPENAI_MODEL`
+- `MAX_DIAGNOSTIC_UPLOAD_MB`
+- `FREE_AI_MESSAGES_PER_DAY`
+- `PREMIUM_AI_MESSAGES_PER_DAY`
+- `AI_INPUT_COST_PER_MILLION`
+- `AI_OUTPUT_COST_PER_MILLION`
+- `PUBLIC_SITE_URL`
+
+Never put the service-role, Gemini, OpenAI, Resend, or Stripe secret keys in browser settings or `site_settings`.
+
+## Plans and limits
+
+- **Free:** 5 AI messages per UTC day, 3 active cases, ads after consent.
+- **Premium:** 100 AI messages per UTC day, 25 active cases, no ads.
+- **Admin:** unlimited cases/messages and no ads.
+
+API checks enforce AI limits. A database trigger enforces active-case limits. The `claim_ai_message` function uses a transaction lock so concurrent requests cannot exceed the daily allowance.
+
+## Diagnostic uploads
+
+Supported uploads include images, PDF reports, TXT/CSV logs, OBD/VCDS/ODIS text scans, and recognized ECU binary formats. Files upload directly from the browser to a private Supabase bucket using short-lived signed upload tokens; Vercel does not proxy the file body.
+
+ECU binaries are stored and marked unsupported for analysis. They are never presented to the AI as inspected content.
+
+## Admin dashboard
+
+`/admin` supports:
+
+- user roles, plan tiers/statuses, and abusive-account disabling
+- structured diagnostic case queue, assignment, priority, status, and mechanic replies
+- upload metadata review
+- 30-day AI message, model, token, and estimated-cost reporting
+- affiliate tool creation, editing, rule tags, DTC prefixes, priority, and disabling
+- existing conversation, booking, email, AI, ads, call, consent, and legal settings
+- Vercel environment-configuration status without exposing secret values
+
+## Ads and consent
+
+Ad mounts are reusable through `data-ad-slot` and include top banner, side rails, inline, mobile typing-area, and bottom banner placements. AdSense is loaded only when ad consent is accepted and the current account is on the free plan. Premium and admin accounts do not load ad slots or the AdSense script.
+
+## Security and safety
+
+- Supabase Auth validates sessions; server routes never trust a browser-supplied user ID.
+- RLS protects vehicles, cases, messages, uploads, plans, usage, tools, legacy conversations, and Storage objects.
+- Upload types, sizes, ownership paths, and metadata are validated.
+- Disabled accounts are blocked from AI, uploads, notifications, and checkout.
+- AI instructions refuse emissions defeat, unlawful immobilizer bypass, odometer fraud, theft enablement, and unsafe bypasses while allowing lawful diagnostics and factory restoration.
+- Legal copy remains editable in `/admin` and is displayed at `/legal`.
+
+## Current placeholders and future work
+
+- Stripe Checkout creates booking sessions, but subscription provisioning and payment status need a signed Stripe webhook implementation.
+- Jitsi rooms remain the live-call provider placeholder; production scheduling and provider access controls are still needed.
+- Uploaded file storage and metadata are complete. OCR, image interpretation, PDF parsing, and text-log ingestion into AI context are future work.
+- ECU binary analysis is intentionally not implemented.
+- Premium upgrades are currently assigned by an admin; automated subscription-to-plan synchronization is future work.
+- The legacy HTML/JavaScript UI controller remains for design compatibility, while all new platform APIs, validation, auth, AI abstraction, and Next page boundaries use TypeScript.

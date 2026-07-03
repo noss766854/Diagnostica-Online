@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-export function legacyBody(fileName) {
+export function legacyBody(fileName: "index.html" | "admin.html" | "legal.html"): string {
   const html = fs.readFileSync(path.join(process.cwd(), fileName), "utf8");
   const match = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
   if (!match) return "";
@@ -16,5 +16,5 @@ export function legacyBody(fileName) {
     .replaceAll("./app.js", "/app.js")
     .replaceAll("./admin.js", "/admin.js")
     .replaceAll("./legal.js", "/legal.js")
-    .replaceAll("â€º", "&rsaquo;");
+    .replaceAll("Ã¢â‚¬Âº", "&rsaquo;");
 }

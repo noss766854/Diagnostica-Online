@@ -16,6 +16,9 @@ const DEFAULT_CUSTOMER_HANDOFF =
 
 export async function POST(request) {
   try {
+    if ((process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL) && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return json({ error: "Open or create a saved diagnostic case so AI usage and messages can be tracked securely." }, 409);
+    }
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return json({ error: "GEMINI_API_KEY is not configured on the server." }, 503);

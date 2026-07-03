@@ -2,7 +2,9 @@
 Thumbs.db
 .env
 .env.*
+!.env.example
 *.log
+*.tsbuildinfo
 node_modules
 .next
 out
