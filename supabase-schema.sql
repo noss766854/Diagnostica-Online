@@ -874,9 +874,12 @@ values (
   '{
     "assistantName": "Gemini Diagnostic AI",
     "assistantAvatarText": "AI",
-    "welcomeMessage": "Hi, I''m the Gemini diagnostic intake assistant. Tell me the year, make, model, mileage, symptoms, warning lights, sounds, smells, and when the issue happens.",
+    "welcomeMessage": "Hi, I''m your AI mechanic. Tell me the year, make, model, mileage, symptoms, warning lights, sounds, smells, and when the issue happens. I will work through the diagnosis with you.",
     "typingMessage": "Gemini is reviewing your symptoms...",
-    "systemPrompt": "You are Gemini Diagnostic AI for DiagnosticaOnline. You are the intake LLM before a live technician handoff. Ask one concise diagnostic question at a time. Prioritize year, make, model, engine, mileage, warning lights, OBD-II codes, noises, leaks, smells, recent work, and when the symptom appears. When enough details are collected, tell the customer a live technician can continue by free text chat, voice, or video. Never show the customer a mechanic-facing case summary, internal brief, bullet-point diagnostic summary, or the heading Case Summary.",
+    "systemPrompt": "You are Gemini Diagnostic AI for DiagnosticaOnline. You are the primary AI diagnostician, not an intake assistant. Own the case from initial questions through test planning and interpretation. Do not offer human contact during a normal case. Request human review only when you cannot continue safely or reliably after reasonable remote diagnostics. Never show the customer internal notes or routing metadata.",
+    "autonomousMode": true,
+    "escalationPolicy": "Escalate only after the AI has used the available vehicle details and reasonable remote tests and still needs human judgment. Do not escalate merely because more information or another test is needed.",
+    "escalationCustomerMessage": "This case needs a human review before I can guide you further safely. I have sent only the relevant case details to the review queue.",
     "handoffAfterMessages": 3,
     "handoffMessage": "I have enough detail for {technicianName} to continue. You can start a free technician text chat, or reserve a paid voice or video call whenever you''re ready.",
     "technicianName": "Elena M.",
@@ -944,6 +947,27 @@ on conflict (key) do nothing;
 update public.site_settings
 set value = jsonb_set(
   value || jsonb_build_object(
+    'welcomeMessage', case
+      when coalesce(value->>'welcomeMessage', '') = '' or value->>'welcomeMessage' like '%diagnostic intake assistant%'
+        then 'Hi, I''m your AI mechanic. Tell me the year, make, model, mileage, symptoms, warning lights, sounds, smells, and when the issue happens. I will work through the diagnosis with you.'
+      else value->>'welcomeMessage'
+    end,
+    'systemPrompt', case
+      when coalesce(value->>'systemPrompt', '') = '' or value->>'systemPrompt' like '%intake LLM before a live technician handoff%'
+        then 'You are Gemini Diagnostic AI for DiagnosticaOnline. You are the primary AI diagnostician, not an intake assistant. Own the case from initial questions through test planning and interpretation. Do not offer human contact during a normal case. Request human review only when you cannot continue safely or reliably after reasonable remote diagnostics. Never show the customer internal notes or routing metadata.'
+      else value->>'systemPrompt'
+    end,
+    'autonomousMode', coalesce(value->'autonomousMode', 'true'::jsonb),
+    'escalationPolicy', case
+      when coalesce(value->>'escalationPolicy', '') = ''
+        then 'Escalate only after the AI has used the available vehicle details and reasonable remote tests and still needs human judgment. Do not escalate merely because more information or another test is needed.'
+      else value->>'escalationPolicy'
+    end,
+    'escalationCustomerMessage', case
+      when coalesce(value->>'escalationCustomerMessage', '') = ''
+        then 'This case needs a human review before I can guide you further safely. I have sent only the relevant case details to the review queue.'
+      else value->>'escalationCustomerMessage'
+    end,
     'termsText', case
       when coalesce(value->>'termsText', '') = '' or value->>'termsText' like 'DiagnosticaOnline provides remote automotive information%'
         then 'DiagnosticaOnline provides AI-assisted automotive diagnostics, saved cases, file storage, free text chat when available, and optional paid voice or video consulting. Guidance is informational, may be incomplete, and does not replace an in-person inspection, factory service information, recall check, repair estimate, or safety inspection. You must have lawful authority to diagnose or modify the vehicle and remain responsible for safe tools, lifting, isolation, protective equipment, and deciding whether the vehicle can be operated.'

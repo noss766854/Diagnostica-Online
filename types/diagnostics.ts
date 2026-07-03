@@ -8,6 +8,7 @@ export type GearboxType = "manual" | "automatic" | "cvt" | "dct" | "single_speed
 export type MessageSender = "user" | "assistant" | "mechanic" | "system";
 export type UploadKind = "image" | "pdf" | "text" | "csv" | "obd_scan" | "ecu_binary";
 export type ToolCategory = "obd_scanner" | "multimeter" | "smoke_tester" | "vacuum_pump" | "repair_manual" | "scan_tool" | "other";
+export type EscalationCategory = "none" | "ambiguous_evidence" | "specialist_judgment" | "unsupported_input" | "safety_review";
 
 export interface VehicleRecord {
   id: string;
@@ -108,4 +109,9 @@ export interface AiGenerationResult {
   inputTokens: number;
   outputTokens: number;
   estimatedCostUsd: number;
+  escalation: {
+    required: boolean;
+    category: EscalationCategory;
+    reason: string;
+  };
 }

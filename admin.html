@@ -81,8 +81,8 @@
           <section class="admin-table-card">
             <div class="table-heading">
               <div>
-                <h2>Structured diagnostic cases</h2>
-                <p>Assign, prioritize, review, and reply to normalized cases.</p>
+                <h2>Diagnostic cases and AI exceptions</h2>
+                <p>Cases needing human judgment are sorted first; normal cases remain AI-managed.</p>
               </div>
             </div>
             <div class="admin-table" id="platformCases"></div>
@@ -166,7 +166,7 @@
 
           <section class="admin-table-card">
             <div class="table-heading">
-              <h2>Ready cases</h2>
+              <h2>AI exception queue</h2>
             </div>
             <div class="admin-table" id="adminReadyCases"></div>
           </section>
@@ -177,7 +177,7 @@
             </div>
             <form class="site-content-form" id="siteContentForm">
               <div class="settings-grid">
-                <div class="settings-section-title span-2">AI intake</div>
+                <div class="settings-section-title span-2">Autonomous AI</div>
                 <label>
                   <span>Assistant name</span>
                   <input id="assistantNameInput" type="text" />
@@ -195,33 +195,40 @@
                   <textarea id="systemPromptInput" rows="6"></textarea>
                 </label>
                 <label>
-                  <span>Handoff after driver messages</span>
-                  <input id="handoffAfterMessagesInput" type="number" min="1" max="12" />
+                  <span>Operating mode</span>
+                  <select id="autonomousModeInput">
+                    <option value="true">AI handles cases autonomously</option>
+                    <option value="false">Allow broader human review</option>
+                  </select>
                 </label>
-                <div class="settings-section-title span-2">Technician handoff</div>
+                <label class="span-2">
+                  <span>Human escalation policy</span>
+                  <textarea id="escalationPolicyInput" rows="4"></textarea>
+                </label>
+                <label class="span-2">
+                  <span>Message shown when human review is required</span>
+                  <textarea id="escalationCustomerMessageInput" rows="3"></textarea>
+                </label>
+                <div class="settings-section-title span-2">Exception reviewer</div>
                 <label>
-                  <span>Technician avatar URL</span>
+                  <span>Reviewer avatar URL</span>
                   <input id="technicianAvatarInput" type="url" />
                 </label>
                 <label>
-                  <span>Technician name</span>
+                  <span>Reviewer name</span>
                   <input id="technicianNameInput" type="text" />
                 </label>
                 <label>
-                  <span>Technician title</span>
+                  <span>Reviewer title</span>
                   <input id="technicianTitleInput" type="text" />
                 </label>
                 <label>
-                  <span>Technician stats</span>
+                  <span>Reviewer stats</span>
                   <input id="technicianStatsInput" type="text" />
                 </label>
                 <label>
-                  <span>Technician experience</span>
+                  <span>Reviewer experience</span>
                   <input id="technicianExperienceInput" type="text" />
-                </label>
-                <label class="span-2">
-                  <span>Handoff message</span>
-                  <textarea id="handoffMessageInput" rows="3"></textarea>
                 </label>
                 <div class="settings-section-title span-2">Verification email</div>
                 <label>

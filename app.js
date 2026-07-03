@@ -27,18 +27,24 @@
     assistantName: "Gemini Diagnostic AI",
     assistantAvatarText: "AI",
     welcomeMessage:
-      "Hi, I'm the Gemini diagnostic intake assistant. Tell me the year, make, model, mileage, symptoms, warning lights, sounds, smells, and when the issue happens.",
+      "Hi, I'm your AI mechanic. Tell me the year, make, model, mileage, symptoms, warning lights, sounds, smells, and when the issue happens. I will work through the diagnosis with you.",
     typingMessage: "Gemini is reviewing your symptoms...",
     systemPrompt: [
       "You are Gemini Diagnostic AI for DiagnosticaOnline.",
-      "You are the intake LLM before a live technician handoff.",
+      "You are the primary AI diagnostician, not an intake assistant.",
+      "Own the case from the first question through test planning and interpretation.",
       "Ask one concise diagnostic question at a time unless the driver has already provided enough information.",
       "Prioritize year, make, model, engine, mileage, warning lights, OBD-II codes, noises, leaks, smells, recent work, and when the symptom appears.",
       "Flag urgent safety conditions like overheating, brake loss, smoke, fuel smell, or oil pressure warnings.",
-      "When enough details are collected, tell the customer a live technician can continue by free text chat, voice, or video.",
+      "Do not offer human contact during a normal case. Request human review only when you cannot continue safely or reliably after reasonable remote diagnostics.",
       "Never show the customer a mechanic-facing case summary, internal brief, bullet-point diagnostic summary, or the heading Case Summary.",
       "Do not claim to replace an in-person mechanic.",
     ].join(" "),
+    autonomousMode: true,
+    escalationPolicy:
+      "Escalate only after the AI has used the available vehicle details and reasonable remote tests and still needs human judgment. Do not escalate merely because more information or another test is needed.",
+    escalationCustomerMessage:
+      "This case needs a human review before I can guide you further safely. I have sent only the relevant case details to the review queue.",
     handoffAfterMessages: 3,
     handoffMessage:
       "I have enough detail for {technicianName} to continue. You can start a free technician text chat, or reserve a paid voice or video call whenever you're ready.",
@@ -222,6 +228,7 @@
       "messageInput",
       "chatForm",
       "briefBtn",
+      "escalationPanel",
       "clearCaseBtn",
       "vehicleDetails",
       "caseStatusPill",
@@ -569,6 +576,7 @@
   }
 
   function fromDiagnosticMessage(message) {
+    const metadata = message.metadata && typeof message.metadata === "object" ? message.metadata : {};
     const isUser = message.sender_type === "user";
     const isMechanic = message.sender_type === "mechanic";
     const isSystem = message.sender_type === "system";
@@ -584,12 +592,18 @@
       model: message.model || "",
       inputTokens: Number(message.input_tokens || 0),
       outputTokens: Number(message.output_tokens || 0),
+      escalationRequired: metadata.escalation_required === true,
+      escalationCategory: metadata.escalation_category || "none",
+      escalationReason: metadata.escalation_reason || "",
+      handoff: metadata.escalation_required === true,
+      alert: metadata.escalation_category === "safety_review",
     };
   }
 
   async function sendDiagnosticMessage(text) {
     const conversation = currentConversation();
     if (!conversation || conversation.source !== "diagnostic") return;
+    const wasInHumanReview = isHumanReviewRequired(conversation);
     if (!state.entitlements.canSendAiMessage) {
       showLocalCaseNotice(`Daily AI limit reached for the ${state.entitlements.plan} plan. Your allowance resets at 00:00 UTC.`, true);
       return;
@@ -607,12 +621,22 @@
         body: JSON.stringify({ content: text }),
       });
       conversation.messages = conversation.messages.filter((message) => message.id !== tempId);
-      conversation.messages.push(fromDiagnosticMessage(data.userMessage), fromDiagnosticMessage(data.assistantMessage));
-      conversation.updatedAt = data.assistantMessage?.created_at || new Date().toISOString();
+      if (data.userMessage) conversation.messages.push(fromDiagnosticMessage(data.userMessage));
+      if (data.assistantMessage) conversation.messages.push(fromDiagnosticMessage(data.assistantMessage));
+      conversation.updatedAt = data.assistantMessage?.created_at || data.userMessage?.created_at || new Date().toISOString();
       conversation.brief = data.assistantMessage?.content || conversation.brief;
+      conversation.status = data.caseStatus || conversation.status;
+      conversation.priority = data.priority || conversation.priority;
+      if (conversation.caseData) {
+        conversation.caseData.status = conversation.status;
+        conversation.caseData.priority = conversation.priority;
+      }
       state.entitlements = data.entitlements || state.entitlements;
       state.recommendations = data.recommendations || state.recommendations;
       state.platformError = "";
+      if (data.routing?.required && !wasInHumanReview) {
+        await notifyStaff("ai_escalation", { diagnosticCaseId: conversation.id, title: conversation.title });
+      }
       renderAll();
       renderAds();
     } catch (error) {
@@ -777,11 +801,13 @@
     state.typing = true;
     renderMessages();
     try {
-      const text = await getGeminiReply();
-      if (!text) throw new Error("Gemini returned an empty response.");
-      await addMessage("assistant", text, {
+      const result = await getGeminiReply();
+      if (!result.text) throw new Error("Gemini returned an empty response.");
+      const conversation = currentConversation();
+      if (result.routing?.required && conversation) conversation.status = "waiting_for_mechanic";
+      await addMessage("assistant", result.text, {
         name: assistantName(),
-        ...classifyReply(text),
+        ...classifyReply(result.text, result.routing),
       });
     } catch (error) {
       const message =
@@ -815,7 +841,10 @@
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Gemini endpoint failed.");
-    return customerFacingReply((data.text || data.reply || "").trim());
+    return {
+      text: customerFacingReply((data.text || data.reply || "").trim()),
+      routing: data.routing || { required: false, category: "none", reason: "" },
+    };
   }
 
   function mechanicSystemPrompt() {
@@ -830,10 +859,13 @@
     return (state.siteContent.assistantAvatarText || DEFAULT_SITE_CONTENT.assistantAvatarText).slice(0, 3);
   }
 
-  function classifyReply(text) {
+  function classifyReply(text, routing = {}) {
     return {
       alert: Boolean(text && /Safety note:/i.test(text)),
-      handoff: Boolean(text && /handoff|live mechanic|technician text|text chat|voice or video|reserve/i.test(text)),
+      handoff: routing.required === true,
+      escalationRequired: routing.required === true,
+      escalationCategory: routing.category || "none",
+      escalationReason: routing.reason || "",
     };
   }
 
@@ -908,7 +940,7 @@
   function customerFacingReply(text) {
     const stripped = stripPrivateCaseSections(text || "");
     if (!stripped || looksLikePrivateCaseSummary(text)) {
-      return customerHandoffMessage();
+      return "I have kept the internal case notes private. Tell me the latest symptom or test result and I will continue the diagnosis.";
     }
     return stripped;
   }
@@ -931,10 +963,9 @@
   }
 
   function customerHandoffMessage() {
-    const template = state.siteContent.handoffMessage || DEFAULT_SITE_CONTENT.handoffMessage;
-    const technicianName = state.siteContent.technicianName || DEFAULT_SITE_CONTENT.technicianName;
-    const fallback = `I have enough detail for ${technicianName} to continue. You can start a free technician text chat, or reserve a paid voice or video call whenever you're ready.`;
-    const candidate = stripPrivateCaseSections(template.replaceAll("{technicianName}", technicianName));
+    const template = state.siteContent.escalationCustomerMessage || DEFAULT_SITE_CONTENT.escalationCustomerMessage;
+    const fallback = DEFAULT_SITE_CONTENT.escalationCustomerMessage;
+    const candidate = stripPrivateCaseSections(template);
     return !candidate || looksLikePrivateCaseSummary(candidate) ? fallback : candidate;
   }
 
@@ -1239,9 +1270,16 @@
     return {
       assistantName: cleanText(merged.assistantName, DEFAULT_SITE_CONTENT.assistantName),
       assistantAvatarText: cleanText(merged.assistantAvatarText, DEFAULT_SITE_CONTENT.assistantAvatarText).slice(0, 3),
-      welcomeMessage: cleanText(merged.welcomeMessage, DEFAULT_SITE_CONTENT.welcomeMessage),
+      welcomeMessage: /diagnostic intake assistant/i.test(String(merged.welcomeMessage || ""))
+        ? DEFAULT_SITE_CONTENT.welcomeMessage
+        : cleanText(merged.welcomeMessage, DEFAULT_SITE_CONTENT.welcomeMessage),
       typingMessage: cleanText(merged.typingMessage, DEFAULT_SITE_CONTENT.typingMessage),
-      systemPrompt: cleanText(merged.systemPrompt, DEFAULT_SITE_CONTENT.systemPrompt),
+      systemPrompt: /intake LLM before a live technician handoff|live technician can continue/i.test(String(merged.systemPrompt || ""))
+        ? DEFAULT_SITE_CONTENT.systemPrompt
+        : cleanText(merged.systemPrompt, DEFAULT_SITE_CONTENT.systemPrompt),
+      autonomousMode: merged.autonomousMode !== false && merged.autonomousMode !== "false",
+      escalationPolicy: cleanText(merged.escalationPolicy, DEFAULT_SITE_CONTENT.escalationPolicy),
+      escalationCustomerMessage: cleanText(merged.escalationCustomerMessage, DEFAULT_SITE_CONTENT.escalationCustomerMessage),
       handoffAfterMessages: Math.max(1, Math.min(12, Number(merged.handoffAfterMessages) || DEFAULT_SITE_CONTENT.handoffAfterMessages)),
       handoffMessage: cleanText(merged.handoffMessage, DEFAULT_SITE_CONTENT.handoffMessage),
       technicianName: cleanText(merged.technicianName, DEFAULT_SITE_CONTENT.technicianName),
@@ -1648,13 +1686,15 @@
   function renderTechnicianProfile() {
     if (!els.technicianAvatar) return;
     const content = state.siteContent || DEFAULT_SITE_CONTENT;
-    els.technicianAvatar.src = content.technicianAvatar || DEFAULT_SITE_CONTENT.technicianAvatar;
-    els.technicianAvatar.alt = `${content.technicianName || "Technician"} profile`;
-    els.technicianNameTitle.textContent = `${content.technicianName}, ${content.technicianTitle}`;
-    els.technicianStats.textContent = content.technicianStats;
-    els.technicianExperience.textContent = content.technicianExperience;
+    if (els.technicianAvatar.tagName === "IMG") {
+      els.technicianAvatar.src = content.technicianAvatar || DEFAULT_SITE_CONTENT.technicianAvatar;
+      els.technicianAvatar.alt = `${assistantName()} profile`;
+    }
+    els.technicianNameTitle.textContent = assistantName();
+    els.technicianStats.textContent = "Autonomous vehicle diagnostics";
+    els.technicianExperience.textContent = "Human review is requested only when genuinely needed";
     if (els.onlineCopy) {
-      els.onlineCopy.textContent = `${content.technicianName} is ready for live handoff`;
+      els.onlineCopy.textContent = "AI diagnostics available now";
     }
     if (els.contactNavLink) {
       els.contactNavLink.href = `mailto:${content.supportEmail || DEFAULT_SITE_CONTENT.supportEmail}`;
@@ -1831,7 +1871,7 @@
       )
       .join("");
     if (els.caseStatusPill) {
-      els.caseStatusPill.textContent = diagnostic ? formatLabel(diagnostic.status || "active") : "Draft";
+      els.caseStatusPill.textContent = diagnostic ? customerCaseStatus(diagnostic.status || "active") : "Draft";
       els.caseStatusPill.className = `case-status-pill ${diagnostic?.priority === "urgent" ? "urgent" : ""}`;
     }
   }
@@ -1914,6 +1954,15 @@
   }
 
   function renderBooking() {
+    const reviewRequired = isHumanReviewRequired();
+    if (els.escalationPanel) els.escalationPanel.hidden = !reviewRequired;
+    const chatSubmitLabel = els.chatForm?.querySelector("button[type='submit'] span");
+    if (els.messageInput) {
+      els.messageInput.placeholder = reviewRequired ? "Add information for the human reviewer..." : "Type your car question here...";
+    }
+    if (chatSubmitLabel) chatSubmitLabel.textContent = reviewRequired ? "Send update" : "Start chat";
+    if (els.onlineCopy && reviewRequired) els.onlineCopy.textContent = "This case is in the human review queue";
+    if (!reviewRequired) return;
     const isTextChat = state.callType === "text";
     syncDurationOptions();
     els.callOptions.forEach((button) => {
@@ -1930,7 +1979,8 @@
     const rate = rateForCallType(state.callType);
     const total = (rate * duration) / 60;
     els.bookingPrice.textContent = isTextChat ? "Free" : `$${total.toFixed(2)}`;
-    els.bookingBtn.querySelector("span").textContent = isTextChat ? "Start free text chat" : "Reserve mechanic";
+    els.bookingBtn.querySelector("span").textContent = isTextChat ? "Text review queued" : "Reserve specialist";
+    els.bookingBtn.disabled = isTextChat;
   }
 
   function renderCheckoutReturnNotice() {
@@ -2067,6 +2117,23 @@
     return Boolean((conversation?.messages || []).some((message) => message.technicianText));
   }
 
+  function isHumanReviewRequired(conversation = currentConversation()) {
+    if (!conversation) return false;
+    if (["waiting_for_mechanic", "assigned"].includes(conversation.status)) return true;
+    return Boolean((conversation.messages || []).some((message) => message.escalationRequired));
+  }
+
+  function customerCaseStatus(status) {
+    const labels = {
+      active: "AI diagnosing",
+      waiting_for_mechanic: "Human review needed",
+      assigned: "Under human review",
+      resolved: "Resolved",
+      archived: "Archived",
+    };
+    return labels[status] || formatLabel(status || "active");
+  }
+
   function conversationStatus(conversation) {
     if (conversation.status === "closed") return "closed";
     const messages = Array.isArray(conversation.messages) ? conversation.messages : [];
@@ -2101,7 +2168,10 @@
           if (/chatbot/i.test(message.name || "")) {
             message.name = assistantName();
           }
-          if (message.role === "assistant" && message.content === "Welcome! What's going on with your car?") {
+          if (
+            message.role === "assistant" &&
+            (message.content === "Welcome! What's going on with your car?" || /diagnostic intake assistant/i.test(message.content || ""))
+          ) {
             message.content = state.siteContent.welcomeMessage;
           }
         });

@@ -260,6 +260,23 @@ img {
   border: 2px solid rgba(255, 255, 255, 0.88);
 }
 
+.ai-profile-avatar {
+  width: 54px;
+  height: 54px;
+  flex: 0 0 54px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--teal-dark);
+  background: #ffffff;
+  border: 2px solid rgba(255, 255, 255, 0.88);
+}
+
+.ai-profile-avatar svg {
+  width: 27px;
+  height: 27px;
+}
+
 .expert-strip strong,
 .expert-strip span {
   display: block;

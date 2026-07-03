@@ -60,9 +60,9 @@
       </section>
 
       <main class="hero-grid">
-        <section class="consult-stack" aria-label="Mechanic chat">
-          <p class="promise">Connect one-on-one with an auto mechanic who can answer your question</p>
-          <p class="breadcrumbs">Ask an Expert <span>&rsaquo;</span> Car Questions</p>
+        <section class="consult-stack" aria-label="AI diagnostic chat">
+          <p class="promise">Work one-on-one with an AI mechanic that follows the evidence</p>
+          <p class="breadcrumbs">AI diagnostics <span>&rsaquo;</span> Car Questions</p>
 
           <div class="category-tabs" role="tablist" aria-label="Case tools">
             <button class="active" id="diagnosticsTab" type="button">Diagnostics</button>
@@ -72,15 +72,11 @@
 
           <section class="consult-card">
             <div class="expert-strip">
-              <img
-                id="technicianAvatar"
-                src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=160&q=80"
-                alt="Mechanic profile"
-              />
+              <div class="ai-profile-avatar" id="technicianAvatar" aria-hidden="true"><i data-lucide="bot"></i></div>
               <div>
-                <strong id="technicianNameTitle">Elena M., Diagnostic Technician</strong>
-                <span id="technicianStats">4,218 satisfied drivers</span>
-                <span id="technicianExperience">22 years diagnosing and repairing cars</span>
+                <strong id="technicianNameTitle">DiagnosticaOnline AI</strong>
+                <span id="technicianStats">Autonomous vehicle diagnostics</span>
+                <span id="technicianExperience">Human review is requested only when genuinely needed</span>
               </div>
             </div>
 
@@ -117,7 +113,7 @@
               <label class="visually-hidden" for="messageInput">Type your car question</label>
               <textarea id="messageInput" rows="3" placeholder="Type your car question here..."></textarea>
               <div class="question-footer">
-                <span id="onlineCopy">3 Auto Mechanics are Online Now</span>
+                <span id="onlineCopy">AI diagnostics available now</span>
                 <button class="start-chat" type="submit">
                   <i data-lucide="send-horizontal"></i>
                   <span>Start chat</span>
@@ -135,21 +131,21 @@
         </section>
 
         <section class="hero-copy" aria-label="Service summary">
-          <h1>Describe the symptom. Leave with a mechanic-ready plan.</h1>
-          <p>Start with free AI intake, save the case to your account, then upgrade to a live mechanic when you want eyes or ears on the problem.</p>
+          <h1>Describe the symptom. Let AI work the case through.</h1>
+          <p>The AI asks for evidence, builds a test order, and interprets results. A human only enters the case when the AI cannot continue safely or reliably.</p>
 
-          <section class="call-box" aria-label="Paid mechanic call options">
+          <section class="call-box" id="escalationPanel" aria-label="Human review options" hidden>
             <div class="call-heading">
-              <span>Live mechanic upgrade</span>
-              <button class="icon-link light" id="briefBtn" type="button" title="Create mechanic brief" aria-label="Create mechanic brief">
+              <span>Human review required</span>
+              <button class="icon-link light" id="briefBtn" type="button" title="Refresh review request" aria-label="Refresh review request" hidden>
                 <i data-lucide="clipboard-list"></i>
               </button>
             </div>
 
-            <div class="call-options" role="tablist" aria-label="Call type">
+            <div class="call-options" role="tablist" aria-label="Review channel">
               <button class="call-option active" type="button" data-call-type="text" role="tab" aria-selected="true">
                 <i data-lucide="messages-square"></i>
-                <span>Text chat</span>
+                <span>Text review</span>
                 <strong>Free</strong>
               </button>
               <button class="call-option" id="videoOption" type="button" data-call-type="video" role="tab" aria-selected="false">

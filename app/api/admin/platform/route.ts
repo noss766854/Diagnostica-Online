@@ -10,7 +10,7 @@ export async function GET(request: Request): Promise<Response> {
     await requireAdmin(request);
     const supabase = supabaseService();
     const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const [profiles, plans, cases, uploads, usage, tools] = await Promise.all([
+    const [profiles, plans, cases, uploads, usage, tools, escalations] = await Promise.all([
       supabase
         .from("profiles")
         .select("id,email,display_name,role,availability_status,mechanic_title,is_disabled,disabled_reason,created_at,updated_at")
@@ -34,15 +34,35 @@ export async function GET(request: Request): Promise<Response> {
         .order("created_at", { ascending: false })
         .limit(5000),
       supabase.from("recommended_tools").select("*").order("priority", { ascending: true }).limit(250),
+      supabase
+        .from("diagnostic_messages")
+        .select("case_id,metadata,created_at")
+        .eq("sender_type", "assistant")
+        .contains("metadata", { escalation_required: true })
+        .order("created_at", { ascending: false })
+        .limit(500),
     ]);
 
-    const firstError = [profiles.error, plans.error, cases.error, uploads.error, usage.error, tools.error].find(Boolean);
+    const firstError = [profiles.error, plans.error, cases.error, uploads.error, usage.error, tools.error, escalations.error].find(Boolean);
     if (firstError) {
       throw new HttpError(500, `${firstError.message}. Run the latest supabase-schema.sql if these tables have not been created.`);
     }
 
     const usageRows = usage.data || [];
     const aiRows = usageRows.filter((row) => row.event_type === "ai_message");
+    const escalationByCase = new Map<string, Record<string, unknown>>();
+    (escalations.data || []).forEach((row) => {
+      if (!escalationByCase.has(row.case_id)) {
+        escalationByCase.set(row.case_id, {
+          ...(row.metadata || {}),
+          created_at: row.created_at,
+        });
+      }
+    });
+    const caseRows = (cases.data || []).map((diagnosticCase) => ({
+      ...diagnosticCase,
+      escalation: escalationByCase.get(diagnosticCase.id) || null,
+    }));
     const usageSummary = {
       periodDays: 30,
       aiMessages: aiRows.length,
@@ -51,12 +71,13 @@ export async function GET(request: Request): Promise<Response> {
       estimatedCostUsd: Number(aiRows.reduce((sum, row) => sum + Number(row.estimated_cost_usd || 0), 0).toFixed(6)),
       uploads: usageRows.filter((row) => row.event_type === "upload").length,
       casesCreated: usageRows.filter((row) => row.event_type === "case_created").length,
+      escalations: caseRows.filter((diagnosticCase) => ["waiting_for_mechanic", "assigned"].includes(diagnosticCase.status)).length,
     };
 
     return json({
       profiles: profiles.data || [],
       plans: plans.data || [],
-      cases: cases.data || [],
+      cases: caseRows,
       uploads: uploads.data || [],
       usage: usageRows,
       usageSummary,

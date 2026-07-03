@@ -1,6 +1,6 @@
 # DiagnosticaOnline
 
-DiagnosticaOnline is a Next.js mechanic-diagnostic platform with structured vehicle cases, normalized AI messages, private diagnostic uploads, Supabase authentication and RLS, free/premium/admin limits, rule-based affiliate recommendations, consent-aware ads, and a protected operations dashboard.
+DiagnosticaOnline is a Next.js autonomous mechanic-diagnostic platform with structured vehicle cases, normalized AI messages, private diagnostic uploads, Supabase authentication and RLS, free/premium/admin limits, rule-based affiliate recommendations, consent-aware ads, and a protected exception dashboard. The AI owns normal cases end to end and requests human review only when it cannot continue safely or reliably.
 
 The current automotive helpdesk design and legacy conversation tables remain available for compatibility. New cases use the normalized diagnostic platform.
 

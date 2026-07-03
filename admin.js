@@ -18,10 +18,15 @@
     assistantName: "Gemini Diagnostic AI",
     assistantAvatarText: "AI",
     welcomeMessage:
-      "Hi, I'm the Gemini diagnostic intake assistant. Tell me the year, make, model, mileage, symptoms, warning lights, sounds, smells, and when the issue happens.",
+      "Hi, I'm your AI mechanic. Tell me the year, make, model, mileage, symptoms, warning lights, sounds, smells, and when the issue happens. I will work through the diagnosis with you.",
     typingMessage: "Gemini is reviewing your symptoms...",
     systemPrompt:
-      "You are Gemini Diagnostic AI for DiagnosticaOnline. You are the intake LLM before a live technician handoff. Ask one concise diagnostic question at a time. When enough details are collected, tell the customer a live technician can continue by free text chat, voice, or video. Never show the customer a mechanic-facing case summary, internal brief, bullet-point diagnostic summary, or the heading Case Summary.",
+      "You are Gemini Diagnostic AI for DiagnosticaOnline. You are the primary AI diagnostician, not an intake assistant. Own the case from initial questions through test planning and interpretation. Do not offer human contact during a normal case. Request human review only when you cannot continue safely or reliably after reasonable remote diagnostics. Never show the customer internal notes or routing metadata.",
+    autonomousMode: true,
+    escalationPolicy:
+      "Escalate only after the AI has used the available vehicle details and reasonable remote tests and still needs human judgment. Do not escalate merely because more information or another test is needed.",
+    escalationCustomerMessage:
+      "This case needs a human review before I can guide you further safely. I have sent only the relevant case details to the review queue.",
     handoffAfterMessages: 3,
     handoffMessage:
       "I have enough detail for {technicianName} to continue. You can start a free technician text chat, or reserve a paid voice or video call whenever you're ready.",
@@ -170,8 +175,9 @@
       "assistantAvatarTextInput",
       "welcomeMessageInput",
       "systemPromptInput",
-      "handoffAfterMessagesInput",
-      "handoffMessageInput",
+      "autonomousModeInput",
+      "escalationPolicyInput",
+      "escalationCustomerMessageInput",
       "technicianNameInput",
       "technicianTitleInput",
       "technicianStatsInput",
@@ -355,7 +361,7 @@
 
     els.adminStats.innerHTML = [
       ["Conversations", conversationCount],
-      ["Ready cases", readyRows.length],
+      ["AI exceptions", readyRows.length],
       ["Call bookings", bookingCount],
       ["Users", userCount],
     ]
@@ -413,6 +419,7 @@
       ["Estimated AI cost", `$${Number(summary.estimatedCostUsd || 0).toFixed(4)}`],
       ["Uploads", summary.uploads || 0],
       ["Cases created", summary.casesCreated || 0],
+      ["Human-review exceptions", summary.escalations || 0],
     ]
       .map(([label, value]) => `<div class="stat-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`)
       .join("");
@@ -492,8 +499,9 @@
 
   function renderPlatformCases(cases, profiles) {
     const mechanics = profiles.filter((profile) => ["admin", "mechanic"].includes(profile.role));
-    els.platformCases.innerHTML = cases.length
-      ? cases
+    const orderedCases = [...cases].sort((left, right) => Number(isHumanReviewCase(right)) - Number(isHumanReviewCase(left)));
+    els.platformCases.innerHTML = orderedCases.length
+      ? orderedCases
           .map((diagnosticCase) => {
             const vehicle = diagnosticCase.vehicle || {};
             return `
@@ -511,10 +519,11 @@
                   <div><span class="vehicle-label">Previous work</span><span class="vehicle-value dark">${escapeHtml(diagnosticCase.previous_work || "None")}</span></div>
                   <div><span class="vehicle-label">Owner ID</span><span class="vehicle-value dark">${escapeHtml(diagnosticCase.owner_id)}</span></div>
                 </div>
+                ${diagnosticCase.escalation ? `<div class="case-brief"><strong>Why AI requested human review</strong><pre>${escapeHtml(diagnosticCase.escalation.escalation_reason || "Human judgment is required to continue reliably.")}</pre></div>` : ""}
                 <form class="platform-case-form" data-case-id="${escapeAttr(diagnosticCase.id)}">
                   <label><span>Status</span><select name="status">
                     ${workflowOption("active", "Active", diagnosticCase.status)}
-                    ${workflowOption("waiting_for_mechanic", "Waiting for mechanic", diagnosticCase.status)}
+                    ${workflowOption("waiting_for_mechanic", "Needs human review", diagnosticCase.status)}
                     ${workflowOption("assigned", "Assigned", diagnosticCase.status)}
                     ${workflowOption("resolved", "Resolved", diagnosticCase.status)}
                     ${workflowOption("archived", "Archived", diagnosticCase.status)}
@@ -524,11 +533,11 @@
                     ${workflowOption("normal", "Normal", diagnosticCase.priority)}
                     ${workflowOption("urgent", "Urgent", diagnosticCase.priority)}
                   </select></label>
-                  <label><span>Assigned mechanic</span><select name="assignedMechanicId">
+                  <label><span>Assigned reviewer</span><select name="assignedMechanicId">
                     <option value="">Unassigned</option>
                     ${mechanics.map((profile) => workflowOption(profile.id, profile.display_name || profile.email || "Mechanic", diagnosticCase.assigned_mechanic_id || "")).join("")}
                   </select></label>
-                  <label class="platform-case-reply"><span>Mechanic reply</span><textarea name="reply" rows="3" maxlength="5000" placeholder="Reply to this case without exposing internal notes..."></textarea></label>
+                  <label class="platform-case-reply"><span>Human review reply</span><textarea name="reply" rows="3" maxlength="5000" placeholder="Reply only when the AI exception genuinely needs your judgment..."></textarea></label>
                   <button class="solid-button" type="submit"><i data-lucide="send-horizontal"></i><span>Update case</span></button>
                 </form>
               </details>
@@ -754,8 +763,9 @@
       welcomeMessage: els.welcomeMessageInput.value,
       typingMessage: DEFAULT_SITE_CONTENT.typingMessage,
       systemPrompt: els.systemPromptInput.value,
-      handoffAfterMessages: els.handoffAfterMessagesInput.value,
-      handoffMessage: els.handoffMessageInput.value,
+      autonomousMode: els.autonomousModeInput.value === "true",
+      escalationPolicy: els.escalationPolicyInput.value,
+      escalationCustomerMessage: els.escalationCustomerMessageInput.value,
       technicianName: els.technicianNameInput.value,
       technicianTitle: els.technicianTitleInput.value,
       technicianStats: els.technicianStatsInput.value,
@@ -829,7 +839,7 @@
       await logAdminAction("site_settings_updated", "site_settings", "public_content", {
         changedAt: new Date().toISOString(),
       });
-      els.siteContentMessage.textContent = "Saved. The public site will use these AI, ad, call, technician, and verification email settings.";
+      els.siteContentMessage.textContent = "Saved. The public site will use these autonomous AI, exception-routing, ad, call, and email settings.";
     } catch (error) {
       els.siteContentMessage.textContent = error.message || "Could not save settings.";
     } finally {
@@ -843,8 +853,9 @@
     els.assistantAvatarTextInput.value = content.assistantAvatarText;
     els.welcomeMessageInput.value = content.welcomeMessage;
     els.systemPromptInput.value = content.systemPrompt;
-    els.handoffAfterMessagesInput.value = content.handoffAfterMessages;
-    els.handoffMessageInput.value = content.handoffMessage;
+    els.autonomousModeInput.value = String(content.autonomousMode !== false);
+    els.escalationPolicyInput.value = content.escalationPolicy;
+    els.escalationCustomerMessageInput.value = content.escalationCustomerMessage;
     els.technicianNameInput.value = content.technicianName;
     els.technicianTitleInput.value = content.technicianTitle;
     els.technicianStatsInput.value = content.technicianStats;
@@ -908,9 +919,16 @@
     return {
       assistantName: cleanText(merged.assistantName, DEFAULT_SITE_CONTENT.assistantName),
       assistantAvatarText: cleanText(merged.assistantAvatarText, DEFAULT_SITE_CONTENT.assistantAvatarText).slice(0, 3),
-      welcomeMessage: cleanText(merged.welcomeMessage, DEFAULT_SITE_CONTENT.welcomeMessage),
+      welcomeMessage: /diagnostic intake assistant/i.test(String(merged.welcomeMessage || ""))
+        ? DEFAULT_SITE_CONTENT.welcomeMessage
+        : cleanText(merged.welcomeMessage, DEFAULT_SITE_CONTENT.welcomeMessage),
       typingMessage: cleanText(merged.typingMessage, DEFAULT_SITE_CONTENT.typingMessage),
-      systemPrompt: cleanText(merged.systemPrompt, DEFAULT_SITE_CONTENT.systemPrompt),
+      systemPrompt: /intake LLM before a live technician handoff|live technician can continue/i.test(String(merged.systemPrompt || ""))
+        ? DEFAULT_SITE_CONTENT.systemPrompt
+        : cleanText(merged.systemPrompt, DEFAULT_SITE_CONTENT.systemPrompt),
+      autonomousMode: merged.autonomousMode !== false && merged.autonomousMode !== "false",
+      escalationPolicy: cleanText(merged.escalationPolicy, DEFAULT_SITE_CONTENT.escalationPolicy),
+      escalationCustomerMessage: cleanText(merged.escalationCustomerMessage, DEFAULT_SITE_CONTENT.escalationCustomerMessage),
       handoffAfterMessages: Math.max(1, Math.min(12, Number(merged.handoffAfterMessages) || DEFAULT_SITE_CONTENT.handoffAfterMessages)),
       handoffMessage: cleanText(merged.handoffMessage, DEFAULT_SITE_CONTENT.handoffMessage),
       technicianName: cleanText(merged.technicianName, DEFAULT_SITE_CONTENT.technicianName),
@@ -1074,7 +1092,7 @@
 
   function renderReadyCaseTable(rows, mechanicRows = []) {
     if (!rows.length) {
-      els.adminReadyCases.innerHTML = `<div class="empty-state">No AI-ready cases yet.</div>`;
+      els.adminReadyCases.innerHTML = `<div class="empty-state">No cases currently need human review.</div>`;
       return;
     }
     els.adminReadyCases.innerHTML = rows.map((row) => renderCaseRow(row, true, mechanicRows)).join("");
@@ -1122,8 +1140,8 @@
           <label>
             <span>Status</span>
             <select name="status">
-              ${workflowOption("ai_intake", "AI intake", status)}
-              ${workflowOption("waiting_for_mechanic", "Waiting for mechanic", status)}
+              ${workflowOption("ai_intake", "AI diagnosing", status)}
+              ${workflowOption("waiting_for_mechanic", "Needs human review", status)}
               ${workflowOption("assigned", "Assigned", status)}
               ${workflowOption("answered", "Answered", status)}
               ${workflowOption("closed", "Closed", status)}
@@ -1138,7 +1156,7 @@
             </select>
           </label>
           <label>
-            <span>Assigned technician</span>
+            <span>Assigned reviewer</span>
             <select name="assigned_mechanic_id">
               <option value="">Unassigned</option>
               ${mechanicRows.map((profile) => workflowOption(profile.id, staffLabel(profile), assignedMechanicId)).join("")}
@@ -1155,8 +1173,8 @@
         </div>
         <form class="technician-reply-form" data-conversation-id="${escapeAttr(row.id)}">
           <label>
-            <span>Technician reply</span>
-            <textarea name="reply" rows="3" placeholder="Type a free text-chat reply for this customer..."></textarea>
+            <span>Human review reply</span>
+            <textarea name="reply" rows="3" placeholder="Reply only when this exception needs your judgment..."></textarea>
           </label>
           <button class="solid-button" type="submit">
             <i data-lucide="send-horizontal"></i>
@@ -1175,7 +1193,7 @@
   function statusLabelFor(value) {
     const labels = {
       ai_intake: "AI collecting details",
-      waiting_for_mechanic: "Waiting for mechanic",
+      waiting_for_mechanic: "Needs human review",
       assigned: "Assigned",
       answered: "Answered",
       closed: "Closed",
@@ -1332,11 +1350,14 @@
   function isReadyCase(row) {
     const messages = Array.isArray(row.messages) ? row.messages : [];
     return Boolean(
-      cleanText(row.brief, "") ||
-        messages.some((message) => message.handoff) ||
-        messages.some((message) => message.technicianText || message.technicianReply) ||
-        messages.some((message) => message.role === "assistant" && /text chat|voice or video|reserve|live mechanic|continue/i.test(message.content || ""))
+      ["waiting_for_mechanic", "assigned"].includes(row.status) ||
+        messages.some((message) => message.escalationRequired === true) ||
+        messages.some((message) => message.handoff === true)
     );
+  }
+
+  function isHumanReviewCase(diagnosticCase) {
+    return ["waiting_for_mechanic", "assigned"].includes(diagnosticCase.status);
   }
 
   function bindTechnicianReplyForms() {

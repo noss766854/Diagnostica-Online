@@ -35,7 +35,7 @@ export async function POST(request) {
 
     const body = await request.json().catch(() => ({}));
     const type = cleanToken(body.type);
-    if (type !== "text_chat_started") return json({ error: "Unsupported notification type." }, 400);
+    if (!["text_chat_started", "ai_escalation"].includes(type)) return json({ error: "Unsupported notification type." }, 400);
 
     const siteContent = await loadSiteContent(supabase);
     const conversation = body.diagnosticCaseId
@@ -44,7 +44,20 @@ export async function POST(request) {
     const resend = new Resend(resendKey);
     const sends = [];
 
-    if (siteContent.staffNotificationEmail) {
+    if (siteContent.staffNotificationEmail && type === "ai_escalation") {
+      sends.push(
+        resend.emails.send({
+          from: formatFrom(siteContent),
+          to: [siteContent.staffNotificationEmail],
+          subject: `AI human review required: ${conversation.title}`,
+          html: staffEscalationHtml({ conversation, customerEmail: userData.user.email || "", siteUrl: siteOrigin(request) }),
+          text: staffEscalationText({ conversation, customerEmail: userData.user.email || "", siteUrl: siteOrigin(request) }),
+          replyTo: userData.user.email || siteContent.supportEmail,
+        })
+      );
+    }
+
+    if (siteContent.staffNotificationEmail && type === "text_chat_started") {
       sends.push(
         resend.emails.send({
           from: formatFrom(siteContent),
@@ -57,7 +70,7 @@ export async function POST(request) {
       );
     }
 
-    if (userData.user.email) {
+    if (userData.user.email && type === "text_chat_started") {
       sends.push(
         resend.emails.send({
           from: formatFrom(siteContent),
@@ -120,9 +133,10 @@ async function loadDiagnosticCase(supabase, caseId, ownerId) {
       .eq("id", caseId)
       .eq("owner_id", ownerId)
       .maybeSingle(),
-    supabase.from("diagnostic_messages").select("sender_type,content,created_at").eq("case_id", caseId).eq("owner_id", ownerId).order("created_at", { ascending: false }).limit(8),
+    supabase.from("diagnostic_messages").select("sender_type,content,metadata,created_at").eq("case_id", caseId).eq("owner_id", ownerId).order("created_at", { ascending: false }).limit(8),
   ]);
   if (!diagnosticCase) return { title: "Diagnostic case", brief: "", vehicle: {}, messages: [] };
+  const escalation = (messages || []).find((message) => message.metadata?.escalation_required === true)?.metadata || {};
   return {
     title: cleanBodyText(diagnosticCase.title, "Diagnostic case", 140),
     brief: cleanBodyText(
@@ -133,6 +147,8 @@ async function loadDiagnosticCase(supabase, caseId, ownerId) {
       3000
     ),
     vehicle: diagnosticCase.vehicle || {},
+    escalationReason: cleanBodyText(escalation.escalation_reason, "The AI requires human judgment to continue this case reliably.", 500),
+    escalationCategory: cleanToken(escalation.escalation_category) || "specialist_judgment",
     messages: (messages || []).reverse().map((message) => ({
       role: message.sender_type === "user" ? "user" : "assistant",
       technicianReply: message.sender_type === "mechanic",
@@ -140,6 +156,53 @@ async function loadDiagnosticCase(supabase, caseId, ownerId) {
       createdAt: message.created_at,
     })),
   };
+}
+
+function staffEscalationHtml({ conversation, customerEmail, siteUrl }) {
+  const transcript = conversation.messages
+    .map((message) => `<li><strong>${escapeHtml(labelForRole(message))}:</strong> ${escapeHtml(message.content || "")}</li>`)
+    .join("");
+  return `<!doctype html>
+<html>
+  <body style="margin:0;background:#f4f7f8;color:#18212a;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f7f8;padding:28px 12px;">
+      <tr><td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border:1px solid #dce7eb;border-radius:12px;overflow:hidden;">
+          <tr><td style="background:#10262d;padding:24px 28px;color:#ffffff;">
+            <div style="font-size:12px;font-weight:800;text-transform:uppercase;color:#57c7d9;">DiagnosticaOnline</div>
+            <h1 style="margin:8px 0 0;font-size:24px;line-height:1.2;">AI exception needs review</h1>
+          </td></tr>
+          <tr><td style="padding:28px;">
+            <p style="margin:0 0 8px;font-size:16px;"><strong>${escapeHtml(conversation.title)}</strong></p>
+            <p style="margin:0 0 18px;color:#52616b;">Customer: ${escapeHtml(customerEmail || "Unknown customer")}</p>
+            <h2 style="font-size:16px;margin:22px 0 8px;">Why the AI escalated</h2>
+            <p style="background:#fff4f0;border-left:4px solid #f17363;padding:14px;line-height:1.5;">${escapeHtml(conversation.escalationReason)}</p>
+            <h2 style="font-size:16px;margin:22px 0 8px;">Recent transcript</h2>
+            <ul style="padding-left:20px;line-height:1.6;">${transcript || "<li>No transcript yet.</li>"}</ul>
+            <p style="margin:24px 0 0;color:#52616b;font-size:13px;">Open the exception queue at ${escapeHtml(siteUrl)}/admin.</p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+}
+
+function staffEscalationText({ conversation, customerEmail, siteUrl }) {
+  const transcript = conversation.messages.map((message) => `${labelForRole(message)}: ${message.content || ""}`).join("\n");
+  return [
+    "DiagnosticaOnline AI exception needs review",
+    "",
+    `Case: ${conversation.title}`,
+    `Customer: ${customerEmail || "Unknown customer"}`,
+    `Category: ${conversation.escalationCategory || "specialist_judgment"}`,
+    `Reason: ${conversation.escalationReason}`,
+    "",
+    "Recent transcript:",
+    transcript || "No transcript yet.",
+    "",
+    `Open admin: ${siteUrl}/admin`,
+  ].join("\n");
 }
 
 function sanitizeSiteContent(value) {
