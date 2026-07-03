@@ -24,7 +24,7 @@ export async function POST(request: Request, { params }: RouteContext): Promise<
     const env = serverEnvironment();
     const diagnosticCase = await loadCaseForUser(supabase, context, caseId);
     if (["resolved", "archived"].includes(diagnosticCase.status)) {
-      throw new HttpError(409, "Reopen this case before sending another AI message.");
+      throw new HttpError(409, "Reopen this case before sending another diagnostic message.");
     }
     const input = diagnosticMessageSchema.parse(await readJson(request));
     if (["waiting_for_mechanic", "assigned"].includes(diagnosticCase.status)) {
@@ -56,7 +56,7 @@ export async function POST(request: Request, { params }: RouteContext): Promise<
     }
     const entitlements = await getEntitlements(supabase, context);
     if (!entitlements.canSendAiMessage) {
-      throw new HttpError(429, `Your ${entitlements.plan} plan has reached its daily AI message limit. Your allowance resets at 00:00 UTC.`);
+      throw new HttpError(429, `Your ${entitlements.plan} plan has reached its daily diagnostic message limit. Your allowance resets at 00:00 UTC.`);
     }
 
     const provider = env.aiProvider;
@@ -70,8 +70,8 @@ export async function POST(request: Request, { params }: RouteContext): Promise<
       p_premium_limit: env.premiumAiMessagesPerDay,
     });
     if (claimError || !usageId) {
-      const status = /daily ai message limit/i.test(claimError?.message || "") ? 429 : 403;
-      throw new HttpError(status, claimError?.message || "AI usage could not be reserved.");
+      const status = /daily (?:ai|diagnostic) message limit/i.test(claimError?.message || "") ? 429 : 403;
+      throw new HttpError(status, claimError?.message || "Diagnostic usage could not be reserved.");
     }
     reservedUsageId = String(usageId);
 
@@ -94,7 +94,7 @@ export async function POST(request: Request, { params }: RouteContext): Promise<
       .eq("case_id", caseId)
       .order("created_at", { ascending: true })
       .limit(250);
-    if (historyError) throw new HttpError(500, "The case history could not be loaded for AI diagnosis.");
+    if (historyError) throw new HttpError(500, "The case history could not be loaded for diagnosis.");
 
     const automation = await loadAutomationConfig(supabase);
     const generation = await generateDiagnosticReply({
@@ -123,7 +123,7 @@ export async function POST(request: Request, { params }: RouteContext): Promise<
       })
       .select()
       .single();
-    if (assistantError || !assistantMessage) throw new HttpError(500, "The AI reply was generated but could not be saved.");
+    if (assistantError || !assistantMessage) throw new HttpError(500, "The diagnostic reply was generated but could not be saved.");
 
     const now = new Date().toISOString();
     const priority = safetyPriority(`${diagnosticCase.symptoms} ${input.content} ${generation.text}`);
@@ -178,7 +178,7 @@ export async function POST(request: Request, { params }: RouteContext): Promise<
         // The original error is more useful than cleanup failure details.
       }
     }
-    return errorResponse(error, "The AI diagnostic reply could not be generated.");
+    return errorResponse(error, "The diagnostic reply could not be generated.");
   }
 }
 

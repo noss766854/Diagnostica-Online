@@ -35,7 +35,7 @@ export function serverEnvironment(): ServerEnvironment {
     geminiApiBaseUrl: secureBaseUrl(process.env.GEMINI_API_BASE_URL, "https://generativelanguage.googleapis.com"),
     openAiApiKey: process.env.OPENAI_API_KEY || "",
     openAiModel: process.env.OPENAI_MODEL || "gpt-4.1-mini",
-    freeAiMessagesPerDay: positiveInteger(process.env.FREE_AI_MESSAGES_PER_DAY, 5),
+    freeAiMessagesPerDay: Math.max(10, positiveInteger(process.env.FREE_AI_MESSAGES_PER_DAY, 10)),
     premiumAiMessagesPerDay: positiveInteger(process.env.PREMIUM_AI_MESSAGES_PER_DAY, 100),
     maxUploadBytes: Math.min(maxUploadMb, 50) * 1024 * 1024,
     aiInputCostPerMillion: nonNegativeNumber(process.env.AI_INPUT_COST_PER_MILLION, 0),

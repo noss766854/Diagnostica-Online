@@ -444,7 +444,7 @@ create or replace function public.claim_ai_message(
   p_case_id uuid,
   p_provider text,
   p_model text,
-  p_free_limit integer default 5,
+  p_free_limit integer default 10,
   p_premium_limit integer default 100
 )
 returns uuid
@@ -497,7 +497,7 @@ begin
     and created_at >= date_trunc('day', now() at time zone 'utc') at time zone 'utc';
 
   if daily_limit is not null and daily_count >= daily_limit then
-    raise exception 'Daily AI message limit reached.' using errcode = 'P0001';
+    raise exception 'Daily diagnostic message limit reached.' using errcode = 'P0001';
   end if;
 
   insert into public.usage_events (user_id, case_id, event_type, provider, model, metadata)
@@ -872,10 +872,10 @@ insert into public.site_settings (key, value)
 values (
   'public_content',
   '{
-    "assistantName": "Gemini Diagnostic AI",
-    "assistantAvatarText": "AI",
-    "welcomeMessage": "Hi, I''m your AI mechanic. Tell me the year, make, model, mileage, symptoms, warning lights, sounds, smells, and when the issue happens. I will work through the diagnosis with you.",
-    "typingMessage": "Gemini is reviewing your symptoms...",
+    "assistantName": "DiagnosticaOnline Diagnostics",
+    "assistantAvatarText": "DO",
+    "welcomeMessage": "Tell me the year, make, model, mileage, symptoms, warning lights, sounds, smells, and when the issue happens. We will work through the diagnosis step by step.",
+    "typingMessage": "Reviewing the symptoms and test history...",
     "systemPrompt": "You are Gemini Diagnostic AI for DiagnosticaOnline. You are the primary AI diagnostician, not an intake assistant. Own the case from initial questions through test planning and interpretation. Do not offer human contact during a normal case. Request human review only when you cannot continue safely or reliably after reasonable remote diagnostics. Never show the customer internal notes or routing metadata.",
     "autonomousMode": true,
     "escalationPolicy": "Escalate only after the AI has used the available vehicle details and reasonable remote tests and still needs human judgment. Do not escalate merely because more information or another test is needed.",
@@ -947,10 +947,25 @@ on conflict (key) do nothing;
 update public.site_settings
 set value = jsonb_set(
   value || jsonb_build_object(
+    'assistantName', case
+      when coalesce(value->>'assistantName', '') = '' or value->>'assistantName' in ('Gemini Diagnostic AI', 'DiagnosticaOnline AI')
+        then 'DiagnosticaOnline Diagnostics'
+      else value->>'assistantName'
+    end,
+    'assistantAvatarText', case
+      when coalesce(value->>'assistantAvatarText', '') = '' or upper(value->>'assistantAvatarText') = 'AI'
+        then 'DO'
+      else value->>'assistantAvatarText'
+    end,
     'welcomeMessage', case
-      when coalesce(value->>'welcomeMessage', '') = '' or value->>'welcomeMessage' like '%diagnostic intake assistant%'
-        then 'Hi, I''m your AI mechanic. Tell me the year, make, model, mileage, symptoms, warning lights, sounds, smells, and when the issue happens. I will work through the diagnosis with you.'
+      when coalesce(value->>'welcomeMessage', '') = '' or value->>'welcomeMessage' like '%diagnostic intake assistant%' or value->>'welcomeMessage' like '%I''m your AI mechanic%'
+        then 'Tell me the year, make, model, mileage, symptoms, warning lights, sounds, smells, and when the issue happens. We will work through the diagnosis step by step.'
       else value->>'welcomeMessage'
+    end,
+    'typingMessage', case
+      when coalesce(value->>'typingMessage', '') = '' or value->>'typingMessage' like 'Gemini is reviewing%'
+        then 'Reviewing the symptoms and test history...'
+      else value->>'typingMessage'
     end,
     'systemPrompt', case
       when coalesce(value->>'systemPrompt', '') = '' or value->>'systemPrompt' like '%intake LLM before a live technician handoff%'

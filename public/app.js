@@ -24,11 +24,11 @@
   };
 
   const DEFAULT_SITE_CONTENT = {
-    assistantName: "Gemini Diagnostic AI",
-    assistantAvatarText: "AI",
+    assistantName: "DiagnosticaOnline Diagnostics",
+    assistantAvatarText: "DO",
     welcomeMessage:
-      "Hi, I'm your AI mechanic. Tell me the year, make, model, mileage, symptoms, warning lights, sounds, smells, and when the issue happens. I will work through the diagnosis with you.",
-    typingMessage: "Gemini is reviewing your symptoms...",
+      "Tell me the year, make, model, mileage, symptoms, warning lights, sounds, smells, and when the issue happens. We will work through the diagnosis step by step.",
+    typingMessage: "Reviewing the symptoms and test history...",
     systemPrompt: [
       "You are Gemini Diagnostic AI for DiagnosticaOnline.",
       "You are the primary AI diagnostician, not an intake assistant.",
@@ -333,11 +333,8 @@
     els.loginNavBtn.addEventListener("click", () => openAuth("login"));
     els.signupNavBtn.addEventListener("click", () => openAuth("signup"));
     els.adminNavBtn.addEventListener("click", async () => {
-      if (state.profile?.role === "admin") {
-        window.location.href = "/admin";
-        return;
-      }
-      openAuth("login", `Log in with ${state.settings.adminUsername || DEFAULT_SETTINGS.adminUsername} to open the admin dashboard.`);
+      if (!state.supabaseUser || state.profile?.id !== state.supabaseUser.id || state.profile?.role !== "admin") return;
+      window.location.href = "/admin";
     });
     els.closeAuthBtn.addEventListener("click", () => els.authDialog.close());
     els.switchAuthModeBtn.addEventListener("click", () => setAuthMode(state.authMode === "login" ? "signup" : "login"));
@@ -605,7 +602,7 @@
     if (!conversation || conversation.source !== "diagnostic") return;
     const wasInHumanReview = isHumanReviewRequired(conversation);
     if (!state.entitlements.canSendAiMessage) {
-      showLocalCaseNotice(`Daily AI limit reached for the ${state.entitlements.plan} plan. Your allowance resets at 00:00 UTC.`, true);
+      showLocalCaseNotice(`Daily diagnostic message limit reached for the ${state.entitlements.plan} plan. Your allowance resets at 00:00 UTC.`, true);
       return;
     }
 
@@ -642,7 +639,7 @@
     } catch (error) {
       conversation.messages = conversation.messages.filter((message) => message.id !== tempId);
       await loadDiagnosticCase(conversation.id, false);
-      showLocalCaseNotice(error.message || "The AI diagnostic reply could not be generated.", true);
+      showLocalCaseNotice(error.message || "The diagnostic reply could not be generated.", true);
     } finally {
       state.typing = false;
       renderAll();
@@ -743,12 +740,12 @@
     const text = els.messageInput.value.trim();
     if (!text || state.typing) return;
     if (state.supabase && !state.supabaseUser) {
-      openAuth("login", "Log in or create an account to use the AI diagnostic workspace and save your cases.");
+      openAuth("login", "Log in or create an account to use the diagnostic workspace and save your cases.");
       return;
     }
     if (state.supabaseUser && !isDiagnosticCase()) {
       els.caseSymptomsInput.value = text;
-      openCaseDialog("Create a structured case before sending the first AI diagnostic message.");
+      openCaseDialog("Create a structured case before sending the first diagnostic message.");
       return;
     }
     els.messageInput.value = "";
@@ -811,7 +808,7 @@
       });
     } catch (error) {
       const message =
-        "Gemini is not available yet. Add GEMINI_API_KEY in Vercel project environment variables, redeploy, and this chat will answer with Gemini instead of fallback text.";
+        "The diagnostic service is temporarily unavailable. Please try again shortly.";
       await addMessage("assistant", message, {
         name: assistantName(),
         alert: true,
@@ -1268,12 +1265,18 @@
   function sanitizeSiteContent(value) {
     const merged = { ...DEFAULT_SITE_CONTENT, ...(value || {}) };
     return {
-      assistantName: cleanText(merged.assistantName, DEFAULT_SITE_CONTENT.assistantName),
-      assistantAvatarText: cleanText(merged.assistantAvatarText, DEFAULT_SITE_CONTENT.assistantAvatarText).slice(0, 3),
-      welcomeMessage: /diagnostic intake assistant/i.test(String(merged.welcomeMessage || ""))
+      assistantName: /Gemini Diagnostic AI|DiagnosticaOnline AI/i.test(String(merged.assistantName || ""))
+        ? DEFAULT_SITE_CONTENT.assistantName
+        : cleanText(merged.assistantName, DEFAULT_SITE_CONTENT.assistantName),
+      assistantAvatarText: String(merged.assistantAvatarText || "").trim().toUpperCase() === "AI"
+        ? DEFAULT_SITE_CONTENT.assistantAvatarText
+        : cleanText(merged.assistantAvatarText, DEFAULT_SITE_CONTENT.assistantAvatarText).slice(0, 3),
+      welcomeMessage: /diagnostic intake assistant|I'm your AI mechanic/i.test(String(merged.welcomeMessage || ""))
         ? DEFAULT_SITE_CONTENT.welcomeMessage
         : cleanText(merged.welcomeMessage, DEFAULT_SITE_CONTENT.welcomeMessage),
-      typingMessage: cleanText(merged.typingMessage, DEFAULT_SITE_CONTENT.typingMessage),
+      typingMessage: /Gemini is reviewing/i.test(String(merged.typingMessage || ""))
+        ? DEFAULT_SITE_CONTENT.typingMessage
+        : cleanText(merged.typingMessage, DEFAULT_SITE_CONTENT.typingMessage),
       systemPrompt: /intake LLM before a live technician handoff|live technician can continue/i.test(String(merged.systemPrompt || ""))
         ? DEFAULT_SITE_CONTENT.systemPrompt
         : cleanText(merged.systemPrompt, DEFAULT_SITE_CONTENT.systemPrompt),
@@ -1691,10 +1694,10 @@
       els.technicianAvatar.alt = `${assistantName()} profile`;
     }
     els.technicianNameTitle.textContent = assistantName();
-    els.technicianStats.textContent = "Autonomous vehicle diagnostics";
+    els.technicianStats.textContent = "Evidence-led vehicle diagnostics";
     els.technicianExperience.textContent = "Human review is requested only when genuinely needed";
     if (els.onlineCopy) {
-      els.onlineCopy.textContent = "AI diagnostics available now";
+      els.onlineCopy.textContent = "Diagnostic guidance available now";
     }
     if (els.contactNavLink) {
       els.contactNavLink.href = `mailto:${content.supportEmail || DEFAULT_SITE_CONTENT.supportEmail}`;
@@ -1728,21 +1731,21 @@
   }
 
   function renderAuth() {
-    const isAdmin = state.profile?.role === "admin";
+    const isAdmin = Boolean(state.supabaseUser && state.profile?.id === state.supabaseUser.id && state.profile?.role === "admin");
     els.adminNavBtn.hidden = !isAdmin;
+    els.adminNavBtn.disabled = !isAdmin;
+    els.adminNavBtn.textContent = "Admin dashboard";
     els.settingsBtn.hidden = !isAdmin;
     if (state.supabaseUser) {
       els.accountBadge.textContent = state.supabaseUser.email || "Logged in";
       els.loginNavBtn.hidden = true;
       els.signupNavBtn.hidden = true;
       els.logoutBtn.hidden = false;
-      els.adminNavBtn.textContent = isAdmin ? "Admin dashboard" : "Admin";
     } else {
       els.accountBadge.textContent = "Logged out";
       els.loginNavBtn.hidden = false;
       els.signupNavBtn.hidden = false;
       els.logoutBtn.hidden = true;
-      els.adminNavBtn.textContent = "Admin";
     }
   }
 
@@ -1799,8 +1802,8 @@
       const emptyCopy = state.platformError
         ? state.platformError
         : state.supabaseUser
-          ? "Create or open a saved diagnostic case to start the AI mechanic workflow."
-          : "Log in to create a saved diagnostic case and begin the AI mechanic workflow.";
+          ? "Create or open a saved case to start guided diagnostics."
+          : "Log in to create a saved case and begin guided diagnostics.";
       els.messages.innerHTML = `<div class="empty-state chat-empty-state">${escapeHtml(emptyCopy)}</div>`;
       return;
     }
@@ -1812,14 +1815,12 @@
         const system = message.systemMessage ? " system" : "";
         const avatar = role === "user" ? "You" : message.technicianReply ? "Tech" : assistantAvatarText();
         const name = message.name || (role === "user" ? "You" : message.technicianReply ? state.siteContent.technicianName : assistantName());
-        const modelMeta = message.model ? `${message.model}${message.outputTokens ? ` - ${message.outputTokens} output tokens` : ""}` : "";
         return `
           <article class="message ${role}${alert}${handoff}${system}">
             <div class="avatar" aria-hidden="true">${escapeHtml(avatar)}</div>
             <div class="message-body">
               <div class="message-name">${escapeHtml(name)}</div>
               <div class="bubble">${escapeHtml(message.content)}</div>
-              ${modelMeta ? `<div class="message-model">${escapeHtml(modelMeta)}</div>` : ""}
               <div class="message-time">${formatTime(message.createdAt)}</div>
             </div>
           </article>
@@ -1889,13 +1890,13 @@
       return;
     }
     if (entitlements.aiMessagesDailyLimit === null) {
-      els.planUsageCopy.textContent = "Unlimited AI diagnostics";
+      els.planUsageCopy.textContent = "Unlimited diagnostic messages";
       els.usageMeterFill.style.width = "0%";
       return;
     }
     const used = Number(entitlements.aiMessagesUsedToday || 0);
     const limit = Number(entitlements.aiMessagesDailyLimit || 0);
-    els.planUsageCopy.textContent = `${used} of ${limit} AI messages used today`;
+    els.planUsageCopy.textContent = `${used} of ${limit} diagnostic messages used today`;
     els.usageMeterFill.style.width = `${Math.min(100, limit ? (used / limit) * 100 : 0)}%`;
   }
 
@@ -2125,7 +2126,7 @@
 
   function customerCaseStatus(status) {
     const labels = {
-      active: "AI diagnosing",
+      active: "Diagnosing",
       waiting_for_mechanic: "Human review needed",
       assigned: "Under human review",
       resolved: "Resolved",
@@ -2165,12 +2166,12 @@
       state.conversations = JSON.parse(localStorage.getItem(STORAGE.conversations) || "[]");
       state.conversations.forEach((conversation) => {
         (conversation.messages || []).forEach((message) => {
-          if (/chatbot/i.test(message.name || "")) {
+          if (/chatbot|Gemini Diagnostic AI|DiagnosticaOnline AI/i.test(message.name || "")) {
             message.name = assistantName();
           }
           if (
             message.role === "assistant" &&
-            (message.content === "Welcome! What's going on with your car?" || /diagnostic intake assistant/i.test(message.content || ""))
+            (message.content === "Welcome! What's going on with your car?" || /diagnostic intake assistant|I'm your AI mechanic/i.test(message.content || ""))
           ) {
             message.content = state.siteContent.welcomeMessage;
           }

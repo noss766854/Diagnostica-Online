@@ -6,7 +6,7 @@ const DEFAULT_ADSENSE_CLIENT = "ca-pub-6817388263556075";
 
 export const metadata: Metadata = {
   title: "DiagnosticaOnline",
-  description: "Autonomous AI mechanic diagnostics with saved cases, file uploads, evidence-led test plans, and human review only for genuine exceptions.",
+  description: "Guided vehicle diagnostics with saved cases, file uploads, evidence-led test plans, and specialist review only for genuine exceptions.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

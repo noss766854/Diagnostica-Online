@@ -260,7 +260,7 @@ img {
   border: 2px solid rgba(255, 255, 255, 0.88);
 }
 
-.ai-profile-avatar {
+.diagnostic-profile-avatar {
   width: 54px;
   height: 54px;
   flex: 0 0 54px;
@@ -272,7 +272,7 @@ img {
   border: 2px solid rgba(255, 255, 255, 0.88);
 }
 
-.ai-profile-avatar svg {
+.diagnostic-profile-avatar svg {
   width: 27px;
   height: 27px;
 }

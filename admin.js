@@ -15,11 +15,11 @@
   };
 
   const DEFAULT_SITE_CONTENT = {
-    assistantName: "Gemini Diagnostic AI",
-    assistantAvatarText: "AI",
+    assistantName: "DiagnosticaOnline Diagnostics",
+    assistantAvatarText: "DO",
     welcomeMessage:
-      "Hi, I'm your AI mechanic. Tell me the year, make, model, mileage, symptoms, warning lights, sounds, smells, and when the issue happens. I will work through the diagnosis with you.",
-    typingMessage: "Gemini is reviewing your symptoms...",
+      "Tell me the year, make, model, mileage, symptoms, warning lights, sounds, smells, and when the issue happens. We will work through the diagnosis step by step.",
+    typingMessage: "Reviewing the symptoms and test history...",
     systemPrompt:
       "You are Gemini Diagnostic AI for DiagnosticaOnline. You are the primary AI diagnostician, not an intake assistant. Own the case from initial questions through test planning and interpretation. Do not offer human contact during a normal case. Request human review only when you cannot continue safely or reliably after reasonable remote diagnostics. Never show the customer internal notes or routing metadata.",
     autonomousMode: true,
@@ -917,12 +917,18 @@
   function sanitizeSiteContent(value) {
     const merged = { ...DEFAULT_SITE_CONTENT, ...(value || {}) };
     return {
-      assistantName: cleanText(merged.assistantName, DEFAULT_SITE_CONTENT.assistantName),
-      assistantAvatarText: cleanText(merged.assistantAvatarText, DEFAULT_SITE_CONTENT.assistantAvatarText).slice(0, 3),
-      welcomeMessage: /diagnostic intake assistant/i.test(String(merged.welcomeMessage || ""))
+      assistantName: /Gemini Diagnostic AI|DiagnosticaOnline AI/i.test(String(merged.assistantName || ""))
+        ? DEFAULT_SITE_CONTENT.assistantName
+        : cleanText(merged.assistantName, DEFAULT_SITE_CONTENT.assistantName),
+      assistantAvatarText: String(merged.assistantAvatarText || "").trim().toUpperCase() === "AI"
+        ? DEFAULT_SITE_CONTENT.assistantAvatarText
+        : cleanText(merged.assistantAvatarText, DEFAULT_SITE_CONTENT.assistantAvatarText).slice(0, 3),
+      welcomeMessage: /diagnostic intake assistant|I'm your AI mechanic/i.test(String(merged.welcomeMessage || ""))
         ? DEFAULT_SITE_CONTENT.welcomeMessage
         : cleanText(merged.welcomeMessage, DEFAULT_SITE_CONTENT.welcomeMessage),
-      typingMessage: cleanText(merged.typingMessage, DEFAULT_SITE_CONTENT.typingMessage),
+      typingMessage: /Gemini is reviewing/i.test(String(merged.typingMessage || ""))
+        ? DEFAULT_SITE_CONTENT.typingMessage
+        : cleanText(merged.typingMessage, DEFAULT_SITE_CONTENT.typingMessage),
       systemPrompt: /intake LLM before a live technician handoff|live technician can continue/i.test(String(merged.systemPrompt || ""))
         ? DEFAULT_SITE_CONTENT.systemPrompt
         : cleanText(merged.systemPrompt, DEFAULT_SITE_CONTENT.systemPrompt),

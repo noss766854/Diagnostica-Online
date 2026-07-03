@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="DiagnosticaOnline connects drivers with AI-assisted mechanic intake, saved conversations, free technician text chat, and paid voice or video mechanic calls."
+      content="DiagnosticaOnline provides guided vehicle diagnostics, saved cases, evidence-led test plans, and specialist review when needed."
     />
     <title>DiagnosticaOnline</title>
     <link rel="stylesheet" href="./styles.css" />
@@ -45,7 +45,7 @@
           <span class="account-badge" id="accountBadge">Logged out</span>
           <button class="nav-link" id="loginNavBtn" type="button">Login</button>
           <button class="nav-link" id="signupNavBtn" type="button">Create account</button>
-          <button class="nav-link" id="adminNavBtn" type="button" hidden>Admin</button>
+          <button class="nav-link" id="adminNavBtn" type="button" hidden disabled>Admin dashboard</button>
           <a class="nav-link" id="contactNavLink" href="mailto:support@diagnostica-online.com">Contact us</a>
           <a class="nav-link" href="./legal.html">Legal</a>
           <button class="nav-link" id="logoutBtn" type="button" hidden>Sign out</button>
@@ -60,9 +60,9 @@
       </section>
 
       <main class="hero-grid">
-        <section class="consult-stack" aria-label="AI diagnostic chat">
-          <p class="promise">Work one-on-one with an AI mechanic that follows the evidence</p>
-          <p class="breadcrumbs">AI diagnostics <span>&rsaquo;</span> Car Questions</p>
+        <section class="consult-stack" aria-label="Guided diagnostic chat">
+          <p class="promise">Work through your car problem with evidence-led guidance</p>
+          <p class="breadcrumbs">Guided diagnostics <span>&rsaquo;</span> Car Questions</p>
 
           <div class="category-tabs" role="tablist" aria-label="Case tools">
             <button class="active" id="diagnosticsTab" type="button">Diagnostics</button>
@@ -72,10 +72,10 @@
 
           <section class="consult-card">
             <div class="expert-strip">
-              <div class="ai-profile-avatar" id="technicianAvatar" aria-hidden="true"><i data-lucide="bot"></i></div>
+              <div class="diagnostic-profile-avatar" id="technicianAvatar" aria-hidden="true"><i data-lucide="wrench"></i></div>
               <div>
-                <strong id="technicianNameTitle">DiagnosticaOnline AI</strong>
-                <span id="technicianStats">Autonomous vehicle diagnostics</span>
+                <strong id="technicianNameTitle">DiagnosticaOnline Diagnostics</strong>
+                <span id="technicianStats">Evidence-led vehicle diagnostics</span>
                 <span id="technicianExperience">Human review is requested only when genuinely needed</span>
               </div>
             </div>
@@ -83,9 +83,9 @@
             <div class="plan-strip" id="planStrip" hidden>
               <div>
                 <span class="plan-badge" id="planBadge">Free</span>
-                <span id="planUsageCopy">5 AI messages daily</span>
+                <span id="planUsageCopy">10 diagnostic messages daily</span>
               </div>
-              <div class="usage-meter" aria-label="Daily AI usage">
+              <div class="usage-meter" aria-label="Daily diagnostic message usage">
                 <span id="usageMeterFill"></span>
               </div>
             </div>
@@ -113,7 +113,7 @@
               <label class="visually-hidden" for="messageInput">Type your car question</label>
               <textarea id="messageInput" rows="3" placeholder="Type your car question here..."></textarea>
               <div class="question-footer">
-                <span id="onlineCopy">AI diagnostics available now</span>
+                <span id="onlineCopy">Diagnostic guidance available now</span>
                 <button class="start-chat" type="submit">
                   <i data-lucide="send-horizontal"></i>
                   <span>Start chat</span>
@@ -131,8 +131,8 @@
         </section>
 
         <section class="hero-copy" aria-label="Service summary">
-          <h1>Describe the symptom. Let AI work the case through.</h1>
-          <p>The AI asks for evidence, builds a test order, and interprets results. A human only enters the case when the AI cannot continue safely or reliably.</p>
+          <h1>Describe the symptom. Work the problem through.</h1>
+          <p>The diagnostic service asks for evidence, builds a test order, and interprets results. A specialist only enters the case when additional judgment is genuinely required.</p>
 
           <section class="call-box" id="escalationPanel" aria-label="Human review options" hidden>
             <div class="call-heading">

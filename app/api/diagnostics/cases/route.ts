@@ -89,7 +89,7 @@ export async function POST(request: Request): Promise<Response> {
         case_id: diagnosticCase.id,
         owner_id: context.user.id,
         sender_type: "system",
-        content: "Case saved. Add the first question, observation, or test result and the AI mechanic will build a diagnostic test plan.",
+        content: "Case saved. Add the first question, observation, or test result and the diagnostic service will build a test plan.",
         metadata: { source: "case_setup" },
       })
       .select()
