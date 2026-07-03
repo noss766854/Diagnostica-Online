@@ -68,7 +68,7 @@ Never put the service-role, Gemini, OpenAI, Resend, or Stripe secret keys in bro
 
 ## Plans and limits
 
-- **Free:** 5 AI messages per UTC day, 3 active cases, ads after consent.
+- **Free:** 10 diagnostic messages per UTC day, 3 active cases, ads after consent.
 - **Premium:** 100 AI messages per UTC day, 25 active cases, no ads.
 - **Admin:** unlimited cases/messages and no ads.
 
