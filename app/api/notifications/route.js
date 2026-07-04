@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import { canonicalSiteOrigin } from "@/lib/platform/site-url";
 
 export const runtime = "nodejs";
 
@@ -50,8 +51,8 @@ export async function POST(request) {
           from: formatFrom(siteContent),
           to: [siteContent.staffNotificationEmail],
           subject: `AI human review required: ${conversation.title}`,
-          html: staffEscalationHtml({ conversation, customerEmail: userData.user.email || "", siteUrl: siteOrigin(request) }),
-          text: staffEscalationText({ conversation, customerEmail: userData.user.email || "", siteUrl: siteOrigin(request) }),
+          html: staffEscalationHtml({ conversation, customerEmail: userData.user.email || "", siteUrl: canonicalSiteOrigin(request) }),
+          text: staffEscalationText({ conversation, customerEmail: userData.user.email || "", siteUrl: canonicalSiteOrigin(request) }),
           replyTo: userData.user.email || siteContent.supportEmail,
         })
       );
@@ -63,8 +64,8 @@ export async function POST(request) {
           from: formatFrom(siteContent),
           to: [siteContent.staffNotificationEmail],
           subject: `New free text mechanic case: ${conversation.title}`,
-          html: staffTextChatHtml({ conversation, customerEmail: userData.user.email || "", siteUrl: siteOrigin(request) }),
-          text: staffTextChatText({ conversation, customerEmail: userData.user.email || "", siteUrl: siteOrigin(request) }),
+          html: staffTextChatHtml({ conversation, customerEmail: userData.user.email || "", siteUrl: canonicalSiteOrigin(request) }),
+          text: staffTextChatText({ conversation, customerEmail: userData.user.email || "", siteUrl: canonicalSiteOrigin(request) }),
           replyTo: userData.user.email || siteContent.supportEmail,
         })
       );
@@ -76,8 +77,8 @@ export async function POST(request) {
           from: formatFrom(siteContent),
           to: [userData.user.email],
           subject: siteContent.textChatConfirmationSubject,
-          html: customerTextChatHtml({ siteContent, conversation, siteUrl: siteOrigin(request) }),
-          text: customerTextChatText({ siteContent, conversation, siteUrl: siteOrigin(request) }),
+          html: customerTextChatHtml({ siteContent, conversation, siteUrl: canonicalSiteOrigin(request) }),
+          text: customerTextChatText({ siteContent, conversation, siteUrl: canonicalSiteOrigin(request) }),
           replyTo: siteContent.supportEmail,
         })
       );
@@ -338,17 +339,6 @@ function bearerToken(value) {
 
 function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
-}
-
-function siteOrigin(request) {
-  const configured =
-    process.env.PUBLIC_SITE_URL ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.NEXT_PUBLIC_VERCEL_URL ||
-    process.env.VERCEL_URL ||
-    new URL(request.url).origin;
-  const withProtocol = /^https?:\/\//i.test(configured) ? configured : `https://${configured}`;
-  return withProtocol.replace(/\/+$/, "");
 }
 
 function safeError(message, fallback) {

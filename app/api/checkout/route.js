@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 
+import { canonicalSiteOrigin } from "@/lib/platform/site-url";
+
 export const runtime = "nodejs";
 
 const DEFAULT_CONTENT = {
@@ -45,7 +47,7 @@ export async function POST(request) {
     const conversationId = isUuid(body.conversationId) ? body.conversationId : null;
     const diagnosticCaseId = isUuid(body.diagnosticCaseId) ? body.diagnosticCaseId : null;
     const scheduledStartAt = cleanIsoDate(body.scheduledStartAt);
-    const siteUrl = siteOrigin(request);
+    const siteUrl = canonicalSiteOrigin(request);
     const meetingUrl = meetingUrlFor(siteContent, callType, diagnosticCaseId || conversationId);
 
     const session = await createStripeSession({
@@ -189,17 +191,6 @@ function bearerToken(value) {
 
 function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
-}
-
-function siteOrigin(request) {
-  const configured =
-    process.env.PUBLIC_SITE_URL ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.NEXT_PUBLIC_VERCEL_URL ||
-    process.env.VERCEL_URL ||
-    new URL(request.url).origin;
-  const withProtocol = /^https?:\/\//i.test(configured) ? configured : `https://${configured}`;
-  return withProtocol.replace(/\/+$/, "");
 }
 
 function capitalize(value) {

@@ -21,7 +21,7 @@ Open [http://localhost:3000](http://localhost:3000). Use `pnpm typecheck` for st
 3. Paste the complete contents of `supabase-schema.sql` and run it. Do not type the filename into SQL Editor.
 4. Confirm that the private `diagnostic-uploads` Storage bucket exists.
 5. Enable email/password authentication.
-6. Add the production site URL and `/verify` callback to Supabase Auth URL Configuration.
+6. In Supabase **Authentication > URL Configuration**, set **Site URL** to `https://diagnostica-online.com` and add `https://diagnostica-online.com/verify` to **Redirect URLs**.
 7. Create `admin@diagnostica-online.com`, then confirm its profile has role `admin`. The migration also promotes that email and sets its plan to `admin`.
 
 The migration is additive and repeatable. It preserves the existing `conversations`, `call_bookings`, `site_settings`, and admin audit data.
@@ -62,7 +62,7 @@ Platform configuration:
 - `PREMIUM_AI_MESSAGES_PER_DAY`
 - `AI_INPUT_COST_PER_MILLION`
 - `AI_OUTPUT_COST_PER_MILLION`
-- `PUBLIC_SITE_URL`
+- `PUBLIC_SITE_URL=https://diagnostica-online.com` (server-side canonical URL for verification, notification, and checkout links)
 
 Never put the service-role, Gemini, OpenAI, Resend, or Stripe secret keys in browser settings or `site_settings`.
 

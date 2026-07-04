@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import { canonicalSiteOrigin } from "@/lib/platform/site-url";
 
 export const runtime = "nodejs";
 
@@ -46,7 +47,8 @@ export async function POST(request) {
       },
     });
     const siteContent = await loadSiteContent(supabase);
-    const redirectTo = `${siteOrigin(request)}/verify`;
+    const siteUrl = canonicalSiteOrigin(request);
+    const redirectTo = `${siteUrl}/verify`;
 
     const { data, error } = await supabase.auth.admin.generateLink({
       type: "signup",
@@ -67,21 +69,22 @@ export async function POST(request) {
       return json({ error: safeError(error.message, "Could not create the verification link.") }, 400);
     }
 
-    const actionLink = data?.properties?.action_link || data?.action_link;
-    if (!actionLink) {
+    const generatedActionLink = data?.properties?.action_link || data?.action_link;
+    if (!generatedActionLink) {
       return json({ error: "Supabase did not return a verification link." }, 502);
     }
+    const actionLink = verificationActionLink(generatedActionLink, redirectTo);
 
     const resend = new Resend(resendKey);
     const emailHtml = verificationEmailHtml({
       actionLink,
       intro: siteContent.emailIntro,
-      siteUrl: siteOrigin(request),
+      siteUrl,
     });
     const emailText = verificationEmailText({
       actionLink,
       intro: siteContent.emailIntro,
-      siteUrl: siteOrigin(request),
+      siteUrl,
     });
 
     const sent = await resend.emails.send({
@@ -194,15 +197,15 @@ function cleanBodyText(value, fallback, maxLength) {
   return text || fallback;
 }
 
-function siteOrigin(request) {
-  const configured =
-    process.env.PUBLIC_SITE_URL ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.NEXT_PUBLIC_VERCEL_URL ||
-    process.env.VERCEL_URL ||
-    new URL(request.url).origin;
-  const withProtocol = /^https?:\/\//i.test(configured) ? configured : `https://${configured}`;
-  return withProtocol.replace(/\/+$/, "");
+function verificationActionLink(value, redirectTo) {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:") return value;
+    url.searchParams.set("redirect_to", redirectTo);
+    return url.toString();
+  } catch {
+    return value;
+  }
 }
 
 function isDuplicateUser(error) {
