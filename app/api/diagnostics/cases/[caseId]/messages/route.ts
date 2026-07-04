@@ -6,6 +6,7 @@ import { serverEnvironment } from "@/lib/platform/env";
 import { errorResponse, HttpError, json, readJson } from "@/lib/platform/http";
 import { recommendationsForCase } from "@/lib/platform/recommendations";
 import { supabaseService } from "@/lib/platform/supabase";
+import { loadDiagnosticAttachments } from "@/lib/platform/uploads";
 import { diagnosticMessageSchema } from "@/lib/platform/validation";
 import type { DiagnosticMessageRecord } from "@/types/diagnostics";
 
@@ -96,12 +97,16 @@ export async function POST(request: Request, { params }: RouteContext): Promise<
       .limit(250);
     if (historyError) throw new HttpError(500, "The case history could not be loaded for diagnosis.");
 
-    const automation = await loadAutomationConfig(supabase);
+    const [automation, attachments] = await Promise.all([
+      loadAutomationConfig(supabase),
+      loadDiagnosticAttachments(supabase, caseId),
+    ]);
     const generation = await generateDiagnosticReply({
       diagnosticCase,
       messages: (history || []) as DiagnosticMessageRecord[],
       userMessage: input.content,
       automation,
+      attachments,
     });
     const { data: assistantMessage, error: assistantError } = await supabase
       .from("diagnostic_messages")

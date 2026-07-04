@@ -69,6 +69,11 @@ export interface DiagnosticUploadRecord {
   size_bytes: number;
   upload_kind: UploadKind;
   analysis_status: "stored" | "queued" | "processed" | "unsupported" | "failed";
+  sha256: string | null;
+  extracted_text: string | null;
+  analysis_summary: string | null;
+  analysis_error: string | null;
+  analyzed_at: string | null;
   created_at: string;
   download_url?: string;
 }

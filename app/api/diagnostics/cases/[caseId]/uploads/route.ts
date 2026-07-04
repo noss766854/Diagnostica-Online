@@ -3,6 +3,7 @@ import { loadCaseForUser } from "@/lib/platform/cases";
 import { serverEnvironment } from "@/lib/platform/env";
 import { errorResponse, HttpError, json, readJson } from "@/lib/platform/http";
 import { supabaseService } from "@/lib/platform/supabase";
+import { processStoredUpload } from "@/lib/platform/uploads";
 import { safeFileName, uploadKindFor, uploadRequestSchema } from "@/lib/platform/validation";
 import type { DiagnosticUploadRecord } from "@/types/diagnostics";
 
@@ -86,7 +87,7 @@ export async function POST(request: Request, { params }: RouteContext): Promise<
         mime_type: input.mimeType,
         size_bytes: input.sizeBytes,
         upload_kind: input.uploadKind,
-        analysis_status: input.uploadKind === "ecu_binary" ? "unsupported" : "stored",
+        analysis_status: "queued",
       })
       .select()
       .single();
@@ -98,8 +99,9 @@ export async function POST(request: Request, { params }: RouteContext): Promise<
       event_type: "upload",
       metadata: { upload_kind: input.uploadKind, size_bytes: input.sizeBytes },
     });
+    const processedUpload = await processStoredUpload(supabase, upload as DiagnosticUploadRecord);
     const { data: signed } = await supabase.storage.from(BUCKET).createSignedUrl(input.storagePath, 3600);
-    return json({ upload: { ...upload, download_url: signed?.signedUrl || undefined } as DiagnosticUploadRecord }, 201);
+    return json({ upload: { ...processedUpload, download_url: signed?.signedUrl || undefined } as DiagnosticUploadRecord }, 201);
   } catch (error) {
     return errorResponse(error, "The diagnostic file could not be uploaded.");
   }

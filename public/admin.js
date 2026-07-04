@@ -420,6 +420,7 @@
       ["Uploads", summary.uploads || 0],
       ["Cases created", summary.casesCreated || 0],
       ["Human-review exceptions", summary.escalations || 0],
+      ["Stripe webhook failures", summary.stripeWebhookFailures || 0],
     ]
       .map(([label, value]) => `<div class="stat-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`)
       .join("");
@@ -557,10 +558,10 @@
             const profile = profileMap.get(upload.owner_id) || {};
             return `
               <div class="admin-row upload-admin-row">
-                <span><strong>${escapeHtml(upload.file_name)}</strong><small>${escapeHtml(formatLabel(upload.upload_kind))} - ${escapeHtml(formatFileSize(upload.size_bytes))}</small></span>
+                <span><strong>${escapeHtml(upload.file_name)}</strong><small>${escapeHtml(formatLabel(upload.upload_kind))} - ${escapeHtml(formatFileSize(upload.size_bytes))}${upload.sha256 ? ` - SHA-256 ${escapeHtml(upload.sha256.slice(0, 12))}...` : ""}</small></span>
                 <span>${escapeHtml(diagnosticCase.title || upload.case_id)}</span>
                 <span>${escapeHtml(profile.email || upload.owner_id)}</span>
-                <span>${escapeHtml(`${formatLabel(upload.analysis_status)} - ${formatDate(upload.created_at)}`)}</span>
+                <span>${escapeHtml(`${formatLabel(upload.analysis_status)} - ${formatDate(upload.created_at)}`)}${upload.analysis_summary ? `<small>${escapeHtml(upload.analysis_summary)}</small>` : ""}${upload.analysis_error ? `<small class="error-copy">${escapeHtml(upload.analysis_error)}</small>` : ""}</span>
               </div>
             `;
           })
@@ -1443,7 +1444,7 @@
               <strong>${escapeHtml(isText ? "Free text chat" : `${capitalize(row.call_type || "call")} call`)}</strong>
               <span>${escapeHtml(isText ? "No charge" : `${row.duration_minutes || 0} min - $${row.total_usd || 0}`)}</span>
               <span>${escapeHtml([row.customer_email || row.owner_id || "Customer", row.scheduled_start_at ? formatDate(row.scheduled_start_at) : formatDate(row.created_at)].filter(Boolean).join(" - "))}</span>
-              <span>${escapeHtml(row.status || "pending")}${row.meeting_url ? ` - ` : ""}${row.meeting_url ? `<a href="${escapeAttr(row.meeting_url)}" target="_blank" rel="noopener">room</a>` : ""}</span>
+              <span>${escapeHtml(formatLabel(row.status || "pending"))}${row.payment_status ? ` - ${escapeHtml(formatLabel(row.payment_status))}` : ""}${row.join_available_at ? ` - room opens ${escapeHtml(formatDate(row.join_available_at))}` : ""}</span>
             </div>
           `;
         }

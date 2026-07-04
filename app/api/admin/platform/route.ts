@@ -10,7 +10,7 @@ export async function GET(request: Request): Promise<Response> {
     await requireAdmin(request);
     const supabase = supabaseService();
     const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const [profiles, plans, cases, uploads, usage, tools, escalations] = await Promise.all([
+    const [profiles, plans, cases, uploads, usage, tools, escalations, webhookEvents] = await Promise.all([
       supabase
         .from("profiles")
         .select("id,email,display_name,role,availability_status,mechanic_title,is_disabled,disabled_reason,created_at,updated_at")
@@ -24,7 +24,7 @@ export async function GET(request: Request): Promise<Response> {
         .limit(250),
       supabase
         .from("diagnostic_uploads")
-        .select("id,case_id,owner_id,file_name,mime_type,size_bytes,upload_kind,analysis_status,created_at")
+        .select("id,case_id,owner_id,file_name,mime_type,size_bytes,upload_kind,analysis_status,sha256,analysis_summary,analysis_error,analyzed_at,created_at")
         .order("created_at", { ascending: false })
         .limit(250),
       supabase
@@ -41,9 +41,14 @@ export async function GET(request: Request): Promise<Response> {
         .contains("metadata", { escalation_required: true })
         .order("created_at", { ascending: false })
         .limit(500),
+      supabase
+        .from("stripe_webhook_events")
+        .select("event_id,event_type,status,last_error,processed_at,created_at,updated_at")
+        .order("updated_at", { ascending: false })
+        .limit(250),
     ]);
 
-    const firstError = [profiles.error, plans.error, cases.error, uploads.error, usage.error, tools.error, escalations.error].find(Boolean);
+    const firstError = [profiles.error, plans.error, cases.error, uploads.error, usage.error, tools.error, escalations.error, webhookEvents.error].find(Boolean);
     if (firstError) {
       throw new HttpError(500, `${firstError.message}. Run the latest supabase-schema.sql if these tables have not been created.`);
     }
@@ -72,6 +77,7 @@ export async function GET(request: Request): Promise<Response> {
       uploads: usageRows.filter((row) => row.event_type === "upload").length,
       casesCreated: usageRows.filter((row) => row.event_type === "case_created").length,
       escalations: caseRows.filter((diagnosticCase) => ["waiting_for_mechanic", "assigned"].includes(diagnosticCase.status)).length,
+      stripeWebhookFailures: (webhookEvents.data || []).filter((event) => event.status === "failed").length,
     };
 
     return json({
@@ -82,6 +88,7 @@ export async function GET(request: Request): Promise<Response> {
       usage: usageRows,
       usageSummary,
       tools: tools.data || [],
+      webhookEvents: webhookEvents.data || [],
     });
   } catch (error) {
     return errorResponse(error, "The admin platform data could not be loaded.");

@@ -17,11 +17,12 @@ const DEFAULT_CONTENT = {
 export async function POST(request) {
   try {
     const stripeKey = process.env.STRIPE_SECRET_KEY || "";
+    const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
     const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
-    if (!stripeKey || !supabaseUrl || !serviceRoleKey) {
-      return json({ error: "Checkout is not configured. Add STRIPE_SECRET_KEY, SUPABASE_URL, and SUPABASE_SERVICE_ROLE_KEY in Vercel." }, 503);
+    if (!stripeKey || !stripeWebhookSecret || !supabaseUrl || !serviceRoleKey) {
+      return json({ error: "Checkout is not configured. Add Stripe keys, SUPABASE_URL, and SUPABASE_SERVICE_ROLE_KEY in Vercel." }, 503);
     }
 
     const token = bearerToken(request.headers.get("authorization") || "");
@@ -40,44 +41,74 @@ export async function POST(request) {
     if (!callType) return json({ error: "Only paid voice or video bookings use checkout." }, 400);
 
     const siteContent = await loadSiteContent(supabase);
+    if (!legalCheckoutReady(siteContent)) {
+      return json({ error: "Paid bookings are paused until the business address and final refund/cancellation policy are completed in Admin." }, 503);
+    }
     const durationMinutes = clampToOptions(Number(body.durationMinutes || siteContent.minimumCallMinutes), siteContent);
     const hourlyRate = callType === "video" ? siteContent.videoRateUsd : siteContent.voiceRateUsd;
     const totalCents = Math.max(50, Math.round(hourlyRate * 100 * (durationMinutes / 60)));
-    const totalUsd = Math.round(totalCents / 100);
+    const totalUsd = totalCents / 100;
     const conversationId = isUuid(body.conversationId) ? body.conversationId : null;
     const diagnosticCaseId = isUuid(body.diagnosticCaseId) ? body.diagnosticCaseId : null;
     const scheduledStartAt = cleanIsoDate(body.scheduledStartAt);
+    if (body.scheduledStartAt && !scheduledStartAt) return json({ error: "Choose a valid booking time." }, 400);
+    if (scheduledStartAt && new Date(scheduledStartAt).getTime() < Date.now() - 5 * 60 * 1000) {
+      return json({ error: "The preferred booking time cannot be in the past." }, 400);
+    }
     const siteUrl = canonicalSiteOrigin(request);
-    const meetingUrl = meetingUrlFor(siteContent, callType, diagnosticCaseId || conversationId);
+    await verifyLinkedCase(supabase, userData.user.id, diagnosticCaseId, conversationId);
 
-    const session = await createStripeSession({
-      stripeKey,
-      siteUrl,
-      callType,
-      durationMinutes,
-      hourlyRate,
-      totalCents,
-      conversationId,
-      diagnosticCaseId,
-      userId: userData.user.id,
-      customerEmail: userData.user.email || "",
-      scheduledStartAt,
-      meetingUrl,
-    });
+    const { data: booking, error: bookingError } = await supabase
+      .from("call_bookings")
+      .insert({
+        owner_id: userData.user.id,
+        conversation_id: conversationId,
+        diagnostic_case_id: diagnosticCaseId,
+        call_type: callType,
+        duration_minutes: durationMinutes,
+        hourly_rate_usd: hourlyRate,
+        total_usd: totalUsd,
+        meeting_url: null,
+        customer_email: userData.user.email || null,
+        scheduled_start_at: scheduledStartAt,
+        status: "awaiting_checkout",
+        payment_status: "unpaid",
+      })
+      .select("id")
+      .single();
+    if (bookingError || !booking) throw new Error(bookingError?.message || "The pending booking could not be saved.");
 
-    await supabase.from("call_bookings").insert({
-      owner_id: userData.user.id,
-      conversation_id: conversationId,
-      diagnostic_case_id: diagnosticCaseId,
-      call_type: callType,
-      duration_minutes: durationMinutes,
-      hourly_rate_usd: hourlyRate,
-      total_usd: totalUsd,
-      meeting_url: meetingUrl,
-      checkout_session_id: session.id || null,
-      customer_email: userData.user.email || null,
-      scheduled_start_at: scheduledStartAt,
-      status: "checkout_started",
+    let session;
+    try {
+      session = await createStripeSession({
+        stripeKey,
+        siteUrl,
+        bookingId: booking.id,
+        callType,
+        durationMinutes,
+        hourlyRate,
+        totalCents,
+        conversationId,
+        diagnosticCaseId,
+        userId: userData.user.id,
+        customerEmail: userData.user.email || "",
+        scheduledStartAt,
+      });
+    } catch (error) {
+      await supabase.from("call_bookings").delete().eq("id", booking.id).eq("status", "awaiting_checkout");
+      throw error;
+    }
+
+    const { error: sessionSaveError } = await supabase
+      .from("call_bookings")
+      .update({ checkout_session_id: session.id || null, status: "checkout_started" })
+      .eq("id", booking.id);
+    if (sessionSaveError) throw new Error("The Stripe session was created but could not be linked to the booking.");
+    await supabase.from("usage_events").insert({
+      user_id: userData.user.id,
+      case_id: diagnosticCaseId,
+      event_type: "checkout",
+      metadata: { booking_id: booking.id, call_type: callType, amount_cents: totalCents },
     });
 
     return json({ url: session.url });
@@ -86,19 +117,20 @@ export async function POST(request) {
   }
 }
 
-async function createStripeSession({ stripeKey, siteUrl, callType, durationMinutes, hourlyRate, totalCents, conversationId, diagnosticCaseId, userId, customerEmail, scheduledStartAt, meetingUrl }) {
+async function createStripeSession({ stripeKey, siteUrl, bookingId, callType, durationMinutes, hourlyRate, totalCents, conversationId, diagnosticCaseId, userId, customerEmail, scheduledStartAt }) {
   const params = new URLSearchParams();
   params.set("mode", "payment");
-  params.set("success_url", `${siteUrl}/?checkout=success&call=${encodeURIComponent(callType)}`);
+  params.set("success_url", `${siteUrl}/?checkout=success&call=${encodeURIComponent(callType)}&booking=${encodeURIComponent(bookingId)}`);
   params.set("cancel_url", `${siteUrl}/?checkout=cancelled`);
   if (customerEmail) params.set("customer_email", customerEmail);
+  params.set("metadata[kind]", "mechanic_call");
+  params.set("metadata[bookingId]", bookingId);
   params.set("metadata[callType]", callType);
   params.set("metadata[durationMinutes]", String(durationMinutes));
   params.set("metadata[conversationId]", conversationId || "");
   params.set("metadata[diagnosticCaseId]", diagnosticCaseId || "");
   params.set("metadata[userId]", userId);
   params.set("metadata[scheduledStartAt]", scheduledStartAt || "");
-  params.set("metadata[meetingUrl]", meetingUrl);
   params.set("line_items[0][quantity]", "1");
   params.set("line_items[0][price_data][currency]", "usd");
   params.set("line_items[0][price_data][unit_amount]", String(totalCents));
@@ -139,6 +171,8 @@ function sanitizeContent(value) {
     maximumCallMinutes: cleanMinutes(merged.maximumCallMinutes, DEFAULT_CONTENT.maximumCallMinutes),
     durationOptions: cleanDurationOptions(merged.durationOptions, DEFAULT_CONTENT.durationOptions),
     jitsiDomain: cleanDomain(merged.jitsiDomain, DEFAULT_CONTENT.jitsiDomain),
+    businessAddress: String(merged.businessAddress || "").trim(),
+    refundPolicyText: String(merged.refundText || merged.refundPolicySummary || "").trim(),
   };
 }
 
@@ -166,17 +200,28 @@ function clampToOptions(value, siteContent) {
   return options[0] || siteContent.minimumCallMinutes;
 }
 
-function meetingUrlFor(siteContent, callType, conversationId) {
-  const domain = cleanDomain(siteContent.jitsiDomain, DEFAULT_CONTENT.jitsiDomain);
-  const roomName = `DiagnosticaOnline-${callType}-${conversationId || crypto.randomUUID()}`.replace(/[^a-z0-9-]/gi, "");
-  return `https://${domain}/${roomName}#config.startWithVideoMuted=${callType === "voice"}`;
-}
-
 function cleanIsoDate(value) {
   const text = String(value || "").trim();
   if (!text) return null;
   const date = new Date(text);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function legalCheckoutReady(content) {
+  const address = String(content.businessAddress || "").trim();
+  const refund = String(content.refundPolicyText || "").trim();
+  return Boolean(address && refund && !/add your|not configured|placeholder/i.test(`${address} ${refund}`));
+}
+
+async function verifyLinkedCase(supabase, userId, diagnosticCaseId, conversationId) {
+  if (diagnosticCaseId) {
+    const { data, error } = await supabase.from("diagnostic_cases").select("id").eq("id", diagnosticCaseId).eq("owner_id", userId).maybeSingle();
+    if (error || !data) throw new Error("The diagnostic case does not belong to this account.");
+  }
+  if (conversationId) {
+    const { data, error } = await supabase.from("conversations").select("id").eq("id", conversationId).eq("owner_id", userId).maybeSingle();
+    if (error || !data) throw new Error("The saved conversation does not belong to this account.");
+  }
 }
 
 function cleanDomain(value, fallback) {

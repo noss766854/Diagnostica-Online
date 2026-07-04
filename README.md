@@ -49,7 +49,8 @@ Server-only secrets:
 - `OPENAI_API_KEY` when `AI_PROVIDER=openai`
 - `RESEND_API_KEY`
 - `STRIPE_SECRET_KEY`
-- `STRIPE_WEBHOOK_SECRET` for future payment-status synchronization
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_PREMIUM_PRICE_ID` for the recurring Premium Stripe Price
 
 Platform configuration:
 
@@ -80,6 +81,20 @@ Supported uploads include images, PDF reports, TXT/CSV logs, OBD/VCDS/ODIS text 
 
 ECU binaries are stored and marked unsupported for analysis. They are never presented to the AI as inspected content.
 
+TXT, CSV, OBD, VCDS, and ODIS text files are normalized into bounded diagnostic context. JPEG, PNG, GIF, WebP, and PDF files are attached to the configured multimodal provider when the case is discussed. Every stored file receives a server-side SHA-256 integrity hash. HEIC files remain stored but are marked unavailable to the model unless converted to a supported image format.
+
+## Stripe and live sessions
+
+1. Create a recurring Premium Price in Stripe and set its `price_...` ID as `STRIPE_PREMIUM_PRICE_ID`.
+2. In Stripe **Developers > Webhooks**, add `https://diagnostica-online.com/api/webhooks/stripe`.
+3. Subscribe it to `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, and `invoice.payment_failed`.
+4. Copy the endpoint signing secret to `STRIPE_WEBHOOK_SECRET` in Vercel.
+5. In Admin, replace the sample business address and refund/cancellation text. Paid checkout remains blocked until both are complete.
+
+Mechanic-call checkout creates a pending booking. Only a verified Stripe webhook can mark it paid and create an opaque room token. The authenticated meeting endpoint releases the Jitsi URL from 30 minutes before the scheduled start until 60 minutes after the purchased duration. Paid booking confirmations are sent through Resend and delivery errors are recorded on the booking.
+
+Premium checkout uses Stripe subscriptions. Checkout and subscription webhooks synchronize `user_plans`; active/trialing subscriptions receive Premium limits, canceled or delinquent subscriptions fall back to Free, and existing subscribers are sent to Stripe's billing portal.
+
 ## Admin dashboard
 
 `/admin` supports:
@@ -91,6 +106,7 @@ ECU binaries are stored and marked unsupported for analysis. They are never pres
 - affiliate tool creation, editing, rule tags, DTC prefixes, priority, and disabling
 - existing conversation, booking, email, AI, ads, call, consent, and legal settings
 - Vercel environment-configuration status without exposing secret values
+- Stripe webhook failure counts, booking payment state, upload hashes, and processing results
 
 ## Ads and consent
 
@@ -105,11 +121,8 @@ Ad mounts are reusable through `data-ad-slot` and include top banner, side rails
 - AI instructions refuse emissions defeat, unlawful immobilizer bypass, odometer fraud, theft enablement, and unsafe bypasses while allowing lawful diagnostics and factory restoration.
 - Legal copy remains editable in `/admin` and is displayed at `/legal`.
 
-## Current placeholders and future work
+## Intentional boundaries
 
-- Stripe Checkout creates booking sessions, but subscription provisioning and payment status need a signed Stripe webhook implementation.
-- Jitsi rooms remain the live-call provider placeholder; production scheduling and provider access controls are still needed.
-- Uploaded file storage and metadata are complete. OCR, image interpretation, PDF parsing, and text-log ingestion into AI context are future work.
-- ECU binary analysis is intentionally not implemented.
-- Premium upgrades are currently assigned by an admin; automated subscription-to-plan synchronization is future work.
-- The legacy HTML/JavaScript UI controller remains for design compatibility, while all new platform APIs, validation, auth, AI abstraction, and Next page boundaries use TypeScript.
+- ECU binary calibration/map interpretation is intentionally not implemented. Generic binary editing would be unsafe and format-specific licensed tooling is required; files are stored and hashed only.
+- Jitsi is the configured media provider. DiagnosticaOnline gates room discovery and access windows, but media transport and participant identity controls are ultimately governed by the selected Jitsi/JaaS deployment. Replace `jitsiDomain` in Admin with a managed or self-hosted deployment when contractual host controls are required.
+- The established HTML/JavaScript visual controller is retained for compatibility with the existing design. Security-sensitive operations, validation, authentication, billing, file processing, AI orchestration, and database access are server-side Next.js routes and TypeScript modules.

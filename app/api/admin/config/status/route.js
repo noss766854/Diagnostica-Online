@@ -6,11 +6,21 @@ export async function GET(request) {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
+  let adminClient = null;
   if (supabaseUrl && serviceRoleKey) {
     const authResult = await requireAdmin(request, supabaseUrl, serviceRoleKey);
     if (!authResult.ok) {
       return json({ error: authResult.error }, authResult.status);
     }
+    adminClient = authResult.supabase;
+  }
+
+  let legalReady = false;
+  if (adminClient) {
+    const { data } = await adminClient.from("site_settings").select("value").eq("key", "public_content").maybeSingle();
+    const content = data?.value && typeof data.value === "object" ? data.value : {};
+    const legalText = `${content.businessAddress || ""} ${content.refundText || content.refundPolicySummary || ""}`;
+    legalReady = Boolean(content.businessAddress && (content.refundText || content.refundPolicySummary) && !/add your|not configured|placeholder/i.test(legalText));
   }
 
   return json({
@@ -25,7 +35,8 @@ export async function GET(request) {
       envItem("AI provider", Boolean(process.env.AI_PROVIDER || process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY), process.env.AI_PROVIDER || "Gemini default"),
       envItem("Stripe secret key", Boolean(process.env.STRIPE_SECRET_KEY), "Vercel", true),
       envItem("Stripe webhook secret", Boolean(process.env.STRIPE_WEBHOOK_SECRET), "Vercel", true),
-      envItem("Sentry DSN", Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN), "Vercel"),
+      envItem("Stripe Premium price", Boolean(process.env.STRIPE_PREMIUM_PRICE_ID), "Vercel"),
+      envItem("Paid-booking legal details", legalReady, "Admin - Legal content"),
     ],
   });
 }
@@ -58,7 +69,7 @@ async function requireAdmin(request, supabaseUrl, serviceRoleKey) {
     return { ok: false, status: 403, error: "Admin role is required." };
   }
 
-  return { ok: true };
+  return { ok: true, supabase };
 }
 
 function bearerToken(value) {

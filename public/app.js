@@ -169,7 +169,7 @@
       isDisabled: false,
       showAds: true,
       aiMessagesUsedToday: 0,
-      aiMessagesDailyLimit: 5,
+      aiMessagesDailyLimit: 10,
       activeCases: 0,
       activeCaseLimit: 3,
       canSendAiMessage: true,
@@ -177,6 +177,7 @@
     },
     uploads: [],
     recommendations: [],
+    bookings: [],
     platformError: "",
   };
 
@@ -202,6 +203,7 @@
     await loadSiteContent();
     await loadSupabaseConversations();
     await loadDiagnosticCases();
+    await loadBookings();
     renderAll();
     renderCheckoutReturnNotice();
     renderAds();
@@ -236,6 +238,7 @@
       "planBadge",
       "planUsageCopy",
       "usageMeterFill",
+      "premiumBtn",
       "caseUploadsPanel",
       "caseUploadInput",
       "caseUploadBtn",
@@ -250,6 +253,10 @@
       "scheduledStartInput",
       "bookingBtn",
       "bookingResult",
+      "siteNotice",
+      "liveSessionsPanel",
+      "liveSessionsList",
+      "refreshBookingsBtn",
       "technicianAvatar",
       "technicianNameTitle",
       "technicianStats",
@@ -387,6 +394,15 @@
     });
     els.durationSelect.addEventListener("change", renderBooking);
     els.bookingBtn.addEventListener("click", reserveMechanic);
+    els.premiumBtn.addEventListener("click", openPremiumBilling);
+    els.refreshBookingsBtn.addEventListener("click", async () => {
+      await loadBookings();
+      renderAll();
+    });
+    els.liveSessionsList.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-join-booking]");
+      if (button) joinBooking(button.dataset.joinBooking);
+    });
     els.consentAcceptBtn.addEventListener("click", () => saveConsent("ads"));
     els.consentRejectBtn.addEventListener("click", () => saveConsent("essential"));
     els.caseForm.addEventListener("submit", handleCreateDiagnosticCase);
@@ -691,7 +707,7 @@
       });
       state.uploads = [completed.upload, ...state.uploads.filter((upload) => upload.id !== completed.upload.id)];
       els.caseUploadInput.value = "";
-      els.caseUploadMessage.textContent = signed.uploadKind === "ecu_binary" ? "ECU binary stored securely. Binary analysis is not enabled yet." : "File uploaded and linked to this case.";
+      els.caseUploadMessage.textContent = completed.upload.analysis_error || completed.upload.analysis_summary || "File uploaded and linked to this case.";
       renderUploads();
       createIcons();
     } catch (error) {
@@ -717,6 +733,51 @@
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || "The server request failed.");
     return payload;
+  }
+
+  async function loadBookings() {
+    if (!state.supabase || !state.supabaseUser) {
+      state.bookings = [];
+      return;
+    }
+    try {
+      const data = await platformRequest("/api/bookings");
+      state.bookings = data.bookings || [];
+    } catch (error) {
+      state.bookings = [];
+    }
+  }
+
+  async function openPremiumBilling() {
+    if (!state.supabaseUser) {
+      openAuth("login", "Log in before changing your plan.");
+      return;
+    }
+    const premiumActive = state.entitlements.plan === "premium";
+    els.premiumBtn.disabled = true;
+    try {
+      const data = await platformRequest(premiumActive ? "/api/billing/portal" : "/api/billing/checkout", { method: "POST" });
+      if (!data.url) throw new Error("Stripe did not return a billing URL.");
+      window.location.href = data.url;
+    } catch (error) {
+      showLocalCaseNotice(error.message || "Billing could not be opened.", true);
+      els.premiumBtn.disabled = false;
+    }
+  }
+
+  async function joinBooking(bookingId) {
+    const popup = window.open("about:blank", "_blank", "noopener");
+    try {
+      const data = await platformRequest(`/api/bookings/${encodeURIComponent(bookingId)}/meeting`);
+      if (!data.url) throw new Error("The meeting URL is not available.");
+      if (popup) popup.location.href = data.url;
+      else window.location.href = data.url;
+    } catch (error) {
+      if (popup) popup.close();
+      showLocalCaseNotice(error.message || "The meeting could not be opened.", true);
+      await loadBookings();
+      renderAll();
+    }
   }
 
   function normalizeDtcInput(value) {
@@ -1031,7 +1092,7 @@
       durationMinutes: duration,
       hourlyRate: rate,
       totalUsd: total,
-      scheduledStartAt: els.scheduledStartInput?.value || "",
+      scheduledStartAt: els.scheduledStartInput?.value ? new Date(els.scheduledStartInput.value).toISOString() : "",
       conversationId: conversation?.source === "diagnostic" ? null : conversation?.id,
       diagnosticCaseId: conversation?.source === "diagnostic" ? conversation.id : null,
       title: conversation?.title || "Mechanic consultation",
@@ -1059,42 +1120,19 @@
         const checkoutData = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(checkoutData.error || "Checkout function failed");
         if (checkoutData.url) {
-          if (!usesBuiltInCheckout(state.settings.checkoutUrl)) {
-            await saveBooking(payload, checkoutData.url, "checkout_started");
-          }
           window.location.href = checkoutData.url;
           return;
         }
       }
-      await showDemoBooking(payload);
+      throw new Error("Paid checkout is not configured.");
     } catch (error) {
-      if (state.settings.checkoutUrl && !isTextChat) {
-        els.bookingResult.innerHTML = `
-          <strong>Checkout is not ready yet.</strong><br>
-          ${escapeHtml(error.message || "Ask the admin to finish Stripe checkout configuration.")}
-        `;
-      } else {
-        await showDemoBooking(payload);
-      }
+      els.bookingResult.innerHTML = `
+        <strong>Booking could not be started.</strong><br>
+        ${escapeHtml(error.message || "The payment service is temporarily unavailable.")}
+      `;
     } finally {
       els.bookingBtn.disabled = false;
     }
-  }
-
-  async function showDemoBooking(payload) {
-    if (payload.callType === "text") {
-      await startTechnicianTextChat(payload);
-      return;
-    }
-    const domain = (state.settings.jitsiDomain || DEFAULT_SETTINGS.jitsiDomain).replace(/^https?:\/\//, "");
-    const roomName = `DiagnosticaOnline-${payload.callType}-${payload.conversationId || newId()}`.replace(/[^a-z0-9-]/gi, "");
-    const jitsiUrl = `https://${domain}/${roomName}#config.startWithVideoMuted=${payload.callType === "voice"}`;
-    els.bookingResult.innerHTML = `
-      <strong>${capitalize(payload.callType)} session reserved.</strong><br>
-      ${payload.durationMinutes} minutes at $${payload.hourlyRate}/hr: <strong>$${payload.totalUsd}.00</strong><br>
-      <a href="${escapeAttr(jitsiUrl)}" target="_blank" rel="noopener">Open ${payload.callType} room</a>
-    `;
-    await saveBooking(payload, jitsiUrl, "reserved");
   }
 
   async function startTechnicianTextChat(payload) {
@@ -1146,13 +1184,13 @@
         duration_minutes: payload.durationMinutes,
         hourly_rate_usd: payload.hourlyRate,
         total_usd: payload.totalUsd,
-        meeting_url: meetingUrl,
+        meeting_url: meetingUrl || null,
         scheduled_start_at: payload.scheduledStartAt ? new Date(payload.scheduledStartAt).toISOString() : null,
         customer_email: state.supabaseUser.email || null,
         status,
       });
     } catch (error) {
-      // The booking still works in demo mode if the optional table is not present yet.
+      showLocalCaseNotice("The text-review request opened, but its booking audit record could not be saved.", true);
     }
   }
 
@@ -1173,11 +1211,6 @@
     } catch (error) {
       // Notifications are useful, but the chat should still open if email is unavailable.
     }
-  }
-
-  function usesBuiltInCheckout(value) {
-    const text = String(value || "").trim();
-    return text === "/api/checkout" || text.startsWith("/api/checkout?");
   }
 
   async function connectSupabase(forceReset = false) {
@@ -1206,6 +1239,8 @@
         renderAuth();
         if (state.supabaseUser) {
           await loadSupabaseConversations();
+          await loadDiagnosticCases();
+          await loadBookings();
           renderAll();
         }
       });
@@ -1502,6 +1537,7 @@
         await refreshSupabaseUser();
         await loadSupabaseConversations();
         await loadDiagnosticCases();
+        await loadBookings();
         els.authDialog.close();
       } else {
         const response = await fetch("/api/auth/signup", {
@@ -1538,7 +1574,7 @@
       isDisabled: false,
       showAds: true,
       aiMessagesUsedToday: 0,
-      aiMessagesDailyLimit: 5,
+      aiMessagesDailyLimit: 10,
       activeCases: 0,
       activeCaseLimit: 3,
       canSendAiMessage: true,
@@ -1546,6 +1582,7 @@
     };
     state.uploads = [];
     state.recommendations = [];
+    state.bookings = [];
     loadLocalConversations();
     if (!state.conversations.length) createConversation(false);
     state.activeId = state.conversations[0].id;
@@ -1681,6 +1718,7 @@
     renderUploads();
     renderRecommendations();
     renderBooking();
+    renderLiveSessions();
     renderStatus();
     renderConsent();
     createIcons();
@@ -1884,6 +1922,13 @@
     const entitlements = state.entitlements;
     els.planBadge.textContent = formatLabel(entitlements.plan || "free");
     els.planBadge.className = `plan-badge ${entitlements.plan || "free"}`;
+    els.premiumBtn.hidden = entitlements.plan === "admin";
+    els.premiumBtn.disabled = false;
+    if (!els.premiumBtn.hidden) {
+      els.premiumBtn.querySelector("span").textContent = entitlements.plan === "premium" ? "Manage billing" : "Go Premium";
+      const icon = els.premiumBtn.querySelector("i");
+      if (icon) icon.setAttribute("data-lucide", entitlements.plan === "premium" ? "credit-card" : "crown");
+    }
     if (entitlements.isDisabled) {
       els.planUsageCopy.textContent = "Account disabled";
       els.usageMeterFill.style.width = "100%";
@@ -1916,7 +1961,9 @@
             <i data-lucide="${uploadIcon(upload.upload_kind)}"></i>
             <div>
               <strong>${escapeHtml(upload.file_name || "Diagnostic file")}</strong>
-              <span>${escapeHtml(formatLabel(upload.upload_kind || "file"))} - ${escapeHtml(formatFileSize(upload.size_bytes))}</span>
+              <span>${escapeHtml(formatLabel(upload.upload_kind || "file"))} - ${escapeHtml(formatFileSize(upload.size_bytes))} - ${escapeHtml(formatLabel(upload.analysis_status || "stored"))}</span>
+              ${upload.analysis_summary ? `<span>${escapeHtml(upload.analysis_summary)}</span>` : ""}
+              ${upload.analysis_error ? `<span class="error-copy">${escapeHtml(upload.analysis_error)}</span>` : ""}
             </div>
             ${upload.download_url ? `<a class="icon-link dark" href="${escapeAttr(upload.download_url)}" target="_blank" rel="noopener" title="Open file" aria-label="Open ${escapeAttr(upload.file_name || "file")}"><i data-lucide="external-link"></i></a>` : ""}
           </article>
@@ -1954,6 +2001,31 @@
       .join("");
   }
 
+  function renderLiveSessions() {
+    if (!els.liveSessionsPanel) return;
+    els.liveSessionsPanel.hidden = !state.supabaseUser || !state.bookings.length;
+    if (els.liveSessionsPanel.hidden) return;
+    els.liveSessionsList.innerHTML = state.bookings
+      .map((booking) => {
+        const scheduled = booking.scheduled_start_at ? formatDate(booking.scheduled_start_at) : "Starts after payment confirmation";
+        const stateLabel = booking.can_join ? "Room open" : formatLabel(booking.status || booking.payment_status || "pending");
+        return `
+          <article class="session-row">
+            <div>
+              <strong>${escapeHtml(capitalize(booking.call_type || "live"))} session - ${escapeHtml(stateLabel)}</strong>
+              <span>${escapeHtml(scheduled)} - ${escapeHtml(String(booking.duration_minutes || 0))} minutes - $${escapeHtml(Number(booking.total_usd || 0).toFixed(2))}</span>
+            </div>
+            ${
+              booking.can_join
+                ? `<button class="secondary-button" type="button" data-join-booking="${escapeAttr(booking.id)}"><i data-lucide="log-in"></i><span>Join</span></button>`
+                : `<span class="case-status-pill">${escapeHtml(stateLabel)}</span>`
+            }
+          </article>
+        `;
+      })
+      .join("");
+  }
+
   function renderBooking() {
     const reviewRequired = isHumanReviewRequired();
     if (els.escalationPanel) els.escalationPanel.hidden = !reviewRequired;
@@ -1988,16 +2060,32 @@
     if (state.checkoutNoticeShown || !els.bookingResult) return;
     const params = new URLSearchParams(window.location.search);
     const checkout = params.get("checkout");
-    if (!checkout) return;
+    const billing = params.get("billing");
+    if (!checkout && !billing) return;
     state.checkoutNoticeShown = true;
     els.bookingResult.hidden = false;
-    if (checkout === "success") {
-      const callType = params.get("call") === "voice" ? "voice" : "video";
+    els.siteNotice.hidden = false;
+    if (billing === "success") {
+      els.siteNotice.textContent = "Premium checkout completed. Stripe is confirming your subscription now.";
       els.bookingResult.innerHTML = `
-        <strong>Payment received.</strong><br>
-        Your ${escapeHtml(callType)} booking is saved. A technician will confirm the meeting details.
+        <strong>Premium checkout completed.</strong><br>
+        Stripe is confirming the subscription. Your plan will update automatically.
+      `;
+    } else if (billing === "cancelled") {
+      els.siteNotice.textContent = "Premium checkout was cancelled. Your current plan has not changed.";
+      els.bookingResult.innerHTML = `
+        <strong>Premium checkout cancelled.</strong><br>
+        Your current plan has not changed.
+      `;
+    } else if (checkout === "success") {
+      const callType = params.get("call") === "voice" ? "voice" : "video";
+      els.siteNotice.textContent = `${capitalize(callType)} payment submitted. The room unlocks after Stripe confirms it.`;
+      els.bookingResult.innerHTML = `
+        <strong>Payment submitted.</strong><br>
+        Your ${escapeHtml(callType)} booking will unlock after Stripe confirms payment. Check Live sessions for its status.
       `;
     } else {
+      els.siteNotice.textContent = "Checkout was cancelled. No paid booking was completed.";
       els.bookingResult.innerHTML = `
         <strong>Checkout cancelled.</strong><br>
         No paid booking was completed.
@@ -2005,9 +2093,18 @@
     }
     params.delete("checkout");
     params.delete("call");
+    params.delete("booking");
+    params.delete("billing");
     const cleanQuery = params.toString();
     const cleanUrl = `${window.location.pathname}${cleanQuery ? `?${cleanQuery}` : ""}${window.location.hash}`;
     window.history.replaceState({}, "", cleanUrl);
+    Promise.all([loadBookings(), loadDiagnosticCases()]).then(() => {
+      renderAll();
+      renderAds();
+    });
+    window.setTimeout(() => {
+      els.siteNotice.hidden = true;
+    }, 9000);
   }
 
   function syncDurationOptions() {
@@ -2031,7 +2128,7 @@
       ["Checkout", Boolean(state.settings.checkoutUrl)],
     ];
     els.integrationStatus.innerHTML = rows
-      .map((row) => `<span class="status-pill">${row[0]} <b>${row[1] ? "Connected" : "Demo"}</b></span>`)
+      .map((row) => `<span class="status-pill">${row[0]} <b>${row[1] ? "Connected" : "Missing"}</b></span>`)
       .join("");
   }
 

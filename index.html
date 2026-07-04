@@ -17,6 +17,7 @@
   <body>
     <div class="photo-backdrop" aria-hidden="true"></div>
     <div class="shade" aria-hidden="true"></div>
+    <div class="site-notice" id="siteNotice" role="status" hidden></div>
 
     <aside class="ad-rail ad-rail-left" aria-label="Sponsored links left">
       <div class="ad-mount side-ad" data-ad-slot="left-top"><span>Advertisement</span></div>
@@ -85,8 +86,14 @@
                 <span class="plan-badge" id="planBadge">Free</span>
                 <span id="planUsageCopy">10 diagnostic messages daily</span>
               </div>
-              <div class="usage-meter" aria-label="Daily diagnostic message usage">
-                <span id="usageMeterFill"></span>
+              <div class="plan-controls">
+                <div class="usage-meter" aria-label="Daily diagnostic message usage">
+                  <span id="usageMeterFill"></span>
+                </div>
+                <button class="mini-button premium-button" id="premiumBtn" type="button">
+                  <i data-lucide="crown"></i>
+                  <span>Go Premium</span>
+                </button>
               </div>
             </div>
 
@@ -191,6 +198,16 @@
               </button>
             </div>
             <div class="detail-grid" id="vehicleDetails"></div>
+          </section>
+
+          <section class="case-tools-panel" id="liveSessionsPanel" hidden aria-label="Live specialist sessions">
+            <div class="summary-heading">
+              <span>Live sessions</span>
+              <button class="icon-link light" id="refreshBookingsBtn" type="button" title="Refresh live sessions" aria-label="Refresh live sessions">
+                <i data-lucide="refresh-cw"></i>
+              </button>
+            </div>
+            <div class="session-list" id="liveSessionsList"></div>
           </section>
 
           <section class="case-tools-panel" id="caseUploadsPanel" hidden aria-label="Diagnostic uploads">

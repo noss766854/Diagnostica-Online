@@ -137,6 +137,11 @@ create table if not exists public.diagnostic_uploads (
   size_bytes bigint not null check (size_bytes between 1 and 52428800),
   upload_kind text not null check (upload_kind in ('image', 'pdf', 'text', 'csv', 'obd_scan', 'ecu_binary')),
   analysis_status text not null default 'stored' check (analysis_status in ('stored', 'queued', 'processed', 'unsupported', 'failed')),
+  sha256 text,
+  extracted_text text,
+  analysis_summary text,
+  analysis_error text,
+  analyzed_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -148,6 +153,18 @@ create table if not exists public.user_plans (
   provider_subscription_id text,
   starts_at timestamptz not null default now(),
   ends_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.stripe_webhook_events (
+  event_id text primary key,
+  event_type text not null,
+  status text not null default 'processing' check (status in ('processing', 'processed', 'failed')),
+  attempts integer not null default 1 check (attempts >= 1),
+  last_error text,
+  stripe_created_at timestamptz,
+  processed_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -204,10 +221,29 @@ alter table public.call_bookings
   add column if not exists scheduled_start_at timestamptz,
   add column if not exists checkout_session_id text,
   add column if not exists customer_email text,
-  add column if not exists diagnostic_case_id uuid references public.diagnostic_cases(id) on delete set null;
+  add column if not exists diagnostic_case_id uuid references public.diagnostic_cases(id) on delete set null,
+  add column if not exists payment_intent_id text,
+  add column if not exists payment_status text not null default 'unpaid',
+  add column if not exists paid_at timestamptz,
+  add column if not exists room_token text,
+  add column if not exists join_available_at timestamptz,
+  add column if not exists join_expires_at timestamptz,
+  add column if not exists confirmation_email_sent_at timestamptz,
+  add column if not exists notification_error text;
+
+alter table public.diagnostic_uploads
+  add column if not exists sha256 text,
+  add column if not exists extracted_text text,
+  add column if not exists analysis_summary text,
+  add column if not exists analysis_error text,
+  add column if not exists analyzed_at timestamptz;
 
 do $$
 begin
+  update public.call_bookings
+  set status = 'reserved'
+  where status not in ('reserved', 'awaiting_checkout', 'checkout_started', 'paid', 'payment_failed', 'canceled', 'completed', 'text_chat_open', 'refunded');
+
   alter table public.profiles drop constraint if exists profiles_availability_status_check;
   alter table public.profiles
     add constraint profiles_availability_status_check check (availability_status in ('offline', 'available', 'busy'));
@@ -219,6 +255,14 @@ begin
   alter table public.conversations drop constraint if exists conversations_priority_check;
   alter table public.conversations
     add constraint conversations_priority_check check (priority in ('low', 'normal', 'urgent'));
+
+  alter table public.call_bookings drop constraint if exists call_bookings_status_check;
+  alter table public.call_bookings
+    add constraint call_bookings_status_check check (status in ('reserved', 'awaiting_checkout', 'checkout_started', 'paid', 'payment_failed', 'canceled', 'completed', 'text_chat_open', 'refunded'));
+
+  alter table public.call_bookings drop constraint if exists call_bookings_payment_status_check;
+  alter table public.call_bookings
+    add constraint call_bookings_payment_status_check check (payment_status in ('unpaid', 'pending', 'paid', 'failed', 'refunded'));
 end $$;
 
 create index if not exists conversations_owner_updated_idx
@@ -236,6 +280,14 @@ create index if not exists call_bookings_owner_created_idx
 create index if not exists call_bookings_status_scheduled_idx
   on public.call_bookings (status, scheduled_start_at);
 
+create unique index if not exists call_bookings_checkout_session_unique_idx
+  on public.call_bookings (checkout_session_id)
+  where checkout_session_id is not null;
+
+create unique index if not exists call_bookings_room_token_unique_idx
+  on public.call_bookings (room_token)
+  where room_token is not null;
+
 create index if not exists vehicles_owner_updated_idx
   on public.vehicles (owner_id, updated_at desc);
 
@@ -250,6 +302,13 @@ create index if not exists diagnostic_messages_case_created_idx
 
 create index if not exists diagnostic_uploads_case_created_idx
   on public.diagnostic_uploads (case_id, created_at desc);
+
+create index if not exists stripe_webhook_events_status_updated_idx
+  on public.stripe_webhook_events (status, updated_at desc);
+
+create unique index if not exists user_plans_provider_subscription_unique_idx
+  on public.user_plans (provider_subscription_id)
+  where provider_subscription_id is not null;
 
 create index if not exists usage_events_user_type_created_idx
   on public.usage_events (user_id, event_type, created_at desc);
@@ -309,6 +368,12 @@ create trigger set_diagnostic_cases_updated_at
 drop trigger if exists set_user_plans_updated_at on public.user_plans;
 create trigger set_user_plans_updated_at
   before update on public.user_plans
+  for each row
+  execute function public.set_updated_at();
+
+drop trigger if exists set_stripe_webhook_events_updated_at on public.stripe_webhook_events;
+create trigger set_stripe_webhook_events_updated_at
+  before update on public.stripe_webhook_events
   for each row
   execute function public.set_updated_at();
 
@@ -522,6 +587,7 @@ alter table public.diagnostic_cases enable row level security;
 alter table public.diagnostic_messages enable row level security;
 alter table public.diagnostic_uploads enable row level security;
 alter table public.user_plans enable row level security;
+alter table public.stripe_webhook_events enable row level security;
 alter table public.usage_events enable row level security;
 alter table public.recommended_tools enable row level security;
 
@@ -604,14 +670,22 @@ create policy "Staff can update assigned conversations"
   );
 
 drop policy if exists "Users can manage their own bookings" on public.call_bookings;
+drop policy if exists "Users can read their own bookings" on public.call_bookings;
+drop policy if exists "Users can create free text bookings" on public.call_bookings;
 drop policy if exists "Admins can read all bookings" on public.call_bookings;
 drop policy if exists "Admins can update bookings" on public.call_bookings;
 
-create policy "Users can manage their own bookings"
+create policy "Users can create free text bookings"
   on public.call_bookings
-  for all
-  using (owner_id = auth.uid())
-  with check (owner_id = auth.uid());
+  for insert
+  with check (
+    owner_id = auth.uid()
+    and call_type = 'text'
+    and status = 'text_chat_open'
+    and total_usd = 0
+    and meeting_url is null
+    and checkout_session_id is null
+  );
 
 create policy "Admins can read all bookings"
   on public.call_bookings
@@ -757,19 +831,13 @@ create policy "Admins can manage all diagnostic messages"
   with check (public.is_admin());
 
 drop policy if exists "Users can manage their diagnostic upload metadata" on public.diagnostic_uploads;
+drop policy if exists "Users can read their diagnostic upload metadata" on public.diagnostic_uploads;
 drop policy if exists "Admins can manage diagnostic upload metadata" on public.diagnostic_uploads;
 
-create policy "Users can manage their diagnostic upload metadata"
+create policy "Users can read their diagnostic upload metadata"
   on public.diagnostic_uploads
-  for all
-  using (owner_id = auth.uid())
-  with check (
-    owner_id = auth.uid()
-    and exists (
-      select 1 from public.diagnostic_cases dc
-      where dc.id = case_id and dc.owner_id = auth.uid()
-    )
-  );
+  for select
+  using (owner_id = auth.uid());
 
 create policy "Admins can manage diagnostic upload metadata"
   on public.diagnostic_uploads
@@ -790,6 +858,13 @@ create policy "Admins can manage user plans"
   for all
   using (public.is_admin())
   with check (public.is_admin());
+
+drop policy if exists "Admins can read Stripe webhook events" on public.stripe_webhook_events;
+
+create policy "Admins can read Stripe webhook events"
+  on public.stripe_webhook_events
+  for select
+  using (public.is_admin());
 
 drop policy if exists "Users can read their own usage" on public.usage_events;
 drop policy if exists "Admins can read all usage" on public.usage_events;
