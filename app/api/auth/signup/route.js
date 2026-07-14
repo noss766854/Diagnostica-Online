@@ -11,13 +11,51 @@ const DEFAULT_SITE_CONTENT = {
   emailIntro: "Confirm your email so your mechanic conversations stay saved to your account.",
 };
 
-const SUCCESS_MESSAGE = "Check your email for the DiagnosticaOnline verification link, then log in.";
+const EMAIL_COPY = {
+  en: {
+    subject: "Verify your DiagnosticaOnline account",
+    intro: "Confirm your email so your diagnostic cases stay saved to your account.",
+    title: "Confirm your email",
+    button: "Verify account",
+    fallback: "If the button does not work, paste this link into your browser:",
+    ignore: "You can ignore this email if you did not create an account.",
+    success: "Check your email for the DiagnosticaOnline verification link, then log in.",
+  },
+  es: {
+    subject: "Verifica tu cuenta de DiagnosticaOnline",
+    intro: "Confirma tu correo para guardar tus casos de diagnóstico en tu cuenta.",
+    title: "Confirma tu correo",
+    button: "Verificar cuenta",
+    fallback: "Si el botón no funciona, pega este enlace en el navegador:",
+    ignore: "Puedes ignorar este correo si no has creado una cuenta.",
+    success: "Revisa tu correo para verificar la cuenta de DiagnosticaOnline y después inicia sesión.",
+  },
+  ro: {
+    subject: "Verifică-ți contul DiagnosticaOnline",
+    intro: "Confirmă adresa de e-mail pentru ca diagnosticările să rămână salvate în cont.",
+    title: "Confirmă adresa de e-mail",
+    button: "Verifică contul",
+    fallback: "Dacă butonul nu funcționează, copiază acest link în browser:",
+    ignore: "Poți ignora acest e-mail dacă nu ai creat un cont.",
+    success: "Verifică e-mailul pentru linkul DiagnosticaOnline, apoi autentifică-te.",
+  },
+  "ca-valencia": {
+    subject: "Verifica el teu compte de DiagnosticaOnline",
+    intro: "Confirma el correu perquè els casos de diagnòstic queden guardats en el teu compte.",
+    title: "Confirma el correu",
+    button: "Verifica el compte",
+    fallback: "Si el botó no funciona, apega este enllaç en el navegador:",
+    ignore: "Pots ignorar este correu si no has creat un compte.",
+    success: "Revisa el correu per a verificar el compte de DiagnosticaOnline i després inicia sessió.",
+  },
+};
 
 export async function POST(request) {
   try {
     const body = await request.json();
     const email = cleanEmail(body.email);
     const password = String(body.password || "");
+    const language = normalizeLanguage(body.language);
 
     if (!email) {
       return json({ error: "Enter a valid email address." }, 400);
@@ -58,13 +96,14 @@ export async function POST(request) {
         redirectTo,
         data: {
           display_name: email.split("@")[0],
+          preferred_language: language,
         },
       },
     });
 
     if (error) {
       if (isDuplicateUser(error)) {
-        return json({ ok: true, message: SUCCESS_MESSAGE });
+        return json({ ok: true, message: EMAIL_COPY[language].success });
       }
       return json({ error: safeError(error.message, "Could not create the verification link.") }, 400);
     }
@@ -74,23 +113,26 @@ export async function POST(request) {
       return json({ error: "Supabase did not return a verification link." }, 502);
     }
     const actionLink = verificationActionLink(generatedActionLink, redirectTo);
+    const copy = localizedEmailCopy(siteContent, language);
 
     const resend = new Resend(resendKey);
     const emailHtml = verificationEmailHtml({
       actionLink,
-      intro: siteContent.emailIntro,
+      intro: copy.intro,
       siteUrl,
+      copy,
     });
     const emailText = verificationEmailText({
       actionLink,
-      intro: siteContent.emailIntro,
+      intro: copy.intro,
       siteUrl,
+      copy,
     });
 
     const sent = await resend.emails.send({
       from: formatFrom(siteContent),
       to: [email],
-      subject: siteContent.emailSubject,
+      subject: copy.subject,
       html: emailHtml,
       text: emailText,
     });
@@ -99,7 +141,7 @@ export async function POST(request) {
       return json({ error: safeError(sent.error.message, "Could not send the verification email.") }, 502);
     }
 
-    return json({ ok: true, message: SUCCESS_MESSAGE });
+    return json({ ok: true, message: EMAIL_COPY[language].success });
   } catch (error) {
     return json({ error: error instanceof Error ? safeError(error.message, "Signup failed.") : "Signup failed." }, 500);
   }
@@ -125,7 +167,7 @@ function sanitizeSiteContent(value) {
   };
 }
 
-function verificationEmailHtml({ actionLink, intro, siteUrl }) {
+function verificationEmailHtml({ actionLink, intro, siteUrl, copy }) {
   const safeActionLink = escapeAttr(actionLink);
   const safeIntro = escapeHtml(intro);
   const safeSiteUrl = escapeHtml(siteUrl);
@@ -141,16 +183,16 @@ function verificationEmailHtml({ actionLink, intro, siteUrl }) {
             <tr>
               <td style="background:#10262d;padding:28px 32px;color:#ffffff;">
                 <div style="font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#57c7d9;">DiagnosticaOnline</div>
-                <h1 style="margin:8px 0 0;font-size:28px;line-height:1.15;">Confirm your email</h1>
+                <h1 style="margin:8px 0 0;font-size:28px;line-height:1.15;">${escapeHtml(copy.title)}</h1>
               </td>
             </tr>
             <tr>
               <td style="padding:32px;">
                 <p style="margin:0 0 22px;font-size:16px;line-height:1.6;">${safeIntro}</p>
-                <a href="${safeActionLink}" style="display:inline-block;background:#f17363;color:#ffffff;text-decoration:none;font-weight:800;border-radius:8px;padding:14px 22px;">Verify account</a>
-                <p style="margin:28px 0 0;color:#52616b;font-size:14px;line-height:1.6;">If the button does not work, paste this link into your browser:</p>
+                <a href="${safeActionLink}" style="display:inline-block;background:#f17363;color:#ffffff;text-decoration:none;font-weight:800;border-radius:8px;padding:14px 22px;">${escapeHtml(copy.button)}</a>
+                <p style="margin:28px 0 0;color:#52616b;font-size:14px;line-height:1.6;">${escapeHtml(copy.fallback)}</p>
                 <p style="word-break:break-all;color:#0f7f95;font-size:13px;line-height:1.5;">${safeActionLink}</p>
-                <p style="margin:28px 0 0;color:#52616b;font-size:13px;line-height:1.5;">This request came from ${safeSiteUrl}. You can ignore this email if you did not create an account.</p>
+                <p style="margin:28px 0 0;color:#52616b;font-size:13px;line-height:1.5;">DiagnosticaOnline: ${safeSiteUrl}. ${escapeHtml(copy.ignore)}</p>
               </td>
             </tr>
           </table>
@@ -161,16 +203,30 @@ function verificationEmailHtml({ actionLink, intro, siteUrl }) {
 </html>`;
 }
 
-function verificationEmailText({ actionLink, intro, siteUrl }) {
+function verificationEmailText({ actionLink, intro, siteUrl, copy }) {
   return [
-    "DiagnosticaOnline email verification",
+    copy.subject,
     "",
     intro,
     "",
-    `Verify your account: ${actionLink}`,
+    `${copy.button}: ${actionLink}`,
     "",
-    `This request came from ${siteUrl}. Ignore this email if you did not create an account.`,
+    `DiagnosticaOnline: ${siteUrl}. ${copy.ignore}`,
   ].join("\n");
+}
+
+function localizedEmailCopy(siteContent, language) {
+  const copy = EMAIL_COPY[language];
+  return {
+    ...copy,
+    subject: siteContent.emailSubject === DEFAULT_SITE_CONTENT.emailSubject ? copy.subject : siteContent.emailSubject,
+    intro: siteContent.emailIntro === DEFAULT_SITE_CONTENT.emailIntro ? copy.intro : siteContent.emailIntro,
+  };
+}
+
+function normalizeLanguage(value) {
+  const language = String(value || "en").trim().toLowerCase();
+  return Object.prototype.hasOwnProperty.call(EMAIL_COPY, language) ? language : "en";
 }
 
 function formatFrom(siteContent) {

@@ -9,6 +9,7 @@ export type MessageSender = "user" | "assistant" | "mechanic" | "system";
 export type UploadKind = "image" | "pdf" | "text" | "csv" | "obd_scan" | "ecu_binary";
 export type ToolCategory = "obd_scanner" | "multimeter" | "smoke_tester" | "vacuum_pump" | "repair_manual" | "scan_tool" | "other";
 export type EscalationCategory = "none" | "ambiguous_evidence" | "specialist_judgment" | "unsupported_input" | "safety_review";
+export type SupportedLanguage = "en" | "es" | "ro" | "ca-valencia";
 
 export interface VehicleRecord {
   id: string;

@@ -4,6 +4,7 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text,
   display_name text,
+  preferred_language text not null default 'en' check (preferred_language in ('en', 'es', 'ro', 'ca-valencia')),
   role text not null default 'customer' check (role in ('customer', 'mechanic', 'admin')),
   availability_status text not null default 'offline' check (availability_status in ('offline', 'available', 'busy')),
   mechanic_title text,
@@ -201,6 +202,7 @@ create table if not exists public.recommended_tools (
 
 alter table public.profiles
   add column if not exists availability_status text not null default 'offline',
+  add column if not exists preferred_language text not null default 'en',
   add column if not exists mechanic_title text,
   add column if not exists mechanic_bio text,
   add column if not exists avatar_url text,
@@ -240,6 +242,14 @@ alter table public.diagnostic_uploads
 
 do $$
 begin
+  update public.profiles
+  set preferred_language = 'en'
+  where preferred_language is null or preferred_language not in ('en', 'es', 'ro', 'ca-valencia');
+
+  alter table public.profiles drop constraint if exists profiles_preferred_language_check;
+  alter table public.profiles
+    add constraint profiles_preferred_language_check check (preferred_language in ('en', 'es', 'ro', 'ca-valencia'));
+
   update public.call_bookings
   set status = 'reserved'
   where status not in ('reserved', 'awaiting_checkout', 'checkout_started', 'paid', 'payment_failed', 'canceled', 'completed', 'text_chat_open', 'refunded');
@@ -390,11 +400,15 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, email, display_name, role)
+  insert into public.profiles (id, email, display_name, preferred_language, role)
   values (
     new.id,
     new.email,
     coalesce(new.raw_user_meta_data->>'display_name', split_part(new.email, '@', 1)),
+    case
+      when new.raw_user_meta_data->>'preferred_language' in ('en', 'es', 'ro', 'ca-valencia') then new.raw_user_meta_data->>'preferred_language'
+      else 'en'
+    end,
     case
       when lower(new.email) = 'admin@diagnostica-online.com' then 'admin'
       else 'customer'

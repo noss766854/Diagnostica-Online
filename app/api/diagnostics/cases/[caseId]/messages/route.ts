@@ -37,7 +37,7 @@ export async function POST(request: Request, { params }: RouteContext): Promise<
           owner_id: context.user.id,
           sender_type: "user",
           content: input.content,
-          metadata: { source: "human_review_follow_up" },
+          metadata: { source: "human_review_follow_up", language: input.language },
         })
         .select()
         .single();
@@ -83,7 +83,7 @@ export async function POST(request: Request, { params }: RouteContext): Promise<
         owner_id: context.user.id,
         sender_type: "user",
         content: input.content,
-        metadata: { source: "diagnostic_chat" },
+        metadata: { source: "diagnostic_chat", language: input.language },
       })
       .select()
       .single();
@@ -107,6 +107,7 @@ export async function POST(request: Request, { params }: RouteContext): Promise<
       userMessage: input.content,
       automation,
       attachments,
+      language: input.language,
     });
     const { data: assistantMessage, error: assistantError } = await supabase
       .from("diagnostic_messages")
@@ -124,6 +125,7 @@ export async function POST(request: Request, { params }: RouteContext): Promise<
           escalation_required: generation.escalation.required,
           escalation_category: generation.escalation.category,
           escalation_reason: generation.escalation.reason,
+          language: input.language,
         },
       })
       .select()
@@ -146,6 +148,7 @@ export async function POST(request: Request, { params }: RouteContext): Promise<
             status: "completed",
             escalation_required: generation.escalation.required,
             escalation_category: generation.escalation.category,
+            language: input.language,
           },
         })
         .eq("id", reservedUsageId),

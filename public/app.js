@@ -5,6 +5,593 @@
     siteContent: "wrenchline.siteContent",
     session: "wrenchline.session",
     consent: "wrenchline.consent",
+    language: "diagnostica.language",
+  };
+
+  const SUPPORTED_LANGUAGES = {
+    en: { label: "English", htmlLang: "en", promptName: "English" },
+    es: { label: "Español", htmlLang: "es", promptName: "Spanish" },
+    ro: { label: "Română", htmlLang: "ro", promptName: "Romanian" },
+    "ca-valencia": { label: "Valencià", htmlLang: "ca-ES-valencia", promptName: "Valencian" },
+  };
+
+  const TRANSLATIONS = {
+    en: {
+      "language.title": "Choose your language",
+      "language.subtitle": "The diagnostic service and its replies will use this language.",
+      "language.change": "Change language",
+      "language.close": "Close language selection",
+      "language.available": "Available languages",
+      "account.loggedOut": "Logged out",
+      "account.loggedIn": "Logged in",
+      "nav.login": "Login",
+      "nav.createAccount": "Create account",
+      "nav.admin": "Admin dashboard",
+      "nav.contact": "Contact us",
+      "nav.legal": "Legal",
+      "nav.signOut": "Sign out",
+      "hero.promise": "Work through your car problem with evidence-led guidance",
+      "hero.guided": "Guided diagnostics",
+      "hero.carQuestions": "Car Questions",
+      "hero.title": "Describe the symptom. Work the problem through.",
+      "hero.description": "The diagnostic service asks for evidence, builds a test order, and interprets results. A specialist only enters the case when additional judgment is genuinely required.",
+      "tabs.diagnostics": "Diagnostics",
+      "tabs.savedCases": "Saved cases",
+      "tabs.repairLibrary": "Repair library",
+      "profile.stats": "Evidence-led vehicle diagnostics",
+      "profile.experience": "Human review is requested only when genuinely needed",
+      "plan.defaultUsage": "10 diagnostic messages daily",
+      "plan.goPremium": "Go Premium",
+      "plan.manageBilling": "Manage billing",
+      "plan.disabled": "Account disabled",
+      "plan.unlimited": "Unlimited diagnostic messages",
+      "plan.usage": "{used} of {limit} diagnostic messages used today",
+      "cases.savedTitle": "Saved diagnostic cases",
+      "cases.newCase": "New case",
+      "cases.empty": "No saved cases yet. Create a structured case to start diagnosing.",
+      "chat.questionLabel": "Type your car question",
+      "chat.placeholder": "Type your car question here...",
+      "chat.reviewPlaceholder": "Add information for the human reviewer...",
+      "chat.available": "Diagnostic guidance available now",
+      "chat.reviewQueue": "This case is in the human review queue",
+      "chat.start": "Start chat",
+      "chat.sendUpdate": "Send update",
+      "chat.welcome": "Tell me the year, make, model, mileage, symptoms, warning lights, sounds, smells, and when the issue happens. We will work through the diagnosis step by step.",
+      "chat.typing": "Reviewing the symptoms and test history...",
+      "case.setupMessage": "Case saved. Add the first question, observation, or test result and the diagnostic service will build a test plan.",
+      "chat.emptyLoggedIn": "Create or open a saved case to start guided diagnostics.",
+      "chat.emptyLoggedOut": "Log in to create a saved case and begin guided diagnostics.",
+      "quick.checkEngine": "Check engine",
+      "quick.checkEnginePrompt": "My check engine light is on and the car feels rough at idle.",
+      "quick.grindingBrakes": "Grinding brakes",
+      "quick.grindingBrakesPrompt": "My brakes are grinding when I slow down.",
+      "quick.noStart": "No start",
+      "quick.noStartPrompt": "The car will not start, but the lights still come on.",
+      "quick.overheating": "Overheating",
+      "quick.overheatingPrompt": "The engine temperature is climbing and I smell coolant.",
+      "review.required": "Human review required",
+      "review.text": "Text review",
+      "review.video": "Video",
+      "review.voice": "Voice",
+      "review.duration": "Duration",
+      "review.preferredTime": "Preferred time",
+      "review.reserve": "Reserve mechanic",
+      "review.reserveSpecialist": "Reserve specialist",
+      "review.textQueued": "Text review queued",
+      "common.free": "Free",
+      "common.optional": "Optional",
+      "common.other": "Other",
+      "common.cancel": "Cancel",
+      "common.unknown": "Unknown",
+      "common.notSupplied": "Not supplied",
+      "common.noneSupplied": "None supplied",
+      "common.pending": "Pending",
+      "common.saved": "Saved",
+      "common.you": "You",
+      "common.caseSetup": "Case setup",
+      "common.viewTool": "View tool",
+      "common.join": "Join",
+      "case.details": "Case details",
+      "case.draft": "Draft",
+      "sessions.title": "Live sessions",
+      "uploads.title": "Files and scan reports",
+      "uploads.copy": "Images, PDF reports, TXT/CSV logs, OBD/VCDS/ODIS scans, and ECU binaries up to 25 MB.",
+      "uploads.select": "Select file",
+      "uploads.upload": "Upload",
+      "uploads.empty": "No files uploaded to this case.",
+      "uploads.success": "File uploaded and linked to this case.",
+      "tools.title": "Recommended tools",
+      "tools.copy": "Recommendations are rule-based and may contain affiliate links.",
+      "tools.empty": "No tool rules match this case yet.",
+      "tools.relevant": "Relevant diagnostic tool",
+      "consent.title": "Cookie and ad consent",
+      "consent.body": "We use essential storage for login and saved cases. With your consent, we also use ads to keep free text help available.",
+      "consent.legal": "Legal and privacy",
+      "consent.essential": "Essential only",
+      "consent.accept": "Accept ads",
+      "caseForm.kicker": "Structured diagnostic session",
+      "caseForm.title": "New diagnostic case",
+      "caseForm.caseTitle": "Case title",
+      "caseForm.caseTitlePlaceholder": "Intermittent no-start after warm-up",
+      "caseForm.symptoms": "Symptoms",
+      "caseForm.dtcCodes": "DTC fault codes",
+      "caseForm.dtcHint": "Separate with commas or spaces",
+      "caseForm.previousWork": "Previous repairs or tests",
+      "caseForm.create": "Create saved case",
+      "caseForm.saving": "Saving the diagnostic case...",
+      "vehicle.year": "Year",
+      "vehicle.make": "Make",
+      "vehicle.model": "Model",
+      "vehicle.engine": "Engine / powertrain",
+      "vehicle.fuelType": "Fuel type",
+      "vehicle.fuel": "Fuel",
+      "vehicle.gearbox": "Gearbox",
+      "vehicle.ecu": "ECU identifier",
+      "vehicle.dtcCodes": "DTC codes",
+      "vehicle.priority": "Priority",
+      "vehicle.mileage": "Mileage",
+      "vehicle.area": "Area",
+      "vehicle.brief": "Brief",
+      "fuel.petrol": "Petrol",
+      "fuel.diesel": "Diesel",
+      "fuel.hybrid": "Hybrid",
+      "fuel.electric": "Electric",
+      "gearbox.manual": "Manual",
+      "gearbox.automatic": "Automatic",
+      "gearbox.singleSpeed": "Single-speed EV",
+      "auth.kicker": "Secure account",
+      "auth.email": "Email or admin username",
+      "auth.password": "Password",
+      "auth.existing": "Use existing login",
+      "auth.loggingIn": "Logging in...",
+      "auth.creating": "Creating account...",
+      "auth.verify": "Check your email for the verification link, then log in.",
+      "duration.minutes": "{minutes} minutes",
+      "duration.hour": "1 hour",
+      "duration.hours": "{hours} hours",
+      "duration.30": "30 minutes",
+      "duration.60": "1 hour",
+      "duration.90": "90 minutes",
+      "duration.120": "2 hours",
+      "status.active": "Active",
+      "status.waiting_for_mechanic": "Human review",
+      "status.assigned": "Assigned",
+      "status.resolved": "Resolved",
+      "status.archived": "Archived",
+      "ad.label": "Advertisement",
+    },
+    es: {
+      "language.title": "Elige tu idioma",
+      "language.subtitle": "El servicio de diagnóstico y sus respuestas usarán este idioma.",
+      "language.change": "Cambiar idioma",
+      "language.close": "Cerrar selección de idioma",
+      "language.available": "Idiomas disponibles",
+      "account.loggedOut": "Sesión cerrada",
+      "account.loggedIn": "Sesión iniciada",
+      "nav.login": "Iniciar sesión",
+      "nav.createAccount": "Crear cuenta",
+      "nav.admin": "Panel de administración",
+      "nav.contact": "Contacto",
+      "nav.legal": "Legal",
+      "nav.signOut": "Cerrar sesión",
+      "hero.promise": "Resuelve el problema de tu coche con orientación basada en pruebas",
+      "hero.guided": "Diagnóstico guiado",
+      "hero.carQuestions": "Consultas del coche",
+      "hero.title": "Describe el síntoma. Resuelve el problema paso a paso.",
+      "hero.description": "El servicio pide pruebas, crea un orden de comprobaciones e interpreta los resultados. Solo interviene un especialista cuando hace falta criterio adicional.",
+      "tabs.diagnostics": "Diagnóstico",
+      "tabs.savedCases": "Casos guardados",
+      "tabs.repairLibrary": "Biblioteca de reparación",
+      "profile.stats": "Diagnóstico del vehículo basado en pruebas",
+      "profile.experience": "Solo se solicita revisión humana cuando es realmente necesaria",
+      "plan.defaultUsage": "10 mensajes de diagnóstico al día",
+      "plan.goPremium": "Pasar a Premium",
+      "plan.manageBilling": "Gestionar suscripción",
+      "plan.disabled": "Cuenta desactivada",
+      "plan.unlimited": "Mensajes de diagnóstico ilimitados",
+      "plan.usage": "{used} de {limit} mensajes de diagnóstico usados hoy",
+      "cases.savedTitle": "Casos de diagnóstico guardados",
+      "cases.newCase": "Nuevo caso",
+      "cases.empty": "Todavía no hay casos guardados. Crea un caso para empezar el diagnóstico.",
+      "chat.questionLabel": "Escribe tu consulta sobre el coche",
+      "chat.placeholder": "Escribe aquí tu consulta sobre el coche...",
+      "chat.reviewPlaceholder": "Añade información para la revisión humana...",
+      "chat.available": "Orientación de diagnóstico disponible ahora",
+      "chat.reviewQueue": "Este caso está en la cola de revisión humana",
+      "chat.start": "Iniciar diagnóstico",
+      "chat.sendUpdate": "Enviar actualización",
+      "chat.welcome": "Indícame el año, marca, modelo, kilometraje, síntomas, testigos, sonidos, olores y cuándo ocurre el fallo. Resolveremos el diagnóstico paso a paso.",
+      "chat.typing": "Revisando los síntomas y el historial de pruebas...",
+      "case.setupMessage": "Caso guardado. Añade la primera pregunta, observación o resultado de una prueba y el servicio creará un plan de diagnóstico.",
+      "chat.emptyLoggedIn": "Crea o abre un caso guardado para iniciar el diagnóstico guiado.",
+      "chat.emptyLoggedOut": "Inicia sesión para crear un caso y comenzar el diagnóstico guiado.",
+      "quick.checkEngine": "Testigo de motor",
+      "quick.checkEnginePrompt": "El testigo del motor está encendido y el coche funciona irregular al ralentí.",
+      "quick.grindingBrakes": "Frenos rozando",
+      "quick.grindingBrakesPrompt": "Los frenos hacen un ruido de rozamiento al reducir la velocidad.",
+      "quick.noStart": "No arranca",
+      "quick.noStartPrompt": "El coche no arranca, pero las luces sí se encienden.",
+      "quick.overheating": "Sobrecalentamiento",
+      "quick.overheatingPrompt": "La temperatura del motor sube y huele a refrigerante.",
+      "review.required": "Se requiere revisión humana",
+      "review.text": "Revisión por texto",
+      "review.video": "Vídeo",
+      "review.voice": "Voz",
+      "review.duration": "Duración",
+      "review.preferredTime": "Hora preferida",
+      "review.reserve": "Reservar mecánico",
+      "review.reserveSpecialist": "Reservar especialista",
+      "review.textQueued": "Revisión por texto en cola",
+      "common.free": "Gratis",
+      "common.optional": "Opcional",
+      "common.other": "Otro",
+      "common.cancel": "Cancelar",
+      "common.unknown": "Desconocido",
+      "common.notSupplied": "No indicado",
+      "common.noneSupplied": "Ninguno indicado",
+      "common.pending": "Pendiente",
+      "common.saved": "Guardado",
+      "common.you": "Tú",
+      "common.caseSetup": "Configuración del caso",
+      "common.viewTool": "Ver herramienta",
+      "common.join": "Entrar",
+      "case.details": "Detalles del caso",
+      "case.draft": "Borrador",
+      "sessions.title": "Sesiones en directo",
+      "uploads.title": "Archivos e informes de escaneo",
+      "uploads.copy": "Imágenes, informes PDF, registros TXT/CSV, escaneos OBD/VCDS/ODIS y binarios ECU de hasta 25 MB.",
+      "uploads.select": "Seleccionar archivo",
+      "uploads.upload": "Subir",
+      "uploads.empty": "No hay archivos subidos en este caso.",
+      "uploads.success": "Archivo subido y vinculado a este caso.",
+      "tools.title": "Herramientas recomendadas",
+      "tools.copy": "Las recomendaciones se basan en reglas y pueden contener enlaces de afiliado.",
+      "tools.empty": "Todavía no hay herramientas que coincidan con este caso.",
+      "tools.relevant": "Herramienta de diagnóstico relevante",
+      "consent.title": "Consentimiento de cookies y anuncios",
+      "consent.body": "Usamos almacenamiento esencial para el inicio de sesión y los casos guardados. Con tu consentimiento también usamos anuncios para mantener gratuita la ayuda por texto.",
+      "consent.legal": "Legal y privacidad",
+      "consent.essential": "Solo esenciales",
+      "consent.accept": "Aceptar anuncios",
+      "caseForm.kicker": "Sesión de diagnóstico estructurada",
+      "caseForm.title": "Nuevo caso de diagnóstico",
+      "caseForm.caseTitle": "Título del caso",
+      "caseForm.caseTitlePlaceholder": "Fallo de arranque intermitente en caliente",
+      "caseForm.symptoms": "Síntomas",
+      "caseForm.dtcCodes": "Códigos de avería DTC",
+      "caseForm.dtcHint": "Sepáralos con comas o espacios",
+      "caseForm.previousWork": "Reparaciones o pruebas anteriores",
+      "caseForm.create": "Crear caso guardado",
+      "caseForm.saving": "Guardando el caso de diagnóstico...",
+      "vehicle.year": "Año",
+      "vehicle.make": "Marca",
+      "vehicle.model": "Modelo",
+      "vehicle.engine": "Motor / sistema de propulsión",
+      "vehicle.fuelType": "Tipo de combustible",
+      "vehicle.fuel": "Combustible",
+      "vehicle.gearbox": "Cambio",
+      "vehicle.ecu": "Identificador ECU",
+      "vehicle.dtcCodes": "Códigos DTC",
+      "vehicle.priority": "Prioridad",
+      "vehicle.mileage": "Kilometraje",
+      "vehicle.area": "Área",
+      "vehicle.brief": "Resumen",
+      "fuel.petrol": "Gasolina",
+      "fuel.diesel": "Diésel",
+      "fuel.hybrid": "Híbrido",
+      "fuel.electric": "Eléctrico",
+      "gearbox.manual": "Manual",
+      "gearbox.automatic": "Automático",
+      "gearbox.singleSpeed": "EV de una velocidad",
+      "auth.kicker": "Cuenta segura",
+      "auth.email": "Correo o usuario administrador",
+      "auth.password": "Contraseña",
+      "auth.existing": "Usar un inicio de sesión existente",
+      "auth.loggingIn": "Iniciando sesión...",
+      "auth.creating": "Creando cuenta...",
+      "auth.verify": "Revisa tu correo para verificar la cuenta y después inicia sesión.",
+      "duration.minutes": "{minutes} minutos",
+      "duration.hour": "1 hora",
+      "duration.hours": "{hours} horas",
+      "duration.30": "30 minutos",
+      "duration.60": "1 hora",
+      "duration.90": "90 minutos",
+      "duration.120": "2 horas",
+      "status.active": "Activo",
+      "status.waiting_for_mechanic": "Revisión humana",
+      "status.assigned": "Asignado",
+      "status.resolved": "Resuelto",
+      "status.archived": "Archivado",
+      "ad.label": "Publicidad",
+    },
+    ro: {
+      "language.title": "Alege limba",
+      "language.subtitle": "Serviciul de diagnostic și răspunsurile sale vor folosi această limbă.",
+      "language.change": "Schimbă limba",
+      "language.close": "Închide selectarea limbii",
+      "language.available": "Limbi disponibile",
+      "account.loggedOut": "Deconectat",
+      "account.loggedIn": "Conectat",
+      "nav.login": "Autentificare",
+      "nav.createAccount": "Creează cont",
+      "nav.admin": "Panou de administrare",
+      "nav.contact": "Contact",
+      "nav.legal": "Informații legale",
+      "nav.signOut": "Deconectare",
+      "hero.promise": "Rezolvă problema mașinii cu îndrumare bazată pe dovezi",
+      "hero.guided": "Diagnostic ghidat",
+      "hero.carQuestions": "Întrebări auto",
+      "hero.title": "Descrie simptomul. Rezolvă problema pas cu pas.",
+      "hero.description": "Serviciul solicită dovezi, construiește ordinea testelor și interpretează rezultatele. Un specialist intervine doar când este necesară o evaluare suplimentară.",
+      "tabs.diagnostics": "Diagnostic",
+      "tabs.savedCases": "Cazuri salvate",
+      "tabs.repairLibrary": "Bibliotecă de reparații",
+      "profile.stats": "Diagnostic auto bazat pe dovezi",
+      "profile.experience": "Evaluarea umană este solicitată doar când este cu adevărat necesară",
+      "plan.defaultUsage": "10 mesaje de diagnostic pe zi",
+      "plan.goPremium": "Treci la Premium",
+      "plan.manageBilling": "Gestionează abonamentul",
+      "plan.disabled": "Cont dezactivat",
+      "plan.unlimited": "Mesaje de diagnostic nelimitate",
+      "plan.usage": "{used} din {limit} mesaje de diagnostic folosite astăzi",
+      "cases.savedTitle": "Cazuri de diagnostic salvate",
+      "cases.newCase": "Caz nou",
+      "cases.empty": "Nu există cazuri salvate. Creează un caz pentru a începe diagnosticul.",
+      "chat.questionLabel": "Scrie întrebarea despre mașină",
+      "chat.placeholder": "Scrie aici întrebarea despre mașină...",
+      "chat.reviewPlaceholder": "Adaugă informații pentru evaluarea umană...",
+      "chat.available": "Îndrumare pentru diagnostic disponibilă acum",
+      "chat.reviewQueue": "Acest caz este în coada pentru evaluare umană",
+      "chat.start": "Începe diagnosticul",
+      "chat.sendUpdate": "Trimite actualizarea",
+      "chat.welcome": "Spune-mi anul, marca, modelul, kilometrajul, simptomele, martorii, sunetele, mirosurile și când apare problema. Vom parcurge diagnosticul pas cu pas.",
+      "chat.typing": "Se analizează simptomele și istoricul testelor...",
+      "case.setupMessage": "Caz salvat. Adaugă prima întrebare, observație sau rezultat al unui test, iar serviciul va construi un plan de diagnostic.",
+      "chat.emptyLoggedIn": "Creează sau deschide un caz salvat pentru a începe diagnosticul ghidat.",
+      "chat.emptyLoggedOut": "Autentifică-te pentru a crea un caz și a începe diagnosticul ghidat.",
+      "quick.checkEngine": "Martor motor",
+      "quick.checkEnginePrompt": "Martorul motor este aprins, iar mașina funcționează neregulat la ralanti.",
+      "quick.grindingBrakes": "Frâne zgomotoase",
+      "quick.grindingBrakesPrompt": "Frânele scot un zgomot de frecare când încetinesc.",
+      "quick.noStart": "Nu pornește",
+      "quick.noStartPrompt": "Mașina nu pornește, dar luminile se aprind.",
+      "quick.overheating": "Supraîncălzire",
+      "quick.overheatingPrompt": "Temperatura motorului crește și simt miros de lichid de răcire.",
+      "review.required": "Este necesară evaluarea umană",
+      "review.text": "Evaluare prin text",
+      "review.video": "Video",
+      "review.voice": "Voce",
+      "review.duration": "Durată",
+      "review.preferredTime": "Ora preferată",
+      "review.reserve": "Rezervă mecanic",
+      "review.reserveSpecialist": "Rezervă specialist",
+      "review.textQueued": "Evaluare prin text în așteptare",
+      "common.free": "Gratuit",
+      "common.optional": "Opțional",
+      "common.other": "Altul",
+      "common.cancel": "Anulează",
+      "common.unknown": "Necunoscut",
+      "common.notSupplied": "Nespecificat",
+      "common.noneSupplied": "Niciunul specificat",
+      "common.pending": "În așteptare",
+      "common.saved": "Salvat",
+      "common.you": "Tu",
+      "common.caseSetup": "Configurarea cazului",
+      "common.viewTool": "Vezi unealta",
+      "common.join": "Intră",
+      "case.details": "Detaliile cazului",
+      "case.draft": "Ciornă",
+      "sessions.title": "Sesiuni live",
+      "uploads.title": "Fișiere și rapoarte de scanare",
+      "uploads.copy": "Imagini, rapoarte PDF, jurnale TXT/CSV, scanări OBD/VCDS/ODIS și fișiere ECU de până la 25 MB.",
+      "uploads.select": "Selectează fișier",
+      "uploads.upload": "Încarcă",
+      "uploads.empty": "Nu există fișiere încărcate în acest caz.",
+      "uploads.success": "Fișier încărcat și asociat acestui caz.",
+      "tools.title": "Unelte recomandate",
+      "tools.copy": "Recomandările se bazează pe reguli și pot conține linkuri afiliate.",
+      "tools.empty": "Nicio unealtă nu corespunde încă acestui caz.",
+      "tools.relevant": "Unealtă de diagnostic relevantă",
+      "consent.title": "Consimțământ pentru cookie-uri și reclame",
+      "consent.body": "Folosim stocare esențială pentru autentificare și cazurile salvate. Cu acordul tău folosim și reclame pentru a păstra gratuit ajutorul prin text.",
+      "consent.legal": "Informații legale și confidențialitate",
+      "consent.essential": "Doar esențiale",
+      "consent.accept": "Acceptă reclamele",
+      "caseForm.kicker": "Sesiune de diagnostic structurată",
+      "caseForm.title": "Caz nou de diagnostic",
+      "caseForm.caseTitle": "Titlul cazului",
+      "caseForm.caseTitlePlaceholder": "Pornire intermitentă dificilă la cald",
+      "caseForm.symptoms": "Simptome",
+      "caseForm.dtcCodes": "Coduri de eroare DTC",
+      "caseForm.dtcHint": "Separă-le prin virgulă sau spațiu",
+      "caseForm.previousWork": "Reparații sau teste efectuate",
+      "caseForm.create": "Creează cazul salvat",
+      "caseForm.saving": "Se salvează cazul de diagnostic...",
+      "vehicle.year": "An",
+      "vehicle.make": "Marcă",
+      "vehicle.model": "Model",
+      "vehicle.engine": "Motor / grup motopropulsor",
+      "vehicle.fuelType": "Tip combustibil",
+      "vehicle.fuel": "Combustibil",
+      "vehicle.gearbox": "Cutie de viteze",
+      "vehicle.ecu": "Identificator ECU",
+      "vehicle.dtcCodes": "Coduri DTC",
+      "vehicle.priority": "Prioritate",
+      "vehicle.mileage": "Kilometraj",
+      "vehicle.area": "Categorie",
+      "vehicle.brief": "Rezumat",
+      "fuel.petrol": "Benzină",
+      "fuel.diesel": "Motorină",
+      "fuel.hybrid": "Hibrid",
+      "fuel.electric": "Electric",
+      "gearbox.manual": "Manuală",
+      "gearbox.automatic": "Automată",
+      "gearbox.singleSpeed": "EV cu o treaptă",
+      "auth.kicker": "Cont securizat",
+      "auth.email": "E-mail sau utilizator administrator",
+      "auth.password": "Parolă",
+      "auth.existing": "Folosește autentificarea existentă",
+      "auth.loggingIn": "Se autentifică...",
+      "auth.creating": "Se creează contul...",
+      "auth.verify": "Verifică e-mailul pentru confirmarea contului, apoi autentifică-te.",
+      "duration.minutes": "{minutes} minute",
+      "duration.hour": "1 oră",
+      "duration.hours": "{hours} ore",
+      "duration.30": "30 de minute",
+      "duration.60": "1 oră",
+      "duration.90": "90 de minute",
+      "duration.120": "2 ore",
+      "status.active": "Activ",
+      "status.waiting_for_mechanic": "Evaluare umană",
+      "status.assigned": "Alocat",
+      "status.resolved": "Rezolvat",
+      "status.archived": "Arhivat",
+      "ad.label": "Publicitate",
+    },
+    "ca-valencia": {
+      "language.title": "Tria el teu idioma",
+      "language.subtitle": "El servici de diagnòstic i les seues respostes usaran este idioma.",
+      "language.change": "Canvia l'idioma",
+      "language.close": "Tanca la selecció d'idioma",
+      "language.available": "Idiomes disponibles",
+      "account.loggedOut": "Sessió tancada",
+      "account.loggedIn": "Sessió iniciada",
+      "nav.login": "Inicia sessió",
+      "nav.createAccount": "Crea un compte",
+      "nav.admin": "Tauler d'administració",
+      "nav.contact": "Contacte",
+      "nav.legal": "Avís legal",
+      "nav.signOut": "Tanca sessió",
+      "hero.promise": "Resol el problema del cotxe amb orientació basada en proves",
+      "hero.guided": "Diagnòstic guiat",
+      "hero.carQuestions": "Consultes del cotxe",
+      "hero.title": "Descriu el símptoma. Resol el problema pas a pas.",
+      "hero.description": "El servici demana proves, crea un orde de comprovacions i interpreta els resultats. Només intervé un especialista quan realment cal un criteri addicional.",
+      "tabs.diagnostics": "Diagnòstic",
+      "tabs.savedCases": "Casos guardats",
+      "tabs.repairLibrary": "Biblioteca de reparació",
+      "profile.stats": "Diagnòstic del vehicle basat en proves",
+      "profile.experience": "Només se sol·licita revisió humana quan és realment necessària",
+      "plan.defaultUsage": "10 missatges de diagnòstic al dia",
+      "plan.goPremium": "Passa a Premium",
+      "plan.manageBilling": "Gestiona la subscripció",
+      "plan.disabled": "Compte desactivat",
+      "plan.unlimited": "Missatges de diagnòstic il·limitats",
+      "plan.usage": "{used} de {limit} missatges de diagnòstic usats hui",
+      "cases.savedTitle": "Casos de diagnòstic guardats",
+      "cases.newCase": "Cas nou",
+      "cases.empty": "Encara no hi ha casos guardats. Crea un cas per a començar el diagnòstic.",
+      "chat.questionLabel": "Escriu la consulta sobre el cotxe",
+      "chat.placeholder": "Escriu ací la consulta sobre el cotxe...",
+      "chat.reviewPlaceholder": "Afig informació per a la revisió humana...",
+      "chat.available": "Orientació de diagnòstic disponible ara",
+      "chat.reviewQueue": "Este cas està en la cua de revisió humana",
+      "chat.start": "Inicia el diagnòstic",
+      "chat.sendUpdate": "Envia l'actualització",
+      "chat.welcome": "Indica'm l'any, la marca, el model, el quilometratge, els símptomes, els testimonis, els sons, les olors i quan apareix la fallada. Farem el diagnòstic pas a pas.",
+      "chat.typing": "S'estan revisant els símptomes i l'historial de proves...",
+      "case.setupMessage": "Cas guardat. Afig la primera pregunta, observació o resultat d'una prova i el servici crearà un pla de diagnòstic.",
+      "chat.emptyLoggedIn": "Crea o obri un cas guardat per a iniciar el diagnòstic guiat.",
+      "chat.emptyLoggedOut": "Inicia sessió per a crear un cas i començar el diagnòstic guiat.",
+      "quick.checkEngine": "Testimoni de motor",
+      "quick.checkEnginePrompt": "El testimoni del motor està encés i el cotxe funciona irregularment al ralentí.",
+      "quick.grindingBrakes": "Frens fregant",
+      "quick.grindingBrakesPrompt": "Els frens fan un soroll de fregament quan reduïsc la velocitat.",
+      "quick.noStart": "No arranca",
+      "quick.noStartPrompt": "El cotxe no arranca, però els llums sí que s'encenen.",
+      "quick.overheating": "Sobrecalfament",
+      "quick.overheatingPrompt": "La temperatura del motor puja i fa olor de refrigerant.",
+      "review.required": "Cal revisió humana",
+      "review.text": "Revisió per text",
+      "review.video": "Vídeo",
+      "review.voice": "Veu",
+      "review.duration": "Duració",
+      "review.preferredTime": "Hora preferida",
+      "review.reserve": "Reserva mecànic",
+      "review.reserveSpecialist": "Reserva especialista",
+      "review.textQueued": "Revisió per text en cua",
+      "common.free": "Gratis",
+      "common.optional": "Opcional",
+      "common.other": "Altre",
+      "common.cancel": "Cancel·la",
+      "common.unknown": "Desconegut",
+      "common.notSupplied": "No indicat",
+      "common.noneSupplied": "Cap indicat",
+      "common.pending": "Pendent",
+      "common.saved": "Guardat",
+      "common.you": "Tu",
+      "common.caseSetup": "Configuració del cas",
+      "common.viewTool": "Mostra l'eina",
+      "common.join": "Entra",
+      "case.details": "Detalls del cas",
+      "case.draft": "Esborrany",
+      "sessions.title": "Sessions en directe",
+      "uploads.title": "Fitxers i informes d'escaneig",
+      "uploads.copy": "Imatges, informes PDF, registres TXT/CSV, escanejos OBD/VCDS/ODIS i binaris ECU de fins a 25 MB.",
+      "uploads.select": "Selecciona un fitxer",
+      "uploads.upload": "Puja",
+      "uploads.empty": "No hi ha fitxers pujats en este cas.",
+      "uploads.success": "Fitxer pujat i vinculat a este cas.",
+      "tools.title": "Eines recomanades",
+      "tools.copy": "Les recomanacions es basen en regles i poden contindre enllaços d'afiliat.",
+      "tools.empty": "Encara no hi ha eines que coincidisquen amb este cas.",
+      "tools.relevant": "Eina de diagnòstic rellevant",
+      "consent.title": "Consentiment de galetes i anuncis",
+      "consent.body": "Usem emmagatzematge essencial per a l'inici de sessió i els casos guardats. Amb el teu consentiment també usem anuncis per a mantindre gratuïta l'ajuda per text.",
+      "consent.legal": "Avís legal i privacitat",
+      "consent.essential": "Només essencials",
+      "consent.accept": "Accepta els anuncis",
+      "caseForm.kicker": "Sessió de diagnòstic estructurada",
+      "caseForm.title": "Cas nou de diagnòstic",
+      "caseForm.caseTitle": "Títol del cas",
+      "caseForm.caseTitlePlaceholder": "Fallada d'arrancada intermitent en calent",
+      "caseForm.symptoms": "Símptomes",
+      "caseForm.dtcCodes": "Codis d'avaria DTC",
+      "caseForm.dtcHint": "Separa'ls amb comes o espais",
+      "caseForm.previousWork": "Reparacions o proves anteriors",
+      "caseForm.create": "Crea el cas guardat",
+      "caseForm.saving": "S'està guardant el cas de diagnòstic...",
+      "vehicle.year": "Any",
+      "vehicle.make": "Marca",
+      "vehicle.model": "Model",
+      "vehicle.engine": "Motor / sistema de propulsió",
+      "vehicle.fuelType": "Tipus de combustible",
+      "vehicle.fuel": "Combustible",
+      "vehicle.gearbox": "Canvi",
+      "vehicle.ecu": "Identificador ECU",
+      "vehicle.dtcCodes": "Codis DTC",
+      "vehicle.priority": "Prioritat",
+      "vehicle.mileage": "Quilometratge",
+      "vehicle.area": "Àrea",
+      "vehicle.brief": "Resum",
+      "fuel.petrol": "Gasolina",
+      "fuel.diesel": "Dièsel",
+      "fuel.hybrid": "Híbrid",
+      "fuel.electric": "Elèctric",
+      "gearbox.manual": "Manual",
+      "gearbox.automatic": "Automàtic",
+      "gearbox.singleSpeed": "EV d'una velocitat",
+      "auth.kicker": "Compte segur",
+      "auth.email": "Correu o usuari administrador",
+      "auth.password": "Contrasenya",
+      "auth.existing": "Usa un inici de sessió existent",
+      "auth.loggingIn": "S'està iniciant la sessió...",
+      "auth.creating": "S'està creant el compte...",
+      "auth.verify": "Revisa el correu per a verificar el compte i després inicia sessió.",
+      "duration.minutes": "{minutes} minuts",
+      "duration.hour": "1 hora",
+      "duration.hours": "{hours} hores",
+      "duration.30": "30 minuts",
+      "duration.60": "1 hora",
+      "duration.90": "90 minuts",
+      "duration.120": "2 hores",
+      "status.active": "Actiu",
+      "status.waiting_for_mechanic": "Revisió humana",
+      "status.assigned": "Assignat",
+      "status.resolved": "Resolts",
+      "status.archived": "Arxivat",
+      "ad.label": "Publicitat",
+    },
   };
 
   const BOOT_CONFIG = window.WRENCHLINE_CONFIG || {};
@@ -148,6 +735,8 @@
 
   const els = {};
   const state = {
+    language: loadLanguage(),
+    languageWasStored: hasStoredLanguage(),
     settings: loadSettings(),
     siteContent: { ...DEFAULT_SITE_CONTENT },
     conversations: [],
@@ -190,6 +779,7 @@
   async function init() {
     cacheElements();
     bindEvents();
+    applyTranslations();
     loadLocalConversations();
     if (!state.conversations.length) {
       createConversation(false);
@@ -199,6 +789,7 @@
     }
     fillSettingsForm();
     renderAll();
+    if (!state.languageWasStored) openLanguageScreen(true);
     await connectSupabase();
     await loadSiteContent();
     await loadSupabaseConversations();
@@ -214,6 +805,10 @@
   function cacheElements() {
     [
       "accountBadge",
+      "languageBtn",
+      "languageCurrentLabel",
+      "languageDialog",
+      "closeLanguageBtn",
       "loginNavBtn",
       "signupNavBtn",
       "logoutBtn",
@@ -313,9 +908,18 @@
     els.callOptions = Array.from(document.querySelectorAll("[data-call-type]"));
     els.quickPrompts = Array.from(document.querySelectorAll("[data-prompt]"));
     els.adMounts = Array.from(document.querySelectorAll(".ad-mount"));
+    els.languageOptions = Array.from(document.querySelectorAll("[data-language]"));
   }
 
   function bindEvents() {
+    els.languageBtn.addEventListener("click", () => openLanguageScreen(false));
+    els.closeLanguageBtn.addEventListener("click", () => els.languageDialog.close());
+    els.languageOptions.forEach((button) => {
+      button.addEventListener("click", async () => {
+        await setLanguage(button.dataset.language, true);
+        els.languageDialog.close();
+      });
+    });
     els.savedCasesToggle.addEventListener("click", () => {
       els.savedDrawer.hidden = !els.savedDrawer.hidden;
       renderConversations();
@@ -415,6 +1019,108 @@
     els.caseUploadBtn.addEventListener("click", uploadDiagnosticFile);
   }
 
+  function hasStoredLanguage() {
+    try {
+      return Boolean(localStorage.getItem(STORAGE.language));
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function loadLanguage() {
+    try {
+      const stored = localStorage.getItem(STORAGE.language);
+      if (stored && SUPPORTED_LANGUAGES[stored]) return stored;
+    } catch (error) {
+      // Browser language remains a safe fallback when storage is unavailable.
+    }
+    const browserLanguage = String(navigator.language || "en").toLowerCase();
+    if (browserLanguage.startsWith("ro")) return "ro";
+    if (browserLanguage.startsWith("ca")) return "ca-valencia";
+    if (browserLanguage.startsWith("es")) return "es";
+    return "en";
+  }
+
+  function t(key, variables = {}) {
+    const template = TRANSLATIONS[state.language]?.[key] ?? TRANSLATIONS.en[key] ?? key;
+    return String(template).replace(/\{([a-zA-Z0-9_]+)\}/g, (_match, name) => String(variables[name] ?? ""));
+  }
+
+  function applyTranslations() {
+    const language = SUPPORTED_LANGUAGES[state.language] || SUPPORTED_LANGUAGES.en;
+    document.documentElement.lang = language.htmlLang;
+    document.querySelectorAll("[data-i18n]").forEach((element) => {
+      element.textContent = t(element.dataset.i18n);
+    });
+    document.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
+      element.setAttribute("placeholder", t(element.dataset.i18nPlaceholder));
+    });
+    document.querySelectorAll("[data-i18n-aria-label]").forEach((element) => {
+      element.setAttribute("aria-label", t(element.dataset.i18nAriaLabel));
+    });
+    document.querySelectorAll("[data-i18n-prompt]").forEach((element) => {
+      element.dataset.prompt = t(element.dataset.i18nPrompt);
+    });
+    if (els.languageCurrentLabel) els.languageCurrentLabel.textContent = language.label;
+    (els.languageOptions || []).forEach((button) => {
+      const active = button.dataset.language === state.language;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+  }
+
+  function openLanguageScreen(firstVisit) {
+    if (!els.languageDialog) return;
+    els.closeLanguageBtn.hidden = Boolean(firstVisit && !state.languageWasStored);
+    applyTranslations();
+    if (!els.languageDialog.open) els.languageDialog.showModal();
+    createIcons();
+  }
+
+  async function setLanguage(languageCode, persistForAccount) {
+    if (!SUPPORTED_LANGUAGES[languageCode]) return;
+    state.language = languageCode;
+    state.languageWasStored = true;
+    try {
+      localStorage.setItem(STORAGE.language, languageCode);
+    } catch (error) {
+      // The active page can still use the selected language without persistence.
+    }
+    localizeGeneratedMessages();
+    applyTranslations();
+    renderAll();
+    if (persistForAccount && state.supabaseUser) await persistLanguagePreference(languageCode);
+  }
+
+  function localizeGeneratedMessages() {
+    const generatedCopies = Object.values(TRANSLATIONS).flatMap((translations) => [translations["chat.welcome"], translations["case.setupMessage"]]);
+    state.conversations.forEach((conversation) => {
+      conversation.messages.forEach((message) => {
+        if (!generatedCopies.includes(message.content)) return;
+        message.content = message.systemMessage ? t("case.setupMessage") : t("chat.welcome");
+      });
+    });
+    persistLocal();
+  }
+
+  async function persistLanguagePreference(languageCode) {
+    if (!state.supabaseUser || !SUPPORTED_LANGUAGES[languageCode]) return;
+    try {
+      await platformRequest("/api/account/preferences", {
+        method: "PUT",
+        body: JSON.stringify({ language: languageCode }),
+      });
+      if (state.profile) state.profile.preferred_language = languageCode;
+    } catch (error) {
+      // Local persistence keeps language selection working until the schema is updated.
+    }
+  }
+
+  function localizedSiteCopy(field, translationKey) {
+    const current = state.siteContent?.[field];
+    return !current || current === DEFAULT_SITE_CONTENT[field] ? t(translationKey) : current;
+  }
+
   function createConversation(makeActive) {
     const id = newId();
     const createdAt = new Date().toISOString();
@@ -426,7 +1132,7 @@
         {
           role: "assistant",
           name: assistantName(),
-          content: state.siteContent.welcomeMessage,
+          content: localizedSiteCopy("welcomeMessage", "chat.welcome"),
           createdAt,
         },
       ],
@@ -485,10 +1191,11 @@
       symptoms: els.caseSymptomsInput.value.trim(),
       dtcCodes: normalizeDtcInput(els.caseDtcInput.value),
       previousWork: els.casePreviousWorkInput.value.trim(),
+      language: state.language,
     };
 
     els.createCaseBtn.disabled = true;
-    els.caseFormMessage.textContent = "Saving the diagnostic case...";
+    els.caseFormMessage.textContent = t("caseForm.saving");
     try {
       const data = await platformRequest("/api/diagnostics/cases", {
         method: "POST",
@@ -596,8 +1303,8 @@
     return {
       id: message.id,
       role: isUser ? "user" : "assistant",
-      name: isUser ? "You" : isMechanic ? state.siteContent.technicianName : isSystem ? "Case setup" : assistantName(),
-      content: message.content || "",
+      name: isUser ? t("common.you") : isMechanic ? state.siteContent.technicianName : isSystem ? t("common.caseSetup") : assistantName(),
+      content: isSystem && metadata.source === "case_setup" ? t("case.setupMessage") : message.content || "",
       createdAt: message.created_at || new Date().toISOString(),
       technicianReply: isMechanic,
       systemMessage: isSystem,
@@ -623,7 +1330,7 @@
     }
 
     const tempId = `temp-${newId()}`;
-    conversation.messages.push({ role: "user", name: "You", content: text, createdAt: new Date().toISOString(), id: tempId });
+    conversation.messages.push({ role: "user", name: t("common.you"), content: text, createdAt: new Date().toISOString(), id: tempId });
     conversation.updatedAt = new Date().toISOString();
     state.typing = true;
     renderMessages();
@@ -631,7 +1338,7 @@
     try {
       const data = await platformRequest(`/api/diagnostics/cases/${encodeURIComponent(conversation.id)}/messages`, {
         method: "POST",
-        body: JSON.stringify({ content: text }),
+        body: JSON.stringify({ content: text, language: state.language }),
       });
       conversation.messages = conversation.messages.filter((message) => message.id !== tempId);
       if (data.userMessage) conversation.messages.push(fromDiagnosticMessage(data.userMessage));
@@ -707,7 +1414,7 @@
       });
       state.uploads = [completed.upload, ...state.uploads.filter((upload) => upload.id !== completed.upload.id)];
       els.caseUploadInput.value = "";
-      els.caseUploadMessage.textContent = completed.upload.analysis_error || completed.upload.analysis_summary || "File uploaded and linked to this case.";
+      els.caseUploadMessage.textContent = completed.upload.analysis_error || completed.upload.analysis_summary || t("uploads.success");
       renderUploads();
       createIcons();
     } catch (error) {
@@ -895,6 +1602,7 @@
         siteContent: state.siteContent,
         systemPrompt: mechanicSystemPrompt(),
         model: state.settings.geminiModel || DEFAULT_SETTINGS.geminiModel,
+        language: state.language,
       }),
     });
     const data = await response.json();
@@ -1236,6 +1944,7 @@
       const subscription = state.supabase.auth.onAuthStateChange(async (_event, session) => {
         state.supabaseUser = session?.user || null;
         state.profile = state.supabaseUser ? await loadProfile() : null;
+        await syncLanguageFromProfile();
         renderAuth();
         if (state.supabaseUser) {
           await loadSupabaseConversations();
@@ -1479,6 +2188,7 @@
     const { data } = await state.supabase.auth.getSession();
     state.supabaseUser = data?.session?.user || null;
     state.profile = state.supabaseUser ? await loadProfile() : null;
+    await syncLanguageFromProfile();
     renderAuth();
     return state.supabaseUser;
   }
@@ -1486,16 +2196,35 @@
   async function loadProfile() {
     if (!state.supabase || !state.supabaseUser) return null;
     try {
-      const { data, error } = await state.supabase
+      let { data, error } = await state.supabase
         .from("profiles")
-        .select("id,email,role,display_name,is_disabled,disabled_reason")
+        .select("id,email,role,display_name,is_disabled,disabled_reason,preferred_language")
         .eq("id", state.supabaseUser.id)
         .maybeSingle();
+      if (error && /preferred_language/i.test(error.message || "")) {
+        const fallback = await state.supabase
+          .from("profiles")
+          .select("id,email,role,display_name,is_disabled,disabled_reason")
+          .eq("id", state.supabaseUser.id)
+          .maybeSingle();
+        data = fallback.data;
+        error = fallback.error;
+      }
       if (error) throw error;
       return data || null;
     } catch (error) {
       return null;
     }
+  }
+
+  async function syncLanguageFromProfile() {
+    const preferred = state.profile?.preferred_language;
+    if (!SUPPORTED_LANGUAGES[preferred]) return;
+    if (!state.languageWasStored) {
+      await setLanguage(preferred, false);
+      return;
+    }
+    if (preferred !== state.language) await persistLanguagePreference(state.language);
   }
 
   function openAuth(mode, message = "") {
@@ -1507,12 +2236,17 @@
 
   function setAuthMode(mode) {
     state.authMode = mode;
-    const isLogin = mode === "login";
-    els.authTitle.textContent = isLogin ? "Login" : "Create account";
-    els.authSubmitBtn.querySelector("span").textContent = isLogin ? "Login" : "Create account";
-    els.switchAuthModeBtn.textContent = isLogin ? "Create account" : "Use existing login";
-    els.authPasswordInput.autocomplete = isLogin ? "current-password" : "new-password";
+    renderAuthModeLabels();
     els.authMessage.textContent = "";
+  }
+
+  function renderAuthModeLabels() {
+    const mode = state.authMode;
+    const isLogin = mode === "login";
+    els.authTitle.textContent = isLogin ? t("nav.login") : t("nav.createAccount");
+    els.authSubmitBtn.querySelector("span").textContent = isLogin ? t("nav.login") : t("nav.createAccount");
+    els.switchAuthModeBtn.textContent = isLogin ? t("nav.createAccount") : t("auth.existing");
+    els.authPasswordInput.autocomplete = isLogin ? "current-password" : "new-password";
   }
 
   async function handleAuthSubmit(event) {
@@ -1528,7 +2262,7 @@
     const loginId = els.authEmailInput.value.trim();
     const password = els.authPasswordInput.value;
     els.authSubmitBtn.disabled = true;
-    els.authMessage.textContent = state.authMode === "login" ? "Logging in..." : "Creating account...";
+    els.authMessage.textContent = state.authMode === "login" ? t("auth.loggingIn") : t("auth.creating");
 
     try {
       if (state.authMode === "login") {
@@ -1546,11 +2280,12 @@
           body: JSON.stringify({
             email: loginId,
             password,
+            language: state.language,
           }),
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.error || "Could not create the account.");
-        els.authMessage.textContent = data.message || "Check your email for the verification link, then log in.";
+        els.authMessage.textContent = data.message || t("auth.verify");
       }
       renderAll();
       renderAds();
@@ -1709,6 +2444,8 @@
   }
 
   function renderAll() {
+    applyTranslations();
+    renderAuthModeLabels();
     renderAuth();
     renderTechnicianProfile();
     renderConversations();
@@ -1732,10 +2469,10 @@
       els.technicianAvatar.alt = `${assistantName()} profile`;
     }
     els.technicianNameTitle.textContent = assistantName();
-    els.technicianStats.textContent = "Evidence-led vehicle diagnostics";
-    els.technicianExperience.textContent = "Human review is requested only when genuinely needed";
+    els.technicianStats.textContent = t("profile.stats");
+    els.technicianExperience.textContent = t("profile.experience");
     if (els.onlineCopy) {
-      els.onlineCopy.textContent = "Diagnostic guidance available now";
+      els.onlineCopy.textContent = t("chat.available");
     }
     if (els.contactNavLink) {
       els.contactNavLink.href = `mailto:${content.supportEmail || DEFAULT_SITE_CONTENT.supportEmail}`;
@@ -1745,10 +2482,10 @@
   function renderConsent() {
     if (!els.consentBanner) return;
     const content = state.siteContent || DEFAULT_SITE_CONTENT;
-    els.consentTitle.textContent = content.consentTitle || DEFAULT_SITE_CONTENT.consentTitle;
-    els.consentBody.textContent = content.consentBody || DEFAULT_SITE_CONTENT.consentBody;
-    els.consentAcceptBtn.textContent = content.consentAcceptText || DEFAULT_SITE_CONTENT.consentAcceptText;
-    els.consentRejectBtn.textContent = content.consentRejectText || DEFAULT_SITE_CONTENT.consentRejectText;
+    els.consentTitle.textContent = localizedSiteCopy("consentTitle", "consent.title");
+    els.consentBody.textContent = localizedSiteCopy("consentBody", "consent.body");
+    els.consentAcceptBtn.textContent = localizedSiteCopy("consentAcceptText", "consent.accept");
+    els.consentRejectBtn.textContent = localizedSiteCopy("consentRejectText", "consent.essential");
     const planShowsAds = !state.supabaseUser || state.entitlements.showAds !== false;
     els.consentBanner.hidden = !content.consentEnabled || !planShowsAds || Boolean(loadConsent());
   }
@@ -1772,15 +2509,15 @@
     const isAdmin = Boolean(state.supabaseUser && state.profile?.id === state.supabaseUser.id && state.profile?.role === "admin");
     els.adminNavBtn.hidden = !isAdmin;
     els.adminNavBtn.disabled = !isAdmin;
-    els.adminNavBtn.textContent = "Admin dashboard";
+    els.adminNavBtn.textContent = t("nav.admin");
     els.settingsBtn.hidden = !isAdmin;
     if (state.supabaseUser) {
-      els.accountBadge.textContent = state.supabaseUser.email || "Logged in";
+      els.accountBadge.textContent = state.supabaseUser.email || t("account.loggedIn");
       els.loginNavBtn.hidden = true;
       els.signupNavBtn.hidden = true;
       els.logoutBtn.hidden = false;
     } else {
-      els.accountBadge.textContent = "Logged out";
+      els.accountBadge.textContent = t("account.loggedOut");
       els.loginNavBtn.hidden = false;
       els.signupNavBtn.hidden = false;
       els.logoutBtn.hidden = true;
@@ -1797,7 +2534,7 @@
 
   function renderConversations() {
     if (!state.conversations.length) {
-      els.conversationList.innerHTML = `<div class="empty-state">No saved cases yet. Create a structured case to start diagnosing.</div>`;
+      els.conversationList.innerHTML = `<div class="empty-state">${escapeHtml(t("cases.empty"))}</div>`;
       return;
     }
     els.conversationList.innerHTML = state.conversations
@@ -1840,8 +2577,8 @@
       const emptyCopy = state.platformError
         ? state.platformError
         : state.supabaseUser
-          ? "Create or open a saved case to start guided diagnostics."
-          : "Log in to create a saved case and begin guided diagnostics.";
+          ? t("chat.emptyLoggedIn")
+          : t("chat.emptyLoggedOut");
       els.messages.innerHTML = `<div class="empty-state chat-empty-state">${escapeHtml(emptyCopy)}</div>`;
       return;
     }
@@ -1851,8 +2588,8 @@
         const alert = message.alert ? " alert" : "";
         const handoff = message.handoff ? " handoff" : "";
         const system = message.systemMessage ? " system" : "";
-        const avatar = role === "user" ? "You" : message.technicianReply ? "Tech" : assistantAvatarText();
-        const name = message.name || (role === "user" ? "You" : message.technicianReply ? state.siteContent.technicianName : assistantName());
+        const avatar = role === "user" ? t("common.you") : message.technicianReply ? "Tech" : assistantAvatarText();
+        const name = role === "user" ? t("common.you") : message.systemMessage ? t("common.caseSetup") : message.name || (message.technicianReply ? state.siteContent.technicianName : assistantName());
         return `
           <article class="message ${role}${alert}${handoff}${system}">
             <div class="avatar" aria-hidden="true">${escapeHtml(avatar)}</div>
@@ -1869,7 +2606,7 @@
     if (state.typing) {
       els.messages.insertAdjacentHTML(
         "beforeend",
-        `<article class="message assistant typing"><div class="avatar" aria-hidden="true">${escapeHtml(assistantAvatarText())}</div><div class="message-body"><div class="message-name">${escapeHtml(assistantName())}</div><div class="bubble">${escapeHtml(state.siteContent.typingMessage)}</div></div></article>`
+        `<article class="message assistant typing"><div class="avatar" aria-hidden="true">${escapeHtml(assistantAvatarText())}</div><div class="message-body"><div class="message-name">${escapeHtml(assistantName())}</div><div class="bubble">${escapeHtml(localizedSiteCopy("typingMessage", "chat.typing"))}</div></div></article>`
       );
     }
     els.messages.scrollTop = els.messages.scrollHeight;
@@ -1880,24 +2617,24 @@
     const diagnostic = conversation?.caseData;
     const details = diagnostic
       ? [
-          ["Year", state.vehicle.year || "Unknown"],
-          ["Make", state.vehicle.make || "Unknown"],
-          ["Model", state.vehicle.model || "Unknown"],
-          ["Engine", state.vehicle.engine || "Unknown"],
-          ["Fuel", formatLabel(state.vehicle.fuelType || "Unknown")],
-          ["Gearbox", formatLabel(state.vehicle.gearbox || "Unknown")],
-          ["VIN", state.vehicle.vin || "Not supplied"],
-          ["ECU", state.vehicle.ecu || "Not supplied"],
-          ["DTC codes", diagnostic.dtc_codes?.length ? diagnostic.dtc_codes.join(", ") : "None supplied"],
-          ["Priority", formatLabel(diagnostic.priority || "normal")],
+          [t("vehicle.year"), state.vehicle.year || t("common.unknown")],
+          [t("vehicle.make"), state.vehicle.make || t("common.unknown")],
+          [t("vehicle.model"), state.vehicle.model || t("common.unknown")],
+          [t("vehicle.engine"), state.vehicle.engine || t("common.unknown")],
+          [t("vehicle.fuel"), formatLabel(state.vehicle.fuelType || "unknown")],
+          [t("vehicle.gearbox"), formatLabel(state.vehicle.gearbox || "unknown")],
+          ["VIN", state.vehicle.vin || t("common.notSupplied")],
+          ["ECU", state.vehicle.ecu || t("common.notSupplied")],
+          [t("vehicle.dtcCodes"), diagnostic.dtc_codes?.length ? diagnostic.dtc_codes.join(", ") : t("common.noneSupplied")],
+          [t("vehicle.priority"), formatLabel(diagnostic.priority || "normal")],
         ]
       : [
-          ["Year", state.vehicle.year || "Unknown"],
-          ["Make", state.vehicle.make || "Unknown"],
-          ["Model", state.vehicle.model || "Unknown"],
-          ["Mileage", state.vehicle.mileage || "Unknown"],
-          ["Area", state.vehicle.category || "Not tagged"],
-          ["Brief", conversation?.brief ? "Saved" : "Pending"],
+          [t("vehicle.year"), state.vehicle.year || t("common.unknown")],
+          [t("vehicle.make"), state.vehicle.make || t("common.unknown")],
+          [t("vehicle.model"), state.vehicle.model || t("common.unknown")],
+          [t("vehicle.mileage"), state.vehicle.mileage || t("common.unknown")],
+          [t("vehicle.area"), state.vehicle.category || t("common.notSupplied")],
+          [t("vehicle.brief"), conversation?.brief ? t("common.saved") : t("common.pending")],
         ];
     els.vehicleDetails.innerHTML = details
       .map(
@@ -1910,7 +2647,7 @@
       )
       .join("");
     if (els.caseStatusPill) {
-      els.caseStatusPill.textContent = diagnostic ? customerCaseStatus(diagnostic.status || "active") : "Draft";
+      els.caseStatusPill.textContent = diagnostic ? customerCaseStatus(diagnostic.status || "active") : t("case.draft");
       els.caseStatusPill.className = `case-status-pill ${diagnostic?.priority === "urgent" ? "urgent" : ""}`;
     }
   }
@@ -1925,23 +2662,23 @@
     els.premiumBtn.hidden = entitlements.plan === "admin";
     els.premiumBtn.disabled = false;
     if (!els.premiumBtn.hidden) {
-      els.premiumBtn.querySelector("span").textContent = entitlements.plan === "premium" ? "Manage billing" : "Go Premium";
+      els.premiumBtn.querySelector("span").textContent = entitlements.plan === "premium" ? t("plan.manageBilling") : t("plan.goPremium");
       const icon = els.premiumBtn.querySelector("i");
       if (icon) icon.setAttribute("data-lucide", entitlements.plan === "premium" ? "credit-card" : "crown");
     }
     if (entitlements.isDisabled) {
-      els.planUsageCopy.textContent = "Account disabled";
+      els.planUsageCopy.textContent = t("plan.disabled");
       els.usageMeterFill.style.width = "100%";
       return;
     }
     if (entitlements.aiMessagesDailyLimit === null) {
-      els.planUsageCopy.textContent = "Unlimited diagnostic messages";
+      els.planUsageCopy.textContent = t("plan.unlimited");
       els.usageMeterFill.style.width = "0%";
       return;
     }
     const used = Number(entitlements.aiMessagesUsedToday || 0);
     const limit = Number(entitlements.aiMessagesDailyLimit || 0);
-    els.planUsageCopy.textContent = `${used} of ${limit} diagnostic messages used today`;
+    els.planUsageCopy.textContent = t("plan.usage", { used, limit });
     els.usageMeterFill.style.width = `${Math.min(100, limit ? (used / limit) * 100 : 0)}%`;
   }
 
@@ -1951,7 +2688,7 @@
     els.caseUploadsPanel.hidden = !diagnostic;
     if (!diagnostic) return;
     if (!state.uploads.length) {
-      els.caseUploadList.innerHTML = `<div class="empty-state compact">No files uploaded to this case.</div>`;
+      els.caseUploadList.innerHTML = `<div class="empty-state compact">${escapeHtml(t("uploads.empty"))}</div>`;
       return;
     }
     els.caseUploadList.innerHTML = state.uploads
@@ -1978,7 +2715,7 @@
     els.recommendationsPanel.hidden = !diagnostic;
     if (!diagnostic) return;
     if (!state.recommendations.length) {
-      els.recommendationList.innerHTML = `<div class="empty-state compact">No tool rules match this case yet. The admin can add affiliate products and diagnostic-tool rules.</div>`;
+      els.recommendationList.innerHTML = `<div class="empty-state compact">${escapeHtml(t("tools.empty"))}</div>`;
       return;
     }
     els.recommendationList.innerHTML = state.recommendations
@@ -1989,10 +2726,10 @@
             <div>
               <strong>${escapeHtml(tool.name)}</strong>
               <span>${escapeHtml(tool.description)}</span>
-              <small>${escapeHtml(tool.match_reason || "Relevant diagnostic tool")}</small>
+              <small>${escapeHtml(tool.match_reason || t("tools.relevant"))}</small>
             </div>
             <a class="secondary-button" href="${escapeAttr(tool.affiliate_url)}" target="_blank" rel="sponsored nofollow noopener">
-              <span>View tool</span>
+              <span>${escapeHtml(t("common.viewTool"))}</span>
               <i data-lucide="external-link"></i>
             </a>
           </article>
@@ -2017,7 +2754,7 @@
             </div>
             ${
               booking.can_join
-                ? `<button class="secondary-button" type="button" data-join-booking="${escapeAttr(booking.id)}"><i data-lucide="log-in"></i><span>Join</span></button>`
+                ? `<button class="secondary-button" type="button" data-join-booking="${escapeAttr(booking.id)}"><i data-lucide="log-in"></i><span>${escapeHtml(t("common.join"))}</span></button>`
                 : `<span class="case-status-pill">${escapeHtml(stateLabel)}</span>`
             }
           </article>
@@ -2031,10 +2768,10 @@
     if (els.escalationPanel) els.escalationPanel.hidden = !reviewRequired;
     const chatSubmitLabel = els.chatForm?.querySelector("button[type='submit'] span");
     if (els.messageInput) {
-      els.messageInput.placeholder = reviewRequired ? "Add information for the human reviewer..." : "Type your car question here...";
+      els.messageInput.placeholder = reviewRequired ? t("chat.reviewPlaceholder") : t("chat.placeholder");
     }
-    if (chatSubmitLabel) chatSubmitLabel.textContent = reviewRequired ? "Send update" : "Start chat";
-    if (els.onlineCopy && reviewRequired) els.onlineCopy.textContent = "This case is in the human review queue";
+    if (chatSubmitLabel) chatSubmitLabel.textContent = reviewRequired ? t("chat.sendUpdate") : t("chat.start");
+    if (els.onlineCopy && reviewRequired) els.onlineCopy.textContent = t("chat.reviewQueue");
     if (!reviewRequired) return;
     const isTextChat = state.callType === "text";
     syncDurationOptions();
@@ -2051,8 +2788,8 @@
     const duration = isTextChat ? 0 : Number(els.durationSelect.value || 60);
     const rate = rateForCallType(state.callType);
     const total = (rate * duration) / 60;
-    els.bookingPrice.textContent = isTextChat ? "Free" : `$${total.toFixed(2)}`;
-    els.bookingBtn.querySelector("span").textContent = isTextChat ? "Text review queued" : "Reserve specialist";
+    els.bookingPrice.textContent = isTextChat ? t("common.free") : `$${total.toFixed(2)}`;
+    els.bookingBtn.querySelector("span").textContent = isTextChat ? t("review.textQueued") : t("review.reserveSpecialist");
     els.bookingBtn.disabled = isTextChat;
   }
 
@@ -2141,7 +2878,7 @@
     if (!adsAllowed) return;
     if (!state.settings.adsClient || !hasAnyAdSlot()) {
       mounts.forEach((mount) => {
-        mount.innerHTML = "<span>Advertisement</span>";
+        mount.innerHTML = `<span>${escapeHtml(t("ad.label"))}</span>`;
       });
       return;
     }
@@ -2157,7 +2894,7 @@
     mounts.forEach((mount) => {
       const slot = adSlotForMount(mount);
       if (!slot) {
-        mount.innerHTML = "<span>Advertisement</span>";
+        mount.innerHTML = `<span>${escapeHtml(t("ad.label"))}</span>`;
         return;
       }
       mount.innerHTML = "";
@@ -2173,7 +2910,7 @@
         window.adsbygoogle = window.adsbygoogle || [];
         window.adsbygoogle.push({});
       } catch (error) {
-        mount.innerHTML = "<span>Advertisement</span>";
+        mount.innerHTML = `<span>${escapeHtml(t("ad.label"))}</span>`;
       }
     });
   }
@@ -2206,9 +2943,9 @@
   }
 
   function durationLabel(minutes) {
-    if (minutes === 60) return "1 hour";
-    if (minutes % 60 === 0) return `${minutes / 60} hours`;
-    return `${minutes} minutes`;
+    if (minutes === 60) return t("duration.hour");
+    if (minutes % 60 === 0) return t("duration.hours", { hours: minutes / 60 });
+    return t("duration.minutes", { minutes });
   }
 
   function isTechnicianTextMode(conversation = currentConversation()) {
@@ -2222,14 +2959,7 @@
   }
 
   function customerCaseStatus(status) {
-    const labels = {
-      active: "Diagnosing",
-      waiting_for_mechanic: "Human review needed",
-      assigned: "Under human review",
-      resolved: "Resolved",
-      archived: "Archived",
-    };
-    return labels[status] || formatLabel(status || "active");
+    return t(`status.${status}`) || formatLabel(status || "active");
   }
 
   function conversationStatus(conversation) {
@@ -2346,16 +3076,24 @@
     const date = new Date(value);
     const diff = Date.now() - date.getTime();
     const minutes = Math.round(diff / 60000);
-    if (minutes < 1) return "just now";
-    if (minutes < 60) return `${minutes}m ago`;
+    const locale = SUPPORTED_LANGUAGES[state.language]?.htmlLang || "en";
+    const formatter = new Intl.RelativeTimeFormat(locale, { numeric: "auto", style: "narrow" });
+    if (minutes < 60) return formatter.format(-Math.max(0, minutes), "minute");
     const hours = Math.round(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
+    if (hours < 24) return formatter.format(-hours, "hour");
     const days = Math.round(hours / 24);
-    return `${days}d ago`;
+    return formatter.format(-days, "day");
   }
 
   function formatTime(value) {
-    return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(value));
+    return new Intl.DateTimeFormat(SUPPORTED_LANGUAGES[state.language]?.htmlLang || "en", { hour: "numeric", minute: "2-digit" }).format(new Date(value));
+  }
+
+  function formatDate(value) {
+    return new Intl.DateTimeFormat(SUPPORTED_LANGUAGES[state.language]?.htmlLang || "en", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(value));
   }
 
   function capitalize(value) {
@@ -2364,6 +3102,24 @@
   }
 
   function formatLabel(value) {
+    const normalized = String(value || "").toLowerCase();
+    const translationKeys = {
+      petrol: "fuel.petrol",
+      diesel: "fuel.diesel",
+      hybrid: "fuel.hybrid",
+      electric: "fuel.electric",
+      manual: "gearbox.manual",
+      automatic: "gearbox.automatic",
+      single_speed: "gearbox.singleSpeed",
+      other: "common.other",
+      unknown: "common.unknown",
+      active: "status.active",
+      waiting_for_mechanic: "status.waiting_for_mechanic",
+      assigned: "status.assigned",
+      resolved: "status.resolved",
+      archived: "status.archived",
+    };
+    if (translationKeys[normalized]) return t(translationKeys[normalized]);
     return String(value || "")
       .replaceAll("_", " ")
       .replace(/\b\w/g, (letter) => letter.toUpperCase());

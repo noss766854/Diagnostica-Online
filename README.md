@@ -26,6 +26,12 @@ Open [http://localhost:3000](http://localhost:3000). Use `pnpm typecheck` for st
 
 The migration is additive and repeatable. It preserves the existing `conversations`, `call_bookings`, `site_settings`, and admin audit data.
 
+## Languages
+
+The customer diagnostic workspace supports English, Spanish, Romanian, and Valencian. A full-screen selector appears on first visit and the navigation language control can reopen it later. The preference is stored in the browser and, for authenticated users, in `profiles.preferred_language` so it follows the account.
+
+New case setup messages, custom signup verification emails, dates, interface labels, and diagnostic model responses use the selected language. Run the latest `supabase-schema.sql` after deploying this version to add the account preference column; browser-based language selection continues to work while that migration is pending.
+
 ## Environment variables
 
 Use `.env.example` locally and add the equivalent values in Vercel.

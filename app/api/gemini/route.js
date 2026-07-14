@@ -17,6 +17,12 @@ const DEFAULT_PROMPT = [
 ].join(" ");
 const DEFAULT_ESCALATION_MESSAGE =
   "This case needs a human review before I can guide you further safely. I have sent only the relevant case details to the review queue.";
+const OUTPUT_LANGUAGES = {
+  en: "English",
+  es: "Spanish",
+  ro: "Romanian",
+  "ca-valencia": "Valencian (Valencià, using Valencian vocabulary and forms)",
+};
 
 export async function POST(request) {
   try {
@@ -74,7 +80,7 @@ export async function POST(request) {
         .join("")
         .trim() || "";
     const result = parseDiagnosticOutput(rawText, body);
-    const text = sanitizeCustomerReply(result.text);
+    const text = sanitizeCustomerReply(result.text, normalizeLanguage(body.language));
 
     if (!text) {
       return json({ error: "Gemini returned an empty response." }, 502);
@@ -91,15 +97,17 @@ function buildSystemPrompt(body) {
   const siteContent = body.siteContent && typeof body.siteContent === "object" ? body.siteContent : {};
   const escalationPolicy = cleanText(siteContent.escalationPolicy, 3000);
   const escalationMessage = cleanText(siteContent.escalationCustomerMessage, 700) || DEFAULT_ESCALATION_MESSAGE;
+  const language = normalizeLanguage(body.language);
   const vehicle = cleanText(JSON.stringify(body.vehicle || {}), 1200);
   const brief = cleanText(body.brief, 1200);
 
   return [
     prompt,
+    `Language requirement: the customer selected ${OUTPUT_LANGUAGES[language]}. Write every customer-facing word in that language, including headings, warnings and questions. Keep DTC codes, measurements and the private ${ROUTING_MARKER} JSON keys unchanged. Do not switch languages because older messages use another language.`,
     "Hard operating rule: this is an AI-run service. Continue the diagnosis yourself and do not offer text, voice, video, or a human handoff in a normal case.",
     "Escalate only when human judgment is genuinely required and you cannot safely or reliably continue. Missing ordinary details, needing another test, or low initial confidence are not escalation reasons.",
     escalationPolicy ? `Admin escalation policy: ${escalationPolicy}` : "",
-    `If escalation is required, include this sentence naturally: "${escalationMessage}"`,
+    `If escalation is required, convey this message naturally in the selected output language: "${escalationMessage}"`,
     `End every reply with exactly one private routing line: [[${ROUTING_MARKER} {"required":false,"category":"none","reason":""}]]. Set required to true only when the escalation policy is met.`,
     "Hard privacy rule: the customer chat must not include internal summaries, routing reasons, private notes, or any 'Case Summary' section.",
     vehicle && vehicle !== "{}" ? `Current vehicle context: ${vehicle}` : "",
@@ -109,12 +117,12 @@ function buildSystemPrompt(body) {
     .join("\n\n");
 }
 
-function sanitizeCustomerReply(text) {
+function sanitizeCustomerReply(text, language) {
   const original = cleanText(text, 4000);
   if (!original) return "";
   const withoutPrivateSections = stripPrivateSections(original);
   if (looksLikePrivateHandoff(original) || !withoutPrivateSections) {
-    return "I have kept the internal case notes private. Tell me the latest symptom or test result and I will continue the diagnosis.";
+    return localizedFallback(language, "privacy");
   }
   return withoutPrivateSections;
 }
@@ -150,10 +158,10 @@ function parseDiagnosticOutput(text, body) {
   }
   if (routing.required) {
     const configured = cleanText(body?.siteContent?.escalationCustomerMessage, 700) || DEFAULT_ESCALATION_MESSAGE;
-    if (!customerText.toLowerCase().includes(configured.toLowerCase())) customerText = `${customerText}\n\n${configured}`.trim();
+    if (normalizeLanguage(body.language) === "en" && !customerText.toLowerCase().includes(configured.toLowerCase())) customerText = `${customerText}\n\n${configured}`.trim();
   }
   return {
-    text: customerText || "I need more diagnostic evidence before this case warrants human review. Tell me the latest test, measurement, or observation and I will continue working through it.",
+    text: customerText || localizedFallback(normalizeLanguage(body.language), "evidence"),
     routing,
   };
 }
@@ -172,7 +180,7 @@ function enforceAutonomousRouting(routing, body) {
 
 function stripPrivateSections(text) {
   return text
-    .replace(/\n?\s*(?:\*\*)?(?:case summary|mechanic brief|technician brief|internal brief|private notes)(?:\*\*)?\s*:?\s*[\s\S]*$/i, "")
+    .replace(/\n?\s*(?:\*\*)?(?:case summary|mechanic brief|technician brief|internal brief|private notes|resumen del caso|resumen interno|rezumatul cazului|rezumat intern|resum del cas|resum intern)(?:\*\*)?\s*:?\s*[\s\S]*$/i, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
@@ -184,7 +192,35 @@ function looksLikePrivateHandoff(text) {
     /technician-ready case/i.test(text) ||
     /brief already in hand/i.test(text) ||
     /organized the symptoms/i.test(text)
+    || /(?:resumen del caso|rezumatul cazului|resum del cas)\s*:/i.test(text)
   );
+}
+
+function normalizeLanguage(value) {
+  const language = String(value || "en").trim().toLowerCase();
+  return Object.prototype.hasOwnProperty.call(OUTPUT_LANGUAGES, language) ? language : "en";
+}
+
+function localizedFallback(language, type) {
+  const messages = {
+    en: {
+      privacy: "I have kept the internal case notes private. Tell me the latest symptom or test result and I will continue the diagnosis.",
+      evidence: "I need more diagnostic evidence before this case warrants human review. Tell me the latest test, measurement, or observation and I will continue working through it.",
+    },
+    es: {
+      privacy: "He mantenido privadas las notas internas. Indícame el último síntoma o resultado de una prueba y continuaré con el diagnóstico.",
+      evidence: "Necesito más pruebas de diagnóstico antes de que este caso requiera revisión humana. Indícame la última prueba, medición u observación y continuaré con el diagnóstico.",
+    },
+    ro: {
+      privacy: "Am păstrat confidențiale notele interne ale cazului. Spune-mi cel mai recent simptom sau rezultat al unui test și voi continua diagnosticul.",
+      evidence: "Am nevoie de mai multe dovezi de diagnostic înainte ca acest caz să necesite evaluare umană. Spune-mi cel mai recent test, măsurătoare sau observație și voi continua diagnosticul.",
+    },
+    "ca-valencia": {
+      privacy: "He mantingut privades les notes internes del cas. Indica'm l'últim símptoma o resultat d'una prova i continuaré amb el diagnòstic.",
+      evidence: "Necessite més proves de diagnòstic abans que este cas requerisca revisió humana. Indica'm l'última prova, mesura o observació i continuaré amb el diagnòstic.",
+    },
+  };
+  return messages[language]?.[type] || messages.en[type];
 }
 
 function cleanModel(value) {

@@ -43,13 +43,17 @@
         </a>
 
         <nav class="nav-actions" aria-label="Main navigation">
-          <span class="account-badge" id="accountBadge">Logged out</span>
-          <button class="nav-link" id="loginNavBtn" type="button">Login</button>
-          <button class="nav-link" id="signupNavBtn" type="button">Create account</button>
-          <button class="nav-link" id="adminNavBtn" type="button" hidden disabled>Admin dashboard</button>
-          <a class="nav-link" id="contactNavLink" href="mailto:support@diagnostica-online.com">Contact us</a>
-          <a class="nav-link" href="./legal.html">Legal</a>
-          <button class="nav-link" id="logoutBtn" type="button" hidden>Sign out</button>
+          <span class="account-badge" id="accountBadge" data-i18n="account.loggedOut">Logged out</span>
+          <button class="nav-link language-nav" id="languageBtn" type="button" aria-label="Change language" data-i18n-aria-label="language.change">
+            <i data-lucide="languages"></i>
+            <span id="languageCurrentLabel">English</span>
+          </button>
+          <button class="nav-link" id="loginNavBtn" type="button" data-i18n="nav.login">Login</button>
+          <button class="nav-link" id="signupNavBtn" type="button" data-i18n="nav.createAccount">Create account</button>
+          <button class="nav-link" id="adminNavBtn" type="button" hidden disabled data-i18n="nav.admin">Admin dashboard</button>
+          <a class="nav-link" id="contactNavLink" href="mailto:support@diagnostica-online.com" data-i18n="nav.contact">Contact us</a>
+          <a class="nav-link" href="./legal.html" data-i18n="nav.legal">Legal</a>
+          <button class="nav-link" id="logoutBtn" type="button" hidden data-i18n="nav.signOut">Sign out</button>
           <button class="icon-link" id="settingsBtn" type="button" title="Integrations" aria-label="Integrations" hidden>
             <i data-lucide="settings"></i>
           </button>
@@ -62,13 +66,13 @@
 
       <main class="hero-grid">
         <section class="consult-stack" aria-label="Guided diagnostic chat">
-          <p class="promise">Work through your car problem with evidence-led guidance</p>
-          <p class="breadcrumbs">Guided diagnostics <span>&rsaquo;</span> Car Questions</p>
+          <p class="promise" data-i18n="hero.promise">Work through your car problem with evidence-led guidance</p>
+          <p class="breadcrumbs"><span data-i18n="hero.guided">Guided diagnostics</span> <span>&rsaquo;</span> <span data-i18n="hero.carQuestions">Car Questions</span></p>
 
           <div class="category-tabs" role="tablist" aria-label="Case tools">
-            <button class="active" id="diagnosticsTab" type="button">Diagnostics</button>
-            <button id="savedCasesToggle" type="button">Saved cases</button>
-            <button id="repairLibraryToggle" type="button">Repair library <i data-lucide="chevron-down"></i></button>
+            <button class="active" id="diagnosticsTab" type="button" data-i18n="tabs.diagnostics">Diagnostics</button>
+            <button id="savedCasesToggle" type="button" data-i18n="tabs.savedCases">Saved cases</button>
+            <button id="repairLibraryToggle" type="button"><span data-i18n="tabs.repairLibrary">Repair library</span> <i data-lucide="chevron-down"></i></button>
           </div>
 
           <section class="consult-card">
@@ -76,15 +80,15 @@
               <div class="diagnostic-profile-avatar" id="technicianAvatar" aria-hidden="true"><i data-lucide="wrench"></i></div>
               <div>
                 <strong id="technicianNameTitle">DiagnosticaOnline Diagnostics</strong>
-                <span id="technicianStats">Evidence-led vehicle diagnostics</span>
-                <span id="technicianExperience">Human review is requested only when genuinely needed</span>
+                <span id="technicianStats" data-i18n="profile.stats">Evidence-led vehicle diagnostics</span>
+                <span id="technicianExperience" data-i18n="profile.experience">Human review is requested only when genuinely needed</span>
               </div>
             </div>
 
             <div class="plan-strip" id="planStrip" hidden>
               <div>
                 <span class="plan-badge" id="planBadge">Free</span>
-                <span id="planUsageCopy">10 diagnostic messages daily</span>
+                <span id="planUsageCopy" data-i18n="plan.defaultUsage">10 diagnostic messages daily</span>
               </div>
               <div class="plan-controls">
                 <div class="usage-meter" aria-label="Daily diagnostic message usage">
@@ -92,18 +96,18 @@
                 </div>
                 <button class="mini-button premium-button" id="premiumBtn" type="button">
                   <i data-lucide="crown"></i>
-                  <span>Go Premium</span>
+                  <span data-i18n="plan.goPremium">Go Premium</span>
                 </button>
               </div>
             </div>
 
             <div class="saved-drawer" id="savedDrawer" hidden>
               <div class="drawer-header">
-                <strong>Saved diagnostic cases</strong>
+                <strong data-i18n="cases.savedTitle">Saved diagnostic cases</strong>
                 <div class="drawer-actions">
                   <button class="mini-button" id="newConversationBtn" type="button">
                     <i data-lucide="plus"></i>
-                    <span>New case</span>
+                    <span data-i18n="cases.newCase">New case</span>
                   </button>
                   <button class="icon-link dark" id="refreshConversationsBtn" type="button" title="Refresh saved conversations" aria-label="Refresh saved conversations">
                     <i data-lucide="refresh-cw"></i>
@@ -117,33 +121,33 @@
 
             <form class="question-box" id="chatForm">
               <div class="ad-mount mobile-chat-ad" data-ad-slot="mobile-chat"><span>Advertisement</span></div>
-              <label class="visually-hidden" for="messageInput">Type your car question</label>
-              <textarea id="messageInput" rows="3" placeholder="Type your car question here..."></textarea>
+              <label class="visually-hidden" for="messageInput" data-i18n="chat.questionLabel">Type your car question</label>
+              <textarea id="messageInput" rows="3" placeholder="Type your car question here..." data-i18n-placeholder="chat.placeholder"></textarea>
               <div class="question-footer">
-                <span id="onlineCopy">Diagnostic guidance available now</span>
+                <span id="onlineCopy" data-i18n="chat.available">Diagnostic guidance available now</span>
                 <button class="start-chat" type="submit">
                   <i data-lucide="send-horizontal"></i>
-                  <span>Start chat</span>
+                  <span data-i18n="chat.start">Start chat</span>
                 </button>
               </div>
             </form>
           </section>
 
           <div class="quick-prompts" aria-label="Common car issues">
-            <button type="button" data-prompt="My check engine light is on and the car feels rough at idle.">Check engine</button>
-            <button type="button" data-prompt="My brakes are grinding when I slow down.">Grinding brakes</button>
-            <button type="button" data-prompt="The car will not start, but the lights still come on.">No start</button>
-            <button type="button" data-prompt="The engine temperature is climbing and I smell coolant.">Overheating</button>
+            <button type="button" data-prompt="My check engine light is on and the car feels rough at idle." data-i18n="quick.checkEngine" data-i18n-prompt="quick.checkEnginePrompt">Check engine</button>
+            <button type="button" data-prompt="My brakes are grinding when I slow down." data-i18n="quick.grindingBrakes" data-i18n-prompt="quick.grindingBrakesPrompt">Grinding brakes</button>
+            <button type="button" data-prompt="The car will not start, but the lights still come on." data-i18n="quick.noStart" data-i18n-prompt="quick.noStartPrompt">No start</button>
+            <button type="button" data-prompt="The engine temperature is climbing and I smell coolant." data-i18n="quick.overheating" data-i18n-prompt="quick.overheatingPrompt">Overheating</button>
           </div>
         </section>
 
         <section class="hero-copy" aria-label="Service summary">
-          <h1>Describe the symptom. Work the problem through.</h1>
-          <p>The diagnostic service asks for evidence, builds a test order, and interprets results. A specialist only enters the case when additional judgment is genuinely required.</p>
+          <h1 data-i18n="hero.title">Describe the symptom. Work the problem through.</h1>
+          <p data-i18n="hero.description">The diagnostic service asks for evidence, builds a test order, and interprets results. A specialist only enters the case when additional judgment is genuinely required.</p>
 
           <section class="call-box" id="escalationPanel" aria-label="Human review options" hidden>
             <div class="call-heading">
-              <span>Human review required</span>
+              <span data-i18n="review.required">Human review required</span>
               <button class="icon-link light" id="briefBtn" type="button" title="Refresh review request" aria-label="Refresh review request" hidden>
                 <i data-lucide="clipboard-list"></i>
               </button>
@@ -152,47 +156,47 @@
             <div class="call-options" role="tablist" aria-label="Review channel">
               <button class="call-option active" type="button" data-call-type="text" role="tab" aria-selected="true">
                 <i data-lucide="messages-square"></i>
-                <span>Text review</span>
-                <strong>Free</strong>
+                <span data-i18n="review.text">Text review</span>
+                <strong data-i18n="common.free">Free</strong>
               </button>
               <button class="call-option" id="videoOption" type="button" data-call-type="video" role="tab" aria-selected="false">
                 <i data-lucide="video"></i>
-                <span>Video</span>
+                <span data-i18n="review.video">Video</span>
                 <strong>$40/hr</strong>
               </button>
               <button class="call-option" id="voiceOption" type="button" data-call-type="voice" role="tab" aria-selected="false">
                 <i data-lucide="phone"></i>
-                <span>Voice</span>
+                <span data-i18n="review.voice">Voice</span>
                 <strong>$20/hr</strong>
               </button>
             </div>
 
             <div class="booking-controls" id="bookingControls">
-              <label for="durationSelect">Duration</label>
+              <label for="durationSelect" data-i18n="review.duration">Duration</label>
               <select id="durationSelect">
-                <option value="30">30 minutes</option>
-                <option value="60" selected>1 hour</option>
-                <option value="90">90 minutes</option>
-                <option value="120">2 hours</option>
+                <option value="30" data-i18n="duration.30">30 minutes</option>
+                <option value="60" selected data-i18n="duration.60">1 hour</option>
+                <option value="90" data-i18n="duration.90">90 minutes</option>
+                <option value="120" data-i18n="duration.120">2 hours</option>
               </select>
               <strong id="bookingPrice">$40.00</strong>
             </div>
 
             <div class="booking-controls schedule-controls" id="scheduleControls">
-              <label for="scheduledStartInput">Preferred time</label>
+              <label for="scheduledStartInput" data-i18n="review.preferredTime">Preferred time</label>
               <input id="scheduledStartInput" type="datetime-local" />
             </div>
 
             <button class="reserve-button" id="bookingBtn" type="button">
               <i data-lucide="calendar-check"></i>
-              <span>Reserve mechanic</span>
+              <span data-i18n="review.reserve">Reserve mechanic</span>
             </button>
             <div class="booking-result" id="bookingResult" hidden></div>
           </section>
 
           <section class="case-summary" aria-label="Detected case details">
             <div class="summary-heading">
-              <span>Case details <small class="case-status-pill" id="caseStatusPill">Draft</small></span>
+              <span><span data-i18n="case.details">Case details</span> <small class="case-status-pill" id="caseStatusPill" data-i18n="case.draft">Draft</small></span>
               <button class="icon-link light" id="clearCaseBtn" type="button" title="Clear current case" aria-label="Clear current case">
                 <i data-lucide="trash-2"></i>
               </button>
@@ -202,7 +206,7 @@
 
           <section class="case-tools-panel" id="liveSessionsPanel" hidden aria-label="Live specialist sessions">
             <div class="summary-heading">
-              <span>Live sessions</span>
+              <span data-i18n="sessions.title">Live sessions</span>
               <button class="icon-link light" id="refreshBookingsBtn" type="button" title="Refresh live sessions" aria-label="Refresh live sessions">
                 <i data-lucide="refresh-cw"></i>
               </button>
@@ -212,14 +216,14 @@
 
           <section class="case-tools-panel" id="caseUploadsPanel" hidden aria-label="Diagnostic uploads">
             <div class="summary-heading">
-              <span>Files and scan reports</span>
+              <span data-i18n="uploads.title">Files and scan reports</span>
               <i data-lucide="paperclip"></i>
             </div>
-            <p class="panel-copy">Images, PDF reports, TXT/CSV logs, OBD/VCDS/ODIS scans, and ECU binaries up to 25 MB.</p>
+            <p class="panel-copy" data-i18n="uploads.copy">Images, PDF reports, TXT/CSV logs, OBD/VCDS/ODIS scans, and ECU binaries up to 25 MB.</p>
             <div class="upload-controls">
               <label class="file-picker" for="caseUploadInput">
                 <i data-lucide="file-up"></i>
-                <span>Select file</span>
+                <span data-i18n="uploads.select">Select file</span>
               </label>
               <input
                 id="caseUploadInput"
@@ -228,7 +232,7 @@
               />
               <button class="secondary-button" id="caseUploadBtn" type="button" disabled>
                 <i data-lucide="upload"></i>
-                <span>Upload</span>
+                <span data-i18n="uploads.upload">Upload</span>
               </button>
             </div>
             <p class="form-message" id="caseUploadMessage"></p>
@@ -237,10 +241,10 @@
 
           <section class="case-tools-panel" id="recommendationsPanel" hidden aria-label="Recommended diagnostic tools">
             <div class="summary-heading">
-              <span>Recommended tools</span>
+              <span data-i18n="tools.title">Recommended tools</span>
               <i data-lucide="wrench"></i>
             </div>
-            <p class="panel-copy">Recommendations are rule-based and may contain affiliate links.</p>
+            <p class="panel-copy" data-i18n="tools.copy">Recommendations are rule-based and may contain affiliate links.</p>
             <div class="recommendation-list" id="recommendationList"></div>
           </section>
 
@@ -256,15 +260,52 @@
       </section>
     </div>
 
+    <dialog class="language-dialog" id="languageDialog" aria-labelledby="languageTitle">
+      <div class="language-screen">
+        <div class="language-screen-header">
+          <div>
+            <span class="brand-kicker">DiagnosticaOnline</span>
+            <h2 id="languageTitle" data-i18n="language.title">Choose your language</h2>
+            <p data-i18n="language.subtitle">The diagnostic service and its replies will use this language.</p>
+          </div>
+          <button class="icon-link light" id="closeLanguageBtn" type="button" aria-label="Close language selection" data-i18n-aria-label="language.close" hidden>
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <div class="language-options" role="list" aria-label="Available languages" data-i18n-aria-label="language.available">
+          <button type="button" class="language-option" data-language="en">
+            <span class="language-code">EN</span>
+            <span><strong>English</strong><small>English</small></span>
+            <i data-lucide="arrow-right"></i>
+          </button>
+          <button type="button" class="language-option" data-language="es">
+            <span class="language-code">ES</span>
+            <span><strong>Español</strong><small>Spanish</small></span>
+            <i data-lucide="arrow-right"></i>
+          </button>
+          <button type="button" class="language-option" data-language="ro">
+            <span class="language-code">RO</span>
+            <span><strong>Română</strong><small>Romanian</small></span>
+            <i data-lucide="arrow-right"></i>
+          </button>
+          <button type="button" class="language-option" data-language="ca-valencia">
+            <span class="language-code">VA</span>
+            <span><strong>Valencià</strong><small>Valencian</small></span>
+            <i data-lucide="arrow-right"></i>
+          </button>
+        </div>
+      </div>
+    </dialog>
+
     <aside class="consent-banner" id="consentBanner" hidden>
       <div>
-        <strong id="consentTitle">Cookie and ad consent</strong>
-        <p id="consentBody">We use essential storage for login and saved cases. With your consent, we also use ads to keep free text help available.</p>
-        <a href="./legal.html">Legal and privacy</a>
+        <strong id="consentTitle" data-i18n="consent.title">Cookie and ad consent</strong>
+        <p id="consentBody" data-i18n="consent.body">We use essential storage for login and saved cases. With your consent, we also use ads to keep free text help available.</p>
+        <a href="./legal.html" data-i18n="consent.legal">Legal and privacy</a>
       </div>
       <div class="consent-actions">
-        <button class="ghost-button" id="consentRejectBtn" type="button">Essential only</button>
-        <button class="solid-button" id="consentAcceptBtn" type="button">Accept ads</button>
+        <button class="ghost-button" id="consentRejectBtn" type="button" data-i18n="consent.essential">Essential only</button>
+        <button class="solid-button" id="consentAcceptBtn" type="button" data-i18n="consent.accept">Accept ads</button>
       </div>
     </aside>
 
@@ -272,8 +313,8 @@
       <form class="case-form" id="caseForm">
         <div class="dialog-header">
           <div>
-            <p class="label-text">Structured diagnostic session</p>
-            <h2>New diagnostic case</h2>
+            <p class="label-text" data-i18n="caseForm.kicker">Structured diagnostic session</p>
+            <h2 data-i18n="caseForm.title">New diagnostic case</h2>
           </div>
           <button class="icon-link dark" id="closeCaseDialogBtn" type="button" aria-label="Close new case form">
             <i data-lucide="x"></i>
@@ -282,75 +323,75 @@
 
         <div class="case-form-grid">
           <label class="span-2">
-            <span>Case title <small>Optional</small></span>
-            <input id="caseTitleInput" name="title" type="text" maxlength="140" placeholder="Intermittent no-start after warm-up" />
+            <span><span data-i18n="caseForm.caseTitle">Case title</span> <small data-i18n="common.optional">Optional</small></span>
+            <input id="caseTitleInput" name="title" type="text" maxlength="140" placeholder="Intermittent no-start after warm-up" data-i18n-placeholder="caseForm.caseTitlePlaceholder" />
           </label>
           <label>
-            <span>Year</span>
+            <span data-i18n="vehicle.year">Year</span>
             <input id="caseYearInput" name="year" type="number" min="1886" max="2100" required />
           </label>
           <label>
-            <span>Make</span>
+            <span data-i18n="vehicle.make">Make</span>
             <input id="caseMakeInput" name="make" type="text" maxlength="80" required />
           </label>
           <label>
-            <span>Model</span>
+            <span data-i18n="vehicle.model">Model</span>
             <input id="caseModelInput" name="model" type="text" maxlength="100" required />
           </label>
           <label>
-            <span>Engine / powertrain</span>
+            <span data-i18n="vehicle.engine">Engine / powertrain</span>
             <input id="caseEngineInput" name="engine" type="text" maxlength="120" placeholder="2.0 TDI CFFB" required />
           </label>
           <label>
-            <span>Fuel type</span>
+            <span data-i18n="vehicle.fuelType">Fuel type</span>
             <select id="caseFuelInput" name="fuelType" required>
-              <option value="petrol">Petrol</option>
-              <option value="diesel">Diesel</option>
-              <option value="hybrid">Hybrid</option>
-              <option value="electric">Electric</option>
+              <option value="petrol" data-i18n="fuel.petrol">Petrol</option>
+              <option value="diesel" data-i18n="fuel.diesel">Diesel</option>
+              <option value="hybrid" data-i18n="fuel.hybrid">Hybrid</option>
+              <option value="electric" data-i18n="fuel.electric">Electric</option>
               <option value="lpg">LPG</option>
               <option value="cng">CNG</option>
-              <option value="other">Other</option>
+              <option value="other" data-i18n="common.other">Other</option>
             </select>
           </label>
           <label>
-            <span>Gearbox</span>
+            <span data-i18n="vehicle.gearbox">Gearbox</span>
             <select id="caseGearboxInput" name="gearbox" required>
-              <option value="manual">Manual</option>
-              <option value="automatic">Automatic</option>
+              <option value="manual" data-i18n="gearbox.manual">Manual</option>
+              <option value="automatic" data-i18n="gearbox.automatic">Automatic</option>
               <option value="cvt">CVT</option>
               <option value="dct">DCT / DSG</option>
-              <option value="single_speed">Single-speed EV</option>
-              <option value="other">Other</option>
+              <option value="single_speed" data-i18n="gearbox.singleSpeed">Single-speed EV</option>
+              <option value="other" data-i18n="common.other">Other</option>
             </select>
           </label>
           <label>
-            <span>VIN <small>Optional</small></span>
+            <span>VIN <small data-i18n="common.optional">Optional</small></span>
             <input id="caseVinInput" name="vin" type="text" minlength="11" maxlength="17" pattern="[A-HJ-NPR-Za-hj-npr-z0-9]{11,17}" />
           </label>
           <label>
-            <span>ECU identifier <small>Optional</small></span>
+            <span><span data-i18n="vehicle.ecu">ECU identifier</span> <small data-i18n="common.optional">Optional</small></span>
             <input id="caseEcuInput" name="ecu" type="text" maxlength="120" placeholder="Bosch EDC17 / part number" />
           </label>
           <label class="span-2">
-            <span>Symptoms</span>
+            <span data-i18n="caseForm.symptoms">Symptoms</span>
             <textarea id="caseSymptomsInput" name="symptoms" rows="4" minlength="10" maxlength="6000" required></textarea>
           </label>
           <label class="span-2">
-            <span>DTC fault codes <small>Separate with commas or spaces</small></span>
+            <span><span data-i18n="caseForm.dtcCodes">DTC fault codes</span> <small data-i18n="caseForm.dtcHint">Separate with commas or spaces</small></span>
             <input id="caseDtcInput" name="dtcCodes" type="text" placeholder="P0300, P0171, U0100" />
           </label>
           <label class="span-2">
-            <span>Previous repairs or tests</span>
+            <span data-i18n="caseForm.previousWork">Previous repairs or tests</span>
             <textarea id="casePreviousWorkInput" name="previousWork" rows="3" maxlength="5000" placeholder="Battery tested, fuel pressure checked, plugs replaced..."></textarea>
           </label>
         </div>
         <p class="form-message" id="caseFormMessage"></p>
         <div class="dialog-actions">
-          <button class="ghost-button" id="cancelCaseBtn" type="button">Cancel</button>
+          <button class="ghost-button" id="cancelCaseBtn" type="button" data-i18n="common.cancel">Cancel</button>
           <button class="solid-button" id="createCaseBtn" type="submit">
             <i data-lucide="clipboard-plus"></i>
-            <span>Create saved case</span>
+            <span data-i18n="caseForm.create">Create saved case</span>
           </button>
         </div>
       </form>
@@ -360,8 +401,8 @@
       <form class="auth-form" id="authForm">
         <div class="dialog-header">
           <div>
-            <p class="label-text">Supabase account</p>
-            <h2 id="authTitle">Login</h2>
+            <p class="label-text" data-i18n="auth.kicker">Secure account</p>
+            <h2 id="authTitle" data-i18n="nav.login">Login</h2>
           </div>
           <button class="icon-link dark" id="closeAuthBtn" type="button" aria-label="Close login">
             <i data-lucide="x"></i>
@@ -369,21 +410,21 @@
         </div>
 
         <label>
-          <span>Email or admin username</span>
+          <span data-i18n="auth.email">Email or admin username</span>
           <input id="authEmailInput" type="text" autocomplete="username" required />
         </label>
         <label>
-          <span>Password</span>
+          <span data-i18n="auth.password">Password</span>
           <input id="authPasswordInput" type="password" autocomplete="current-password" minlength="6" required />
         </label>
 
         <p class="form-message" id="authMessage"></p>
 
         <div class="dialog-actions">
-          <button class="ghost-button" id="switchAuthModeBtn" type="button">Create account</button>
+          <button class="ghost-button" id="switchAuthModeBtn" type="button" data-i18n="nav.createAccount">Create account</button>
           <button class="solid-button" id="authSubmitBtn" type="submit">
             <i data-lucide="log-in"></i>
-            <span>Login</span>
+            <span data-i18n="nav.login">Login</span>
           </button>
         </div>
       </form>

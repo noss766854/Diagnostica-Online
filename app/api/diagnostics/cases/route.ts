@@ -81,7 +81,7 @@ export async function POST(request: Request): Promise<Response> {
       user_id: context.user.id,
       case_id: diagnosticCase.id,
       event_type: "case_created",
-      metadata: { source: "structured_case_form" },
+      metadata: { source: "structured_case_form", language: input.language },
     });
     const { data: setupMessage } = await supabase
       .from("diagnostic_messages")
@@ -89,8 +89,8 @@ export async function POST(request: Request): Promise<Response> {
         case_id: diagnosticCase.id,
         owner_id: context.user.id,
         sender_type: "system",
-        content: "Case saved. Add the first question, observation, or test result and the diagnostic service will build a test plan.",
-        metadata: { source: "case_setup" },
+        content: caseSetupMessage(input.language),
+        metadata: { source: "case_setup", language: input.language },
       })
       .select()
       .single();
@@ -106,4 +106,14 @@ export async function POST(request: Request): Promise<Response> {
   } catch (error) {
     return errorResponse(error, "The diagnostic case could not be created.");
   }
+}
+
+function caseSetupMessage(language: "en" | "es" | "ro" | "ca-valencia"): string {
+  const messages = {
+    en: "Case saved. Add the first question, observation, or test result and the diagnostic service will build a test plan.",
+    es: "Caso guardado. Añade la primera pregunta, observación o resultado de una prueba y el servicio creará un plan de diagnóstico.",
+    ro: "Caz salvat. Adaugă prima întrebare, observație sau rezultat al unui test, iar serviciul va construi un plan de diagnostic.",
+    "ca-valencia": "Cas guardat. Afig la primera pregunta, observació o resultat d'una prova i el servici crearà un pla de diagnòstic.",
+  };
+  return messages[language];
 }

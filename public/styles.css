@@ -149,6 +149,17 @@ img {
   text-decoration: underline;
 }
 
+.language-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.language-nav svg {
+  width: 16px;
+  height: 16px;
+}
+
 .icon-link {
   width: 34px;
   display: inline-grid;
@@ -1048,6 +1059,117 @@ img {
   padding: 12px;
 }
 
+.language-dialog {
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: #ffffff;
+  background:
+    linear-gradient(rgba(5, 15, 19, 0.86), rgba(5, 15, 19, 0.9)),
+    url("https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&w=1800&q=82") center / cover;
+}
+
+.language-dialog::backdrop {
+  background: #071116;
+}
+
+.language-screen {
+  width: min(760px, calc(100% - 40px));
+  min-height: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 30px;
+  padding: 42px 0;
+}
+
+.language-screen-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.language-screen h2 {
+  margin: 10px 0 8px;
+  max-width: 620px;
+  font-size: clamp(2rem, 6vw, 3.8rem);
+  line-height: 1.02;
+  letter-spacing: 0;
+}
+
+.language-screen p {
+  max-width: 590px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 1.04rem;
+  line-height: 1.55;
+}
+
+.language-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.language-option {
+  min-width: 0;
+  min-height: 86px;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 22px;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: var(--radius);
+  color: #ffffff;
+  text-align: left;
+  background: rgba(9, 25, 31, 0.74);
+}
+
+.language-option:hover,
+.language-option:focus-visible,
+.language-option.active {
+  border-color: var(--teal);
+  background: rgba(20, 91, 106, 0.66);
+  outline: none;
+}
+
+.language-option > span:nth-child(2) {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.language-option strong,
+.language-option small {
+  overflow-wrap: anywhere;
+}
+
+.language-option strong {
+  font-size: 1.04rem;
+}
+
+.language-option small {
+  color: rgba(255, 255, 255, 0.64);
+}
+
+.language-code {
+  width: 48px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius);
+  color: #06232a;
+  background: var(--teal);
+  font-weight: 900;
+}
+
 .auth-dialog,
 .settings-dialog,
 .case-dialog {
@@ -1848,6 +1970,23 @@ svg {
 
   .nav-actions {
     gap: 8px;
+  }
+
+  .language-screen {
+    width: auto;
+    max-width: 430px;
+    margin-right: 16px;
+    margin-left: 12px;
+    justify-content: flex-start;
+    padding: 34px 0 24px;
+  }
+
+  .language-screen h2 {
+    font-size: 2.25rem;
+  }
+
+  .language-options {
+    grid-template-columns: 1fr;
   }
 
   .hero-copy h1 {

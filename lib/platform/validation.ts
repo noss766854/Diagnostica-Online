@@ -1,6 +1,8 @@
 import { z } from "zod";
 import type { UploadKind } from "@/types/diagnostics";
 
+export const supportedLanguageSchema = z.enum(["en", "es", "ro", "ca-valencia"]);
+
 const optionalTrimmed = (max: number) =>
   z
     .string()
@@ -39,6 +41,7 @@ export const createCaseSchema = z.object({
   symptoms: z.string().trim().min(10, "Describe the symptoms in at least 10 characters.").max(6000),
   dtcCodes: z.array(dtcCode).max(30).optional().default([]),
   previousWork: optionalTrimmed(5000),
+  language: supportedLanguageSchema.optional().default("en"),
 });
 
 export const updateCaseSchema = z.object({
@@ -53,6 +56,11 @@ export const updateCaseSchema = z.object({
 
 export const diagnosticMessageSchema = z.object({
   content: z.string().trim().min(2, "Enter a diagnostic question or test result.").max(5000),
+  language: supportedLanguageSchema.optional().default("en"),
+});
+
+export const accountPreferencesSchema = z.object({
+  language: supportedLanguageSchema,
 });
 
 export const uploadSignSchema = z.object({
