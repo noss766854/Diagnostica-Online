@@ -11,16 +11,16 @@ export default function VerifyPage() {
         <header className="masthead">
           <a className="brand" href="/" aria-label="DiagnosticaOnline home">
             <span className="brand-kicker">DiagnosticaOnline</span>
-            <span className="brand-name">Email Verification</span>
+            <span className="brand-name" id="verifyBrandName">Email Verification</span>
           </a>
           <nav className="nav-actions" aria-label="Verification navigation">
-            <a className="nav-link" href="/">Customer site</a>
+            <a className="nav-link" href="/" id="verifyCustomerLink">Customer site</a>
           </nav>
         </header>
         <main className="admin-shell">
           <section className="admin-card">
-            <p className="label-text">Account verification</p>
-            <h1>Your email is being confirmed.</h1>
+            <p className="label-text" id="verifyKicker">Account verification</p>
+            <h1 id="verifyTitle">Your email is being confirmed.</h1>
             <p className="form-message" id="verifyStatus">Finishing the verification with Supabase...</p>
             <div className="dialog-actions">
               <a className="solid-button" id="verifyLoginLink" href="/">Continue</a>

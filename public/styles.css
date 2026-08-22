@@ -1308,6 +1308,23 @@ img {
   margin: 10px 0 0;
 }
 
+.auth-helper {
+  display: block;
+  margin: 10px 0 0 auto;
+  padding: 0;
+  border: 0;
+  color: var(--teal-dark);
+  background: transparent;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.auth-helper:hover {
+  text-decoration: underline;
+}
+
 .settings-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1382,6 +1399,13 @@ img {
 
 .admin-shell {
   padding-top: 52px;
+}
+
+.system-state-page {
+  min-height: 100vh;
+  align-content: center;
+  padding: 24px;
+  background: #10262d;
 }
 
 .legal-shell {
@@ -1541,6 +1565,11 @@ img {
 .config-status-card.missing {
   border-color: rgba(241, 115, 99, 0.42);
   background: #fff4f2;
+}
+
+.config-status-card.optional {
+  border-color: #e3b85b;
+  background: #fff9e9;
 }
 
 .config-status-card span,

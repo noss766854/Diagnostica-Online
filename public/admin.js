@@ -40,6 +40,8 @@
     emailFromAddress: "verify@diagnostica-online.com",
     emailSubject: "Verify your DiagnosticaOnline account",
     emailIntro: "Confirm your email so your mechanic conversations stay saved to your account.",
+    passwordResetSubject: "Reset your DiagnosticaOnline password",
+    passwordResetIntro: "Use this secure link to choose a new password for your DiagnosticaOnline account.",
     supportEmail: "support@diagnostica-online.com",
     businessAddress: "Add your business address in admin.",
     serviceArea: "Remote mechanic consulting",
@@ -187,6 +189,8 @@
       "emailFromAddressInput",
       "emailSubjectInput",
       "emailIntroInput",
+      "passwordResetSubjectInput",
+      "passwordResetIntroInput",
       "supportEmailInput",
       "staffNotificationEmailInput",
       "businessAddressInput",
@@ -323,9 +327,9 @@
     els.configStatus.innerHTML = items
       .map(
         (item) => `
-          <div class="config-status-card ${item.configured ? "configured" : "missing"}">
+          <div class="config-status-card ${item.configured ? "configured" : item.optional ? "optional" : "missing"}">
             <span>${escapeHtml(item.label)}</span>
-            <strong>${item.configured ? "Configured" : "Missing"}</strong>
+            <strong>${item.configured ? "Configured" : item.optional ? "Recommended" : "Missing"}</strong>
             <small>${escapeHtml(item.secret ? "Secret" : "Public")} - ${escapeHtml(item.location || "Vercel")}</small>
           </div>
         `
@@ -776,6 +780,8 @@
       emailFromAddress: els.emailFromAddressInput.value,
       emailSubject: els.emailSubjectInput.value,
       emailIntro: els.emailIntroInput.value,
+      passwordResetSubject: els.passwordResetSubjectInput.value,
+      passwordResetIntro: els.passwordResetIntroInput.value,
       supportEmail: els.supportEmailInput.value,
       staffNotificationEmail: els.staffNotificationEmailInput.value,
       businessAddress: els.businessAddressInput.value,
@@ -866,6 +872,8 @@
     els.emailFromAddressInput.value = content.emailFromAddress;
     els.emailSubjectInput.value = content.emailSubject;
     els.emailIntroInput.value = content.emailIntro;
+    els.passwordResetSubjectInput.value = content.passwordResetSubject;
+    els.passwordResetIntroInput.value = content.passwordResetIntro;
     els.supportEmailInput.value = content.supportEmail;
     els.staffNotificationEmailInput.value = content.staffNotificationEmail;
     els.businessAddressInput.value = content.businessAddress;
@@ -947,6 +955,8 @@
       emailFromAddress: cleanEmail(merged.emailFromAddress, DEFAULT_SITE_CONTENT.emailFromAddress),
       emailSubject: cleanText(merged.emailSubject, DEFAULT_SITE_CONTENT.emailSubject),
       emailIntro: cleanText(merged.emailIntro, DEFAULT_SITE_CONTENT.emailIntro),
+      passwordResetSubject: cleanText(merged.passwordResetSubject, DEFAULT_SITE_CONTENT.passwordResetSubject),
+      passwordResetIntro: cleanText(merged.passwordResetIntro, DEFAULT_SITE_CONTENT.passwordResetIntro),
       supportEmail: cleanEmail(merged.supportEmail, DEFAULT_SITE_CONTENT.supportEmail),
       staffNotificationEmail: cleanEmail(merged.staffNotificationEmail, DEFAULT_SITE_CONTENT.staffNotificationEmail),
       businessAddress: cleanText(merged.businessAddress, DEFAULT_SITE_CONTENT.businessAddress),

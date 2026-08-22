@@ -76,7 +76,7 @@ export async function requireActiveUser(request: Request): Promise<AuthContext> 
 }
 
 export async function requireAdmin(request: Request): Promise<AuthContext> {
-  const context = await requireUser(request);
+  const context = await requireActiveUser(request);
   if (context.profile.role !== "admin") throw new HttpError(403, "Admin access is required.");
   return context;
 }

@@ -146,6 +146,8 @@
       "auth.loggingIn": "Logging in...",
       "auth.creating": "Creating account...",
       "auth.verify": "Check your email for the verification link, then log in.",
+      "auth.forgot": "Forgot password?",
+      "auth.resetSending": "Sending a secure reset link...",
       "duration.minutes": "{minutes} minutes",
       "duration.hour": "1 hour",
       "duration.hours": "{hours} hours",
@@ -290,6 +292,8 @@
       "auth.loggingIn": "Iniciando sesión...",
       "auth.creating": "Creando cuenta...",
       "auth.verify": "Revisa tu correo para verificar la cuenta y después inicia sesión.",
+      "auth.forgot": "¿Has olvidado la contraseña?",
+      "auth.resetSending": "Enviando un enlace seguro...",
       "duration.minutes": "{minutes} minutos",
       "duration.hour": "1 hora",
       "duration.hours": "{hours} horas",
@@ -434,6 +438,8 @@
       "auth.loggingIn": "Se autentifică...",
       "auth.creating": "Se creează contul...",
       "auth.verify": "Verifică e-mailul pentru confirmarea contului, apoi autentifică-te.",
+      "auth.forgot": "Ai uitat parola?",
+      "auth.resetSending": "Se trimite un link securizat...",
       "duration.minutes": "{minutes} minute",
       "duration.hour": "1 oră",
       "duration.hours": "{hours} ore",
@@ -578,6 +584,8 @@
       "auth.loggingIn": "S'està iniciant la sessió...",
       "auth.creating": "S'està creant el compte...",
       "auth.verify": "Revisa el correu per a verificar el compte i després inicia sessió.",
+      "auth.forgot": "Has oblidat la contrasenya?",
+      "auth.resetSending": "S'està enviant un enllaç segur...",
       "duration.minutes": "{minutes} minuts",
       "duration.hour": "1 hora",
       "duration.hours": "{hours} hores",
@@ -889,6 +897,7 @@
       "authMessage",
       "authSubmitBtn",
       "switchAuthModeBtn",
+      "forgotPasswordBtn",
       "closeAuthBtn",
       "settingsDialog",
       "settingsForm",
@@ -949,6 +958,7 @@
     });
     els.closeAuthBtn.addEventListener("click", () => els.authDialog.close());
     els.switchAuthModeBtn.addEventListener("click", () => setAuthMode(state.authMode === "login" ? "signup" : "login"));
+    els.forgotPasswordBtn.addEventListener("click", requestPasswordReset);
     els.authForm.addEventListener("submit", handleAuthSubmit);
     els.logoutBtn.addEventListener("click", signOut);
 
@@ -2247,6 +2257,33 @@
     els.authSubmitBtn.querySelector("span").textContent = isLogin ? t("nav.login") : t("nav.createAccount");
     els.switchAuthModeBtn.textContent = isLogin ? t("nav.createAccount") : t("auth.existing");
     els.authPasswordInput.autocomplete = isLogin ? "current-password" : "new-password";
+    els.authPasswordInput.minLength = isLogin ? 6 : 8;
+    els.forgotPasswordBtn.hidden = !isLogin;
+  }
+
+  async function requestPasswordReset() {
+    const email = resolveLoginEmail(els.authEmailInput.value.trim());
+    if (!email || !email.includes("@")) {
+      els.authMessage.textContent = t("auth.email");
+      els.authEmailInput.focus();
+      return;
+    }
+    els.forgotPasswordBtn.disabled = true;
+    els.authMessage.textContent = t("auth.resetSending");
+    try {
+      const response = await fetch("/api/auth/password-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, language: state.language }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Could not send the password reset email.");
+      els.authMessage.textContent = data.message;
+    } catch (error) {
+      els.authMessage.textContent = error.message || "Could not send the password reset email.";
+    } finally {
+      els.forgotPasswordBtn.disabled = false;
+    }
   }
 
   async function handleAuthSubmit(event) {

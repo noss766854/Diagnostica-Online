@@ -21,8 +21,16 @@ Open [http://localhost:3000](http://localhost:3000). Use `pnpm typecheck` for st
 3. Paste the complete contents of `supabase-schema.sql` and run it. Do not type the filename into SQL Editor.
 4. Confirm that the private `diagnostic-uploads` Storage bucket exists.
 5. Enable email/password authentication.
-6. In Supabase **Authentication > URL Configuration**, set **Site URL** to `https://diagnostica-online.com` and add `https://diagnostica-online.com/verify` to **Redirect URLs**.
-7. Create `admin@diagnostica-online.com`, then confirm its profile has role `admin`. The migration also promotes that email and sets its plan to `admin`.
+6. In Supabase **Authentication > URL Configuration**, set **Site URL** to `https://diagnostica-online.com`. Add `https://diagnostica-online.com/verify` and `https://diagnostica-online.com/reset-password` to **Redirect URLs**. Keep **Confirm email** enabled.
+7. Create the first admin account normally, verify its email, then promote it once in SQL Editor. Replace the email in both statements:
+
+```sql
+update public.profiles set role = 'admin' where lower(email) = lower('you@example.com');
+update public.user_plans set plan_tier = 'admin', status = 'active'
+where user_id = (select id from public.profiles where lower(email) = lower('you@example.com'));
+```
+
+New accounts are never auto-promoted from a hard-coded email address.
 
 The migration is additive and repeatable. It preserves the existing `conversations`, `call_bookings`, `site_settings`, and admin audit data.
 
@@ -54,6 +62,7 @@ Server-only secrets:
 - `GEMINI_API_KEY`
 - `OPENAI_API_KEY` when `AI_PROVIDER=openai`
 - `RESEND_API_KEY`
+- `EMAIL_RATE_LIMIT_SECRET` (recommended random server-only value; the service-role key is used as a fallback pepper)
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `STRIPE_PREMIUM_PRICE_ID` for the recurring Premium Stripe Price
@@ -72,6 +81,18 @@ Platform configuration:
 - `PUBLIC_SITE_URL=https://diagnostica-online.com` (server-side canonical URL for verification, notification, and checkout links)
 
 Never put the service-role, Gemini, OpenAI, Resend, or Stripe secret keys in browser settings or `site_settings`.
+
+## Account email
+
+Account creation and password recovery use Supabase Auth for one-time links and Resend for the branded message. The verification and recovery links finish on `/verify` and `/reset-password`, exchange the Supabase session securely in the browser, and use the selected interface language.
+
+1. Verify `diagnostica-online.com` in Resend.
+2. Add `RESEND_API_KEY` in Vercel, for Production, Preview, and Development as appropriate.
+3. In Admin, set the sender address to an address on the verified domain and set the support/reply address.
+4. Disable Resend click tracking for the authentication-sender domain so one-time Supabase links are not rewritten or consumed by automated link scanners.
+5. Run the latest `supabase-schema.sql`. The `auth_email_requests` table and atomic reservation function enforce per-address and per-IP limits without storing raw addresses or IPs.
+
+Existing addresses receive a secure sign-in verification link instead of a duplicate-account error. Password-recovery responses do not reveal whether an address is registered.
 
 ## Plans and limits
 
@@ -124,6 +145,7 @@ Ad mounts are reusable through `data-ad-slot` and include top banner, side rails
 - RLS protects vehicles, cases, messages, uploads, plans, usage, tools, legacy conversations, and Storage objects.
 - Upload types, sizes, ownership paths, and metadata are validated.
 - Disabled accounts are blocked from AI, uploads, notifications, and checkout.
+- Sign-up and password-recovery messages are rate-limited atomically; notification emails are idempotent per case and event.
 - AI instructions refuse emissions defeat, unlawful immobilizer bypass, odometer fraud, theft enablement, and unsafe bypasses while allowing lawful diagnostics and factory restoration.
 - Legal copy remains editable in `/admin` and is displayed at `/legal`.
 
@@ -132,3 +154,9 @@ Ad mounts are reusable through `data-ad-slot` and include top banner, side rails
 - ECU binary calibration/map interpretation is intentionally not implemented. Generic binary editing would be unsafe and format-specific licensed tooling is required; files are stored and hashed only.
 - Jitsi is the configured media provider. DiagnosticaOnline gates room discovery and access windows, but media transport and participant identity controls are ultimately governed by the selected Jitsi/JaaS deployment. Replace `jitsiDomain` in Admin with a managed or self-hosted deployment when contractual host controls are required.
 - The established HTML/JavaScript visual controller is retained for compatibility with the existing design. Security-sensitive operations, validation, authentication, billing, file processing, AI orchestration, and database access are server-side Next.js routes and TypeScript modules.
+
+## Production readiness
+
+After deploying, open `https://diagnostica-online.com/api/health`. A `200` response with `status: "ok"` confirms the core authentication, database schema, AI, email, and canonical-domain configuration. Payments, ads, and legal content are reported separately in `checks`; the same details are visible to admins under **Production configuration** without exposing any secret values.
+
+Before accepting paid calls, complete the real business/contact address and final cancellation, refund, no-show, and rescheduling terms in Admin. Checkout deliberately remains unavailable while that legal information still contains placeholder text.

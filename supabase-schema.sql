@@ -79,6 +79,34 @@ create table if not exists public.admin_audit_logs (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.auth_email_requests (
+  id uuid primary key default gen_random_uuid(),
+  kind text not null check (kind in ('signup', 'recovery')),
+  recipient_hash text not null check (char_length(recipient_hash) = 64),
+  ip_hash text check (ip_hash is null or char_length(ip_hash) = 64),
+  outcome text not null default 'accepted' check (outcome in ('accepted', 'sent', 'ignored', 'failed')),
+  provider_message_id text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists auth_email_requests_recipient_created_idx
+  on public.auth_email_requests (kind, recipient_hash, created_at desc);
+create index if not exists auth_email_requests_ip_created_idx
+  on public.auth_email_requests (kind, ip_hash, created_at desc)
+  where ip_hash is not null;
+
+create table if not exists public.notification_dispatches (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  kind text not null check (kind in ('text_chat_started', 'ai_escalation')),
+  resource_id uuid not null,
+  status text not null default 'processing' check (status in ('processing', 'sent', 'failed')),
+  provider_message_ids text[] not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (owner_id, kind, resource_id)
+);
+
 create table if not exists public.vehicles (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null references auth.users(id) on delete cascade,
@@ -363,6 +391,12 @@ create trigger set_site_settings_updated_at
   for each row
   execute function public.set_updated_at();
 
+drop trigger if exists set_notification_dispatches_updated_at on public.notification_dispatches;
+create trigger set_notification_dispatches_updated_at
+  before update on public.notification_dispatches
+  for each row
+  execute function public.set_updated_at();
+
 drop trigger if exists set_vehicles_updated_at on public.vehicles;
 create trigger set_vehicles_updated_at
   before update on public.vehicles
@@ -409,20 +443,14 @@ begin
       when new.raw_user_meta_data->>'preferred_language' in ('en', 'es', 'ro', 'ca-valencia') then new.raw_user_meta_data->>'preferred_language'
       else 'en'
     end,
-    case
-      when lower(new.email) = 'admin@diagnostica-online.com' then 'admin'
-      else 'customer'
-    end
+    'customer'
   )
   on conflict (id) do nothing;
 
   insert into public.user_plans (user_id, plan_tier, status)
   values (
     new.id,
-    case
-      when lower(new.email) = 'admin@diagnostica-online.com' then 'admin'
-      else 'free'
-    end,
+    'free',
     'active'
   )
   on conflict (user_id) do nothing;
@@ -447,6 +475,7 @@ as $$
     from public.profiles
     where id = auth.uid()
       and role = 'admin'
+      and coalesce(is_disabled, false) = false
   );
 $$;
 
@@ -461,6 +490,7 @@ as $$
     from public.profiles
     where id = auth.uid()
       and role in ('admin', 'mechanic')
+      and coalesce(is_disabled, false) = false
   );
 $$;
 
@@ -591,11 +621,70 @@ revoke all on function public.claim_ai_message(uuid, uuid, text, text, integer, 
 revoke all on function public.claim_ai_message(uuid, uuid, text, text, integer, integer) from authenticated;
 grant execute on function public.claim_ai_message(uuid, uuid, text, text, integer, integer) to service_role;
 
+create or replace function public.reserve_auth_email_request(
+  p_kind text,
+  p_recipient_hash text,
+  p_ip_hash text,
+  p_email_limit integer default 3,
+  p_ip_limit integer default 10
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  request_id uuid;
+  email_count integer;
+  ip_count integer;
+begin
+  if p_kind not in ('signup', 'recovery')
+    or p_recipient_hash !~ '^[a-f0-9]{64}$'
+    or (p_ip_hash is not null and p_ip_hash !~ '^[a-f0-9]{64}$') then
+    raise exception 'Invalid account email request.' using errcode = 'P0001';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended(p_kind || ':' || p_recipient_hash, 0));
+  if p_ip_hash is not null then
+    perform pg_advisory_xact_lock(hashtextextended(p_kind || ':' || p_ip_hash, 0));
+  end if;
+
+  select count(*) into email_count
+  from public.auth_email_requests
+  where kind = p_kind
+    and recipient_hash = p_recipient_hash
+    and created_at >= now() - interval '15 minutes';
+
+  select count(*) into ip_count
+  from public.auth_email_requests
+  where p_ip_hash is not null
+    and kind = p_kind
+    and ip_hash = p_ip_hash
+    and created_at >= now() - interval '1 hour';
+
+  if email_count >= greatest(1, p_email_limit) or ip_count >= greatest(1, p_ip_limit) then
+    raise exception 'Too many email requests.' using errcode = 'P0001';
+  end if;
+
+  insert into public.auth_email_requests (kind, recipient_hash, ip_hash, outcome)
+  values (p_kind, p_recipient_hash, p_ip_hash, 'accepted')
+  returning id into request_id;
+  return request_id;
+end;
+$$;
+
+revoke all on function public.reserve_auth_email_request(text, text, text, integer, integer) from public;
+revoke all on function public.reserve_auth_email_request(text, text, text, integer, integer) from anon;
+revoke all on function public.reserve_auth_email_request(text, text, text, integer, integer) from authenticated;
+grant execute on function public.reserve_auth_email_request(text, text, text, integer, integer) to service_role;
+
 alter table public.profiles enable row level security;
 alter table public.conversations enable row level security;
 alter table public.call_bookings enable row level security;
 alter table public.site_settings enable row level security;
 alter table public.admin_audit_logs enable row level security;
+alter table public.auth_email_requests enable row level security;
+alter table public.notification_dispatches enable row level security;
 alter table public.vehicles enable row level security;
 alter table public.diagnostic_cases enable row level security;
 alter table public.diagnostic_messages enable row level security;
@@ -738,6 +827,11 @@ create policy "Admins can insert audit logs"
   on public.admin_audit_logs
   for insert
   with check (public.is_admin());
+
+revoke all on table public.auth_email_requests from anon, authenticated;
+grant select, insert, update, delete on table public.auth_email_requests to service_role;
+revoke all on table public.notification_dispatches from anon, authenticated;
+grant select, insert, update, delete on table public.notification_dispatches to service_role;
 
 drop policy if exists "Users can manage their own vehicles" on public.vehicles;
 drop policy if exists "Admins can read all vehicles" on public.vehicles;
@@ -980,6 +1074,8 @@ values (
     "emailFromAddress": "verify@diagnostica-online.com",
     "emailSubject": "Verify your DiagnosticaOnline account",
     "emailIntro": "Confirm your email so your mechanic conversations stay saved to your account.",
+    "passwordResetSubject": "Reset your DiagnosticaOnline password",
+    "passwordResetIntro": "Use this secure link to choose a new password for your DiagnosticaOnline account.",
     "supportEmail": "support@diagnostica-online.com",
     "businessAddress": "Add your business address in admin.",
     "serviceArea": "Remote mechanic consulting",
@@ -1072,6 +1168,16 @@ set value = jsonb_set(
         then 'This case needs a human review before I can guide you further safely. I have sent only the relevant case details to the review queue.'
       else value->>'escalationCustomerMessage'
     end,
+    'passwordResetSubject', case
+      when coalesce(value->>'passwordResetSubject', '') = ''
+        then 'Reset your DiagnosticaOnline password'
+      else value->>'passwordResetSubject'
+    end,
+    'passwordResetIntro', case
+      when coalesce(value->>'passwordResetIntro', '') = ''
+        then 'Use this secure link to choose a new password for your DiagnosticaOnline account.'
+      else value->>'passwordResetIntro'
+    end,
     'termsText', case
       when coalesce(value->>'termsText', '') = '' or value->>'termsText' like 'DiagnosticaOnline provides remote automotive information%'
         then 'DiagnosticaOnline provides AI-assisted automotive diagnostics, saved cases, file storage, free text chat when available, and optional paid voice or video consulting. Guidance is informational, may be incomplete, and does not replace an in-person inspection, factory service information, recall check, repair estimate, or safety inspection. You must have lawful authority to diagnose or modify the vehicle and remain responsible for safe tools, lifting, isolation, protective equipment, and deciding whether the vehicle can be operated.'
@@ -1098,10 +1204,6 @@ set value = jsonb_set(
   true
 )
 where key = 'public_content';
-
-update public.profiles
-set role = 'admin'
-where lower(email) = 'admin@diagnostica-online.com';
 
 insert into public.user_plans (user_id, plan_tier, status)
 select

@@ -42,6 +42,9 @@ export async function POST(request) {
     const conversation = body.diagnosticCaseId
       ? await loadDiagnosticCase(supabase, body.diagnosticCaseId, userData.user.id)
       : await loadConversation(supabase, body.conversationId, userData.user.id);
+    if (!conversation) return json({ error: "The linked case could not be found." }, 404);
+    const dispatch = await reserveNotificationDispatch(supabase, userData.user.id, type, conversation.id);
+    if (dispatch.duplicate) return json({ ok: true, duplicate: true });
     const resend = new Resend(resendKey);
     const sends = [];
 
@@ -84,10 +87,24 @@ export async function POST(request) {
       );
     }
 
-    const results = await Promise.all(sends);
+    let results;
+    try {
+      results = await Promise.all(sends);
+    } catch (error) {
+      if (dispatch.id) await supabase.from("notification_dispatches").delete().eq("id", dispatch.id);
+      throw error;
+    }
     const failed = results.find((result) => result?.error);
     if (failed?.error) {
+      if (dispatch.id) await supabase.from("notification_dispatches").delete().eq("id", dispatch.id);
       return json({ error: safeError(failed.error.message, "Notification email could not be sent.") }, 502);
+    }
+
+    if (dispatch.id) {
+      await supabase
+        .from("notification_dispatches")
+        .update({ status: "sent", provider_message_ids: results.map((result) => result?.data?.id).filter(Boolean) })
+        .eq("id", dispatch.id);
     }
 
     return json({ ok: true });
@@ -108,7 +125,7 @@ async function loadSiteContent(supabase) {
 
 async function loadConversation(supabase, conversationId, ownerId) {
   if (!isUuid(conversationId)) {
-    return { title: "Mechanic case", brief: "", vehicle: {}, messages: [] };
+    return null;
   }
   const { data, error } = await supabase
     .from("conversations")
@@ -116,8 +133,9 @@ async function loadConversation(supabase, conversationId, ownerId) {
     .eq("id", conversationId)
     .eq("owner_id", ownerId)
     .maybeSingle();
-  if (error || !data) return { title: "Mechanic case", brief: "", vehicle: {}, messages: [] };
+  if (error || !data) return null;
   return {
+    id: data.id,
     title: cleanBodyText(data.title, "Mechanic case", 140),
     brief: cleanBodyText(data.brief, "", 2000),
     vehicle: data.vehicle && typeof data.vehicle === "object" ? data.vehicle : {},
@@ -126,7 +144,7 @@ async function loadConversation(supabase, conversationId, ownerId) {
 }
 
 async function loadDiagnosticCase(supabase, caseId, ownerId) {
-  if (!isUuid(caseId)) return { title: "Diagnostic case", brief: "", vehicle: {}, messages: [] };
+  if (!isUuid(caseId)) return null;
   const [{ data: diagnosticCase }, { data: messages }] = await Promise.all([
     supabase
       .from("diagnostic_cases")
@@ -136,9 +154,10 @@ async function loadDiagnosticCase(supabase, caseId, ownerId) {
       .maybeSingle(),
     supabase.from("diagnostic_messages").select("sender_type,content,metadata,created_at").eq("case_id", caseId).eq("owner_id", ownerId).order("created_at", { ascending: false }).limit(8),
   ]);
-  if (!diagnosticCase) return { title: "Diagnostic case", brief: "", vehicle: {}, messages: [] };
+  if (!diagnosticCase) return null;
   const escalation = (messages || []).find((message) => message.metadata?.escalation_required === true)?.metadata || {};
   return {
+    id: diagnosticCase.id,
     title: cleanBodyText(diagnosticCase.title, "Diagnostic case", 140),
     brief: cleanBodyText(
       [diagnosticCase.ai_summary, `Symptoms: ${diagnosticCase.symptoms}`, `DTCs: ${(diagnosticCase.dtc_codes || []).join(", ") || "None"}`, `Previous work: ${diagnosticCase.previous_work || "None"}`]
@@ -157,6 +176,18 @@ async function loadDiagnosticCase(supabase, caseId, ownerId) {
       createdAt: message.created_at,
     })),
   };
+}
+
+async function reserveNotificationDispatch(supabase, ownerId, kind, resourceId) {
+  const { data, error } = await supabase
+    .from("notification_dispatches")
+    .insert({ owner_id: ownerId, kind, resource_id: resourceId, status: "processing" })
+    .select("id")
+    .single();
+  if (!error && data?.id) return { id: data.id, duplicate: false };
+  if (error?.code === "23505") return { id: null, duplicate: true };
+  if (error?.code === "42P01" || error?.code === "PGRST205") return { id: null, duplicate: false };
+  throw new Error("The notification could not be reserved safely.");
 }
 
 function staffEscalationHtml({ conversation, customerEmail, siteUrl }) {

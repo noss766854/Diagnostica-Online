@@ -20,7 +20,7 @@ Deno.serve(async (request) => {
       return json({ error: "Missing STRIPE_SECRET_KEY" }, 500);
     }
 
-    const siteUrl = Deno.env.get("PUBLIC_SITE_URL") || "http://localhost:3000";
+    const siteUrl = Deno.env.get("PUBLIC_SITE_URL") || "https://diagnostica-online.com";
     const body = await request.json();
     const callType = body.callType === "voice" ? "voice" : "video";
     const durationMinutes = clamp(Number(body.durationMinutes || 60), 30, 240);

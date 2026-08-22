@@ -1,12 +1,33 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import type { ReactNode } from "react";
 
 const DEFAULT_ADSENSE_CLIENT = "ca-pub-6817388263556075";
 
 export const metadata: Metadata = {
-  title: "DiagnosticaOnline",
+  metadataBase: new URL("https://diagnostica-online.com"),
+  title: {
+    default: "DiagnosticaOnline | Guided vehicle diagnostics",
+    template: "%s | DiagnosticaOnline",
+  },
   description: "Guided vehicle diagnostics with saved cases, file uploads, evidence-led test plans, and specialist review only for genuine exceptions.",
+  applicationName: "DiagnosticaOnline",
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    url: "/",
+    siteName: "DiagnosticaOnline",
+    title: "DiagnosticaOnline | Guided vehicle diagnostics",
+    description: "Evidence-led vehicle diagnostics with saved cases, uploads, and clear test plans.",
+  },
+  robots: { index: true, follow: true },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#10262d",
+  colorScheme: "light dark",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
