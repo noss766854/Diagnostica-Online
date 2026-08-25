@@ -819,6 +819,27 @@ a {
   backdrop-filter: blur(12px);
 }
 
+/* The ad panel is just a wrapper for ad slots — it must NOT show its own
+   card chrome or reserve space when the ads inside are empty/unverified.
+   Strip it bare by default; only dress it up once an ad actually fills. */
+.ad-panel {
+  margin-top: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.ad-panel:has(ins.adsbygoogle[data-ad-status="filled"]) {
+  margin-top: 14px;
+  padding: 16px;
+  background: var(--glass);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(12px);
+}
+
 .call-box {
   border-left: 3px solid var(--teal);
 }
@@ -1109,6 +1130,19 @@ a {
 .ad-mount ins.adsbygoogle {
   display: block;
   width: 100%;
+}
+
+/* Collapse any ad element that is not actually filled. On an unverified
+   site Google reserves ~280px per slot even though nothing renders — this
+   removes those tall empty boxes. Filled ads are exempted below. */
+ins.adsbygoogle:not([data-ad-status="filled"]) {
+  height: 0 !important;
+  min-height: 0 !important;
+  overflow: hidden;
+}
+
+ins.adsbygoogle[data-ad-status="filled"] {
+  height: auto !important;
 }
 
 /* Only a FILLED ad reserves visible height. Unfilled/none collapse to
