@@ -31,8 +31,8 @@ export interface LegacyConversationRow {
   vehicle: Record<string, unknown>;
   messages: LegacyMessage[];
   brief: string;
-  status: string;
-  priority: string;
+  status?: string | null;
+  priority?: string | null;
   assigned_mechanic_id?: string | null;
   last_customer_message_at?: string | null;
   last_staff_message_at?: string | null;
@@ -61,7 +61,7 @@ export interface LegacyMessage {
 }
 
 const CONVERSATION_SELECT =
-  "id,owner_id,session_id,title,vehicle,messages,brief,status,priority,assigned_mechanic_id,last_customer_message_at,last_staff_message_at,closed_at,created_at,updated_at";
+  "id,owner_id,session_id,title,vehicle,messages,brief,created_at,updated_at";
 
 export function isMissingDiagnosticSchema(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error || "");
@@ -134,10 +134,6 @@ export async function createLegacyDiagnosticCase(
     vehicle: legacyVehiclePayload(input, context.user.id),
     messages: [setup],
     brief: "",
-    status: "ai_intake",
-    priority: inferCasePriority(`${input.symptoms} ${input.previousWork}`),
-    last_customer_message_at: null,
-    last_staff_message_at: null,
     updated_at: now,
   };
 
@@ -191,13 +187,13 @@ export async function updateLegacyDiagnosticCase(
   if (input.symptoms) diagnostic.symptoms = input.symptoms;
   if (input.dtcCodes) diagnostic.dtcCodes = input.dtcCodes;
   if (input.previousWork !== undefined) diagnostic.previousWork = input.previousWork;
+  if (input.status) diagnostic.status = input.status;
+  if (input.priority) diagnostic.priority = input.priority;
 
   vehicle.diagnostic = diagnostic;
   vehicle.diagnosticPlatform = true;
   const updates = {
     ...(input.title ? { title: input.title } : {}),
-    ...(input.status ? { status: diagnosticToConversationStatus(input.status), closed_at: input.status === "archived" ? new Date().toISOString() : null } : {}),
-    ...(input.priority ? { priority: input.priority } : {}),
     vehicle,
     updated_at: new Date().toISOString(),
   };
@@ -218,13 +214,16 @@ export async function appendLegacyDiagnosticMessages(
   const existing = Array.isArray(row.messages) ? row.messages : [];
   const now = new Date().toISOString();
   const nextMessages = [...existing, ...messages];
+  const vehicle = { ...row.vehicle };
+  const diagnostic = diagnosticPayload(vehicle);
+  if (updates.status) diagnostic.status = updates.status;
+  if (updates.priority) diagnostic.priority = updates.priority;
+  vehicle.diagnostic = diagnostic;
+  vehicle.diagnosticPlatform = true;
   const payload = {
     messages: nextMessages,
+    vehicle,
     ...(updates.brief !== undefined ? { brief: updates.brief } : {}),
-    ...(updates.status ? { status: diagnosticToConversationStatus(updates.status), closed_at: updates.status === "archived" ? now : null } : {}),
-    ...(updates.priority ? { priority: updates.priority } : {}),
-    last_customer_message_at: lastMessageTime(nextMessages, "user") || row.last_customer_message_at || null,
-    last_staff_message_at: lastStaffMessageTime(nextMessages) || row.last_staff_message_at || null,
     updated_at: now,
   };
   const { data, error } = await supabase.from("conversations").update(payload).eq("id", row.id).select(CONVERSATION_SELECT).single();
@@ -274,20 +273,22 @@ async function loadLegacyConversation(supabase: SupabaseClient, context: AuthCon
 function conversationToDiagnosticCase(row: LegacyConversationRow): DiagnosticCaseRecord & { source: typeof LEGACY_DIAGNOSTIC_SOURCE } {
   const vehicle = row.vehicle || {};
   const diagnostic = diagnosticPayload(vehicle);
+  const diagnosticStatus = String(diagnostic.status || row.status || "active");
+  const diagnosticPriority = diagnostic.priority || row.priority || "normal";
   return {
     id: row.id,
     owner_id: row.owner_id,
     vehicle_id: row.id,
     title: row.title || "Diagnostic case",
-    status: conversationToDiagnosticStatus(row.status),
-    priority: priority(row.priority),
+    status: conversationToDiagnosticStatus(diagnosticStatus),
+    priority: priority(diagnosticPriority),
     symptoms: String(diagnostic.symptoms || ""),
     dtc_codes: normalizeDtcCodes(diagnostic.dtcCodes),
     previous_work: String(diagnostic.previousWork || ""),
     ai_summary: row.brief || "",
     assigned_mechanic_id: row.assigned_mechanic_id || null,
     last_message_at: row.updated_at || row.last_customer_message_at || row.created_at,
-    closed_at: row.closed_at || null,
+    closed_at: row.closed_at || (diagnosticStatus === "archived" ? row.updated_at : null),
     created_at: row.created_at || new Date().toISOString(),
     updated_at: row.updated_at || row.created_at || new Date().toISOString(),
     vehicle: vehicleRecord(row),
@@ -331,6 +332,8 @@ function legacyVehiclePayload(input: CreateCaseInput, ownerId: string): Record<s
       dtcCodes: input.dtcCodes,
       previousWork: input.previousWork,
       language: input.language,
+      status: "active",
+      priority: inferCasePriority(`${input.symptoms} ${input.previousWork}`),
     },
   };
 }
@@ -388,13 +391,6 @@ function conversationToDiagnosticStatus(status: string): CaseStatus {
   return "active";
 }
 
-function diagnosticToConversationStatus(status: CaseStatus): string {
-  if (status === "waiting_for_mechanic" || status === "assigned") return status;
-  if (status === "resolved") return "answered";
-  if (status === "archived") return "closed";
-  return "ai_intake";
-}
-
 function senderType(message: LegacyMessage): MessageSender {
   if (message.role === "user") return "user";
   if (message.technicianReply) return "mechanic";
@@ -417,14 +413,6 @@ function priority(value: unknown): CasePriority {
 function optionalString(value: unknown): string | null {
   const text = String(value || "").trim();
   return text || null;
-}
-
-function lastMessageTime(messages: LegacyMessage[], role: string): string {
-  return [...messages].reverse().find((message) => message.role === role)?.createdAt || "";
-}
-
-function lastStaffMessageTime(messages: LegacyMessage[]): string {
-  return [...messages].reverse().find((message) => message.role === "assistant" && !message.systemMessage)?.createdAt || "";
 }
 
 function inferCasePriority(text: string): "normal" | "urgent" {

@@ -461,7 +461,15 @@
         .order("email", { ascending: true })
         .limit(100),
     ]);
-    const conversationRows = conversations.data || [];
+    let conversationRows = conversations.data || [];
+    if (conversations.error && isSchemaColumnError(conversations.error)) {
+      const fallback = await state.supabase
+        .from("conversations")
+        .select("id,title,owner_id,vehicle,messages,brief,created_at,updated_at")
+        .order("updated_at", { ascending: false })
+        .limit(50);
+      conversationRows = fallback.data || [];
+    }
     const readyRows = conversationRows.filter(isReadyCase);
     const profileRows = profiles.data || [];
     const mechanicRows = profileRows.filter((profile) => ["mechanic", "admin"].includes(profile.role));
@@ -1211,6 +1219,55 @@
     return count || 0;
   }
 
+  function isSchemaColumnError(error) {
+    const message = String(error?.message || error || "");
+    return /schema cache|column|closed_at|assigned_mechanic_id|status|priority/i.test(message);
+  }
+
+  async function updateLegacyConversationWorkflow(conversationId, { status, priority, assignedMechanicId }) {
+    const { data, error } = await state.supabase
+      .from("conversations")
+      .select("vehicle")
+      .eq("id", conversationId)
+      .maybeSingle();
+    if (error) return error;
+    const vehicle = data?.vehicle && typeof data.vehicle === "object" && !Array.isArray(data.vehicle) ? data.vehicle : {};
+    const diagnostic = vehicle.diagnostic && typeof vehicle.diagnostic === "object" && !Array.isArray(vehicle.diagnostic) ? vehicle.diagnostic : {};
+    return (
+      await state.supabase
+        .from("conversations")
+        .update({
+          vehicle: {
+            ...vehicle,
+            diagnosticPlatform: true,
+            diagnostic: {
+              ...diagnostic,
+              status: diagnosticStatusFromConversation(status),
+              conversationStatus: status,
+              priority,
+              assignedMechanicId: assignedMechanicId || "",
+            },
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", conversationId)
+    ).error;
+  }
+
+  function diagnosticStatusFromConversation(status) {
+    if (status === "answered") return "resolved";
+    if (status === "closed") return "archived";
+    if (status === "waiting_for_mechanic" || status === "assigned") return status;
+    return "active";
+  }
+
+  function conversationStatusFromDiagnostic(status) {
+    if (status === "resolved") return "answered";
+    if (status === "archived") return "closed";
+    if (status === "waiting_for_mechanic" || status === "assigned") return status;
+    return "";
+  }
+
   function renderReadyCaseTable(rows, mechanicRows = []) {
     if (!rows.length) {
       els.adminReadyCases.innerHTML = `<div class="empty-state">No cases currently need human review.</div>`;
@@ -1229,12 +1286,16 @@
 
   function renderCaseRow(row, readyList, mechanicRows = []) {
     const vehicle = row.vehicle || {};
+    const diagnostic =
+      vehicle.diagnostic && typeof vehicle.diagnostic === "object" && !Array.isArray(vehicle.diagnostic)
+        ? vehicle.diagnostic
+        : {};
     const messages = Array.isArray(row.messages) ? row.messages : [];
     const vehicleText = [vehicle.year, vehicle.make, vehicle.model, vehicle.mileage ? `(${vehicle.mileage})` : ""].filter(Boolean).join(" ") || "Unknown vehicle";
     const lastCustomerNote = [...messages].reverse().find((message) => message.role === "user")?.content || "No customer note captured.";
-    const status = row.status || (isReadyCase(row) ? "waiting_for_mechanic" : "ai_intake");
-    const priority = row.priority || "normal";
-    const assignedMechanicId = row.assigned_mechanic_id || "";
+    const status = row.status || diagnostic.conversationStatus || conversationStatusFromDiagnostic(diagnostic.status) || (isReadyCase(row) ? "waiting_for_mechanic" : "ai_intake");
+    const priority = row.priority || diagnostic.priority || "normal";
+    const assignedMechanicId = row.assigned_mechanic_id || diagnostic.assignedMechanicId || "";
     const statusLabel = statusLabelFor(status);
     const brief = cleanText(row.brief, "");
     const summaryClass = readyList ? "admin-row case-ready" : "admin-row";
@@ -1408,9 +1469,11 @@
         priority,
         assigned_mechanic_id: assignedMechanicId,
         updated_at: new Date().toISOString(),
-        closed_at: status === "closed" ? new Date().toISOString() : null,
       };
-      const { error } = await state.supabase.from("conversations").update(updates).eq("id", conversationId);
+      let { error } = await state.supabase.from("conversations").update(updates).eq("id", conversationId);
+      if (error && isSchemaColumnError(error)) {
+        error = await updateLegacyConversationWorkflow(conversationId, { status, priority, assignedMechanicId });
+      }
       if (error) throw error;
       await logAdminAction("case_workflow_updated", "conversation", conversationId, updates);
       await loadDashboard();
@@ -1470,8 +1533,12 @@
 
   function isReadyCase(row) {
     const messages = Array.isArray(row.messages) ? row.messages : [];
+    const vehicle = row.vehicle && typeof row.vehicle === "object" && !Array.isArray(row.vehicle) ? row.vehicle : {};
+    const diagnostic = vehicle.diagnostic && typeof vehicle.diagnostic === "object" && !Array.isArray(vehicle.diagnostic) ? vehicle.diagnostic : {};
+    const fallbackStatus = diagnostic.conversationStatus || conversationStatusFromDiagnostic(diagnostic.status);
     return Boolean(
       ["waiting_for_mechanic", "assigned"].includes(row.status) ||
+        ["waiting_for_mechanic", "assigned"].includes(fallbackStatus) ||
         messages.some((message) => message.escalationRequired === true) ||
         messages.some((message) => message.handoff === true)
     );
@@ -1500,7 +1567,7 @@
     try {
       const { data, error } = await state.supabase
         .from("conversations")
-        .select("messages")
+        .select("messages,vehicle")
         .eq("id", conversationId)
         .maybeSingle();
       if (error) throw error;
@@ -1514,16 +1581,38 @@
         technicianReply: true,
         technicianText: true,
       };
-      const { error: updateError } = await state.supabase
+      let { error: updateError } = await state.supabase
         .from("conversations")
         .update({
           messages: [...messages, reply],
           status: "answered",
           assigned_mechanic_id: state.user.id,
-          last_staff_message_at: reply.createdAt,
           updated_at: new Date().toISOString(),
         })
         .eq("id", conversationId);
+      if (updateError && isSchemaColumnError(updateError)) {
+        const vehicle = data?.vehicle && typeof data.vehicle === "object" && !Array.isArray(data.vehicle) ? data.vehicle : {};
+        const diagnostic = vehicle.diagnostic && typeof vehicle.diagnostic === "object" && !Array.isArray(vehicle.diagnostic) ? vehicle.diagnostic : {};
+        updateError = (
+          await state.supabase
+            .from("conversations")
+            .update({
+              messages: [...messages, reply],
+              vehicle: {
+                ...vehicle,
+                diagnosticPlatform: true,
+                diagnostic: {
+                  ...diagnostic,
+                  status: "resolved",
+                  conversationStatus: "answered",
+                  assignedMechanicId: state.user.id,
+                },
+              },
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", conversationId)
+        ).error;
+      }
       if (updateError) throw updateError;
       await logAdminAction("technician_reply_sent", "conversation", conversationId, {
         repliedAt: reply.createdAt,

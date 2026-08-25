@@ -2372,7 +2372,7 @@
     try {
       const { data, error } = await state.supabase
         .from("conversations")
-        .select("id,title,vehicle,messages,brief,status,priority,assigned_mechanic_id,last_customer_message_at,last_staff_message_at,created_at,updated_at")
+        .select("id,title,vehicle,messages,brief,created_at,updated_at")
         .order("updated_at", { ascending: false })
         .limit(30);
       if (error) throw error;
@@ -2393,7 +2393,7 @@
     try {
       const { data, error } = await state.supabase
         .from("conversations")
-        .select("id,title,vehicle,messages,brief,status,priority,assigned_mechanic_id,last_customer_message_at,last_staff_message_at,created_at,updated_at")
+        .select("id,title,vehicle,messages,brief,created_at,updated_at")
         .eq("id", conversation.id)
         .maybeSingle();
       if (error || !data) return false;
@@ -2440,10 +2440,6 @@
         vehicle: conversation.vehicle || {},
         messages: conversation.messages || [],
         brief: conversation.brief || "",
-        status: conversationStatus(conversation),
-        priority: conversationPriority(conversation),
-        last_customer_message_at: lastMessageTime(conversation, "user"),
-        last_staff_message_at: lastStaffMessageTime(conversation),
         updated_at: new Date().toISOString(),
       };
       if (isUuid(conversation.id) && conversation.source === "supabase") {
@@ -2467,14 +2463,18 @@
   }
 
   function fromSupabaseRow(row) {
+    const diagnostic =
+      row.vehicle?.diagnostic && typeof row.vehicle.diagnostic === "object" && !Array.isArray(row.vehicle.diagnostic)
+        ? row.vehicle.diagnostic
+        : {};
     return {
       id: row.id,
       title: row.title || "Mechanic case",
       vehicle: row.vehicle || {},
       messages: Array.isArray(row.messages) ? row.messages : [],
       brief: row.brief || "",
-      status: row.status || "ai_intake",
-      priority: row.priority || "normal",
+      status: row.status || diagnostic.status || "ai_intake",
+      priority: row.priority || diagnostic.priority || "normal",
       assignedMechanicId: row.assigned_mechanic_id || "",
       lastCustomerMessageAt: row.last_customer_message_at || "",
       lastStaffMessageAt: row.last_staff_message_at || "",
