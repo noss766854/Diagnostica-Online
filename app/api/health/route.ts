@@ -23,16 +23,15 @@ export async function GET(): Promise<Response> {
 
   if (supabaseUrl && serviceRoleKey) {
     const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
-    const [settings, cases, usage, emailRequests, notificationDispatches, platformSecrets] = await Promise.all([
+    const [settings, cases, usage, emailRequests, notificationDispatches] = await Promise.all([
       supabase.from("site_settings").select("value").eq("key", "public_content").maybeSingle(),
       supabase.from("diagnostic_cases").select("id", { count: "exact", head: true }),
       supabase.from("usage_events").select("id", { count: "exact", head: true }),
       supabase.from("auth_email_requests").select("id", { count: "exact", head: true }),
       supabase.from("notification_dispatches").select("id", { count: "exact", head: true }),
-      supabase.from("platform_secrets").select("key", { count: "exact", head: true }),
     ]);
     database = !settings.error;
-    schema = !cases.error && !usage.error && !emailRequests.error && !notificationDispatches.error && !platformSecrets.error;
+    schema = !cases.error && !usage.error && !emailRequests.error && !notificationDispatches.error;
     const content = settings.data?.value && typeof settings.data.value === "object" && !Array.isArray(settings.data.value)
       ? settings.data.value as Record<string, unknown>
       : {};

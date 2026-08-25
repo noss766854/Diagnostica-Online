@@ -6,6 +6,7 @@ import { isRouteraApiKey } from "@/lib/platform/routera";
 import { supabaseService } from "@/lib/platform/supabase";
 
 const ROUTERA_SECRET_NAME = "routera_api_key";
+const FALLBACK_SETTINGS_KEY = "private_platform_secrets";
 const ENCRYPTION_VERSION = "v1";
 
 export interface RouteraCredential {
@@ -23,7 +24,7 @@ export async function resolveRouteraCredential(): Promise<RouteraCredential> {
       if (isRouteraApiKey(apiKey)) return credential(apiKey, "admin");
     }
   } catch (error) {
-    if (!isMissingSecretSchema(error)) throw error;
+    if (!isRecoverableSecretStorageError(error)) throw error;
     // The Vercel key remains a safe fallback while the secrets schema is being installed.
   }
 
@@ -36,28 +37,47 @@ export async function saveRouteraCredential(apiKey: string, actorId: string): Pr
   if (!isRouteraApiKey(normalized) || normalized.length > 500) {
     throw new HttpError(400, "Enter a valid Routera API key beginning with rta_.");
   }
+  const encrypted = encryptSecret(ROUTERA_SECRET_NAME, normalized);
   const supabase = supabaseService();
   const { error } = await supabase.from("platform_secrets").upsert(
     {
       key: ROUTERA_SECRET_NAME,
-      encrypted_value: encryptSecret(ROUTERA_SECRET_NAME, normalized),
+      encrypted_value: encrypted,
       updated_by: actorId,
     },
     { onConflict: "key" }
   );
-  if (error) throw secretStorageError(error.message);
+  if (error) {
+    const storageError = secretStorageError(error.message);
+    if (!isRecoverableSecretStorageError(storageError)) throw storageError;
+    await writeSettingsSecret(ROUTERA_SECRET_NAME, encrypted, actorId);
+  }
   return credential(normalized, "admin");
 }
 
 export async function removeRouteraCredential(): Promise<RouteraCredential> {
   const supabase = supabaseService();
   const { error } = await supabase.from("platform_secrets").delete().eq("key", ROUTERA_SECRET_NAME);
-  if (error) throw secretStorageError(error.message);
+  if (error) {
+    const storageError = secretStorageError(error.message);
+    if (!isRecoverableSecretStorageError(storageError)) throw storageError;
+  }
+  await removeSettingsSecret(ROUTERA_SECRET_NAME);
   const fallback = serverEnvironment().routeraApiKey;
   return isRouteraApiKey(fallback) ? credential(fallback, "vercel") : credential("", "none");
 }
 
 async function readEncryptedSecret(name: string): Promise<string> {
+  try {
+    const primary = await readPlatformSecret(name);
+    if (primary) return primary;
+  } catch (error) {
+    if (!isRecoverableSecretStorageError(error)) throw error;
+  }
+  return readSettingsSecret(name);
+}
+
+async function readPlatformSecret(name: string): Promise<string> {
   const { data, error } = await supabaseService()
     .from("platform_secrets")
     .select("encrypted_value")
@@ -65,6 +85,69 @@ async function readEncryptedSecret(name: string): Promise<string> {
     .maybeSingle();
   if (error) throw secretStorageError(error.message);
   return String(data?.encrypted_value || "");
+}
+
+async function readSettingsSecret(name: string): Promise<string> {
+  const { data, error } = await supabaseService()
+    .from("site_settings")
+    .select("value")
+    .eq("key", FALLBACK_SETTINGS_KEY)
+    .maybeSingle();
+  if (error) throw settingsStorageError(error.message);
+  return secretFromSettings(data?.value, name);
+}
+
+async function writeSettingsSecret(name: string, encryptedValue: string, actorId: string): Promise<void> {
+  const supabase = supabaseService();
+  const { data, error: readError } = await supabase
+    .from("site_settings")
+    .select("value")
+    .eq("key", FALLBACK_SETTINGS_KEY)
+    .maybeSingle();
+  if (readError) throw settingsStorageError(readError.message);
+
+  const value = settingsSecretValue(data?.value);
+  const { error } = await supabase.from("site_settings").upsert(
+    {
+      key: FALLBACK_SETTINGS_KEY,
+      value: {
+        ...value,
+        secrets: {
+          ...value.secrets,
+          [name]: encryptedValue,
+        },
+        updatedAt: new Date().toISOString(),
+      },
+      updated_by: actorId,
+    },
+    { onConflict: "key" }
+  );
+  if (error) throw settingsStorageError(error.message);
+}
+
+async function removeSettingsSecret(name: string): Promise<void> {
+  const supabase = supabaseService();
+  const { data, error: readError } = await supabase
+    .from("site_settings")
+    .select("value")
+    .eq("key", FALLBACK_SETTINGS_KEY)
+    .maybeSingle();
+  if (readError) {
+    if (isRecoverableSecretStorageError(settingsStorageError(readError.message))) return;
+    throw settingsStorageError(readError.message);
+  }
+  if (!data?.value) return;
+
+  const value = settingsSecretValue(data.value);
+  delete value.secrets[name];
+  const { error } = await supabase.from("site_settings").upsert(
+    {
+      key: FALLBACK_SETTINGS_KEY,
+      value: { ...value, updatedAt: new Date().toISOString() },
+    },
+    { onConflict: "key" }
+  );
+  if (error) throw settingsStorageError(error.message);
 }
 
 function encryptSecret(name: string, value: string): string {
@@ -113,12 +196,42 @@ function credential(apiKey: string, source: RouteraCredential["source"]): Router
 
 function secretStorageError(message: string): HttpError {
   if (/platform_secrets|schema cache|does not exist/i.test(message)) {
-    return new HttpError(503, "Run the latest supabase-schema.sql before saving server credentials in Admin.");
+    return new HttpError(503, "The encrypted platform_secrets table is unavailable.");
   }
   return new HttpError(500, "The encrypted credential could not be stored.");
 }
 
-function isMissingSecretSchema(error: unknown): boolean {
+function settingsStorageError(message: string): HttpError {
+  if (/site_settings|schema cache|does not exist/i.test(message)) {
+    return new HttpError(503, "The database settings table is unavailable. Check the Supabase connection and base schema.");
+  }
+  return new HttpError(500, "The encrypted credential fallback could not be stored.");
+}
+
+function isRecoverableSecretStorageError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error || "");
-  return /platform_secrets|schema cache|does not exist|supabase-schema/i.test(message);
+  return /platform_secrets table is unavailable|platform_secrets|schema cache|does not exist/i.test(message);
+}
+
+function secretFromSettings(value: unknown, name: string): string {
+  const settings = settingsSecretValue(value);
+  return String(settings.secrets[name] || "");
+}
+
+function settingsSecretValue(value: unknown): { secrets: Record<string, string>; updatedAt?: string } {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return { secrets: {} };
+  const record = value as Record<string, unknown>;
+  const rawSecrets = record.secrets;
+  const secrets =
+    rawSecrets && typeof rawSecrets === "object" && !Array.isArray(rawSecrets)
+      ? Object.fromEntries(
+          Object.entries(rawSecrets as Record<string, unknown>)
+            .filter(([, secret]) => typeof secret === "string")
+            .map(([key, secret]) => [key, secret as string])
+        )
+      : {};
+  return {
+    secrets,
+    updatedAt: typeof record.updatedAt === "string" ? record.updatedAt : undefined,
+  };
 }

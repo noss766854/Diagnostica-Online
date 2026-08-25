@@ -80,15 +80,15 @@ Platform configuration:
 - `AI_OUTPUT_COST_PER_MILLION`
 - `PUBLIC_SITE_URL=https://diagnostica-online.com` (server-side canonical URL for verification, notification, and checkout links)
 
-Never put the service-role, Routera, OpenAI, Resend, or Stripe secret keys in browser settings or `site_settings`.
+Never put the service-role, Routera, OpenAI, Resend, or Stripe secret keys in browser settings or public site settings.
 
 ## Routera diagnostics
 
 1. Create a Routera API key under **Account > API Keys**. Routera keys use the `rta_` prefix and are displayed only once.
-2. Run the latest `supabase-schema.sql` so the private `platform_secrets` table is available.
-3. Log in as an admin and save the key under **Routera, ads, and calls > Routera API key**. It is encrypted server-side before storage, and only its final four characters are returned to the admin page.
+2. Log in as an admin and save the key under **Routera, ads, and calls > Routera API key**. It is encrypted server-side before storage, and only its final four characters are returned to the admin page.
+3. Run the latest `supabase-schema.sql` when convenient so the dedicated private `platform_secrets` table is available. If that table is not installed yet, the server automatically stores the encrypted key in a private `site_settings` row that normal users cannot read.
 4. Alternatively, add `ROUTERA_API_KEY` in Vercel as a server-only fallback. An Admin-saved key takes priority.
-5. Set `AI_PROVIDER=routera`, then choose a model in Admin. The protected model list is loaded from Routera; the API key is never placed in browser settings or `site_settings`.
+5. Set `AI_PROVIDER=routera`, then choose a model in Admin. The protected model list is loaded from Routera; the API key is never placed in browser settings or public `site_settings` content.
 
 The server calls Routera's OpenAI-compatible `POST /v1/chat/completions` endpoint. Saved case context, selected language, safety instructions, private escalation routing, message limits, and token/cost records continue to be enforced by DiagnosticaOnline.
 

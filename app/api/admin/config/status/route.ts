@@ -34,7 +34,7 @@ export async function GET(request: Request): Promise<Response> {
         envItem("Supabase service role key", Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY), "Vercel", true),
         envItem("Database connection", !settingsError, "Supabase"),
         envItem("Account email protection schema", !emailSchemaError, "Run latest supabase-schema.sql"),
-        envItem("Encrypted platform secrets schema", !secretsSchemaError, "Run latest supabase-schema.sql"),
+        envItem("Dedicated encrypted secrets table", !secretsSchemaError, "Supabase schema", false, true),
         envItem("Resend API key", Boolean(process.env.RESEND_API_KEY), "Vercel", true),
         envItem("Account email rate-limit secret", Boolean(process.env.EMAIL_RATE_LIMIT_SECRET), "Vercel", true, true),
         envItem("Canonical site URL", configuredSite === CANONICAL_SITE_URL, "Vercel"),
