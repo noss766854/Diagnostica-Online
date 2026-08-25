@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { CANONICAL_SITE_URL } from "@/lib/platform/site-url";
-import { isRouteraApiKey } from "@/lib/platform/routera";
+import { resolveRouteraCredential } from "@/lib/platform/secrets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ export async function GET(): Promise<Response> {
   const provider = aiProvider();
   const siteUrl = process.env.PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
   const authentication = Boolean(supabaseUrl && serviceRoleKey && anonKey);
-  const ai = provider === "openai" ? Boolean(process.env.OPENAI_API_KEY) : isRouteraApiKey(process.env.ROUTERA_API_KEY);
+  let ai = provider === "openai" ? Boolean(process.env.OPENAI_API_KEY) : false;
   const email = Boolean(process.env.RESEND_API_KEY && supabaseUrl && serviceRoleKey);
   const canonicalUrl = normalizeOrigin(siteUrl) === CANONICAL_SITE_URL;
 
@@ -23,21 +23,26 @@ export async function GET(): Promise<Response> {
 
   if (supabaseUrl && serviceRoleKey) {
     const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
-    const [settings, cases, usage, emailRequests, notificationDispatches] = await Promise.all([
+    const [settings, cases, usage, emailRequests, notificationDispatches, platformSecrets] = await Promise.all([
       supabase.from("site_settings").select("value").eq("key", "public_content").maybeSingle(),
       supabase.from("diagnostic_cases").select("id", { count: "exact", head: true }),
       supabase.from("usage_events").select("id", { count: "exact", head: true }),
       supabase.from("auth_email_requests").select("id", { count: "exact", head: true }),
       supabase.from("notification_dispatches").select("id", { count: "exact", head: true }),
+      supabase.from("platform_secrets").select("key", { count: "exact", head: true }),
     ]);
     database = !settings.error;
-    schema = !cases.error && !usage.error && !emailRequests.error && !notificationDispatches.error;
+    schema = !cases.error && !usage.error && !emailRequests.error && !notificationDispatches.error && !platformSecrets.error;
     const content = settings.data?.value && typeof settings.data.value === "object" && !Array.isArray(settings.data.value)
       ? settings.data.value as Record<string, unknown>
       : {};
     const legalText = `${content.businessAddress || ""} ${content.refundText || content.refundPolicySummary || ""}`;
     legal = Boolean(content.businessAddress && (content.refundText || content.refundPolicySummary) && !/add your|not configured|placeholder/i.test(legalText));
     adsConfigured = adsConfigured || Boolean(content.adsClient && (content.adsSlot || hasConfiguredAdSlot(content.adSlots)));
+  }
+
+  if (provider === "routera" && authentication) {
+    ai = (await resolveRouteraCredential()).configured;
   }
 
   const payments = Boolean(

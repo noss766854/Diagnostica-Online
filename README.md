@@ -85,9 +85,10 @@ Never put the service-role, Routera, OpenAI, Resend, or Stripe secret keys in br
 ## Routera diagnostics
 
 1. Create a Routera API key under **Account > API Keys**. Routera keys use the `rta_` prefix and are displayed only once.
-2. Add the key to Vercel as the server-only `ROUTERA_API_KEY` environment variable.
-3. Set `AI_PROVIDER=routera` and redeploy.
-4. In Admin, choose a model under **Routera, ads, and calls**. The protected model list is loaded from Routera; the API key is never sent to the browser.
+2. Run the latest `supabase-schema.sql` so the private `platform_secrets` table is available.
+3. Log in as an admin and save the key under **Routera, ads, and calls > Routera API key**. It is encrypted server-side before storage, and only its final four characters are returned to the admin page.
+4. Alternatively, add `ROUTERA_API_KEY` in Vercel as a server-only fallback. An Admin-saved key takes priority.
+5. Set `AI_PROVIDER=routera`, then choose a model in Admin. The protected model list is loaded from Routera; the API key is never placed in browser settings or `site_settings`.
 
 The server calls Routera's OpenAI-compatible `POST /v1/chat/completions` endpoint. Saved case context, selected language, safety instructions, private escalation routing, message limits, and token/cost records continue to be enforced by DiagnosticaOnline.
 
@@ -146,7 +147,9 @@ Premium checkout uses Stripe subscriptions. Checkout and subscription webhooks s
 
 ## Ads and consent
 
-Ad mounts are reusable through `data-ad-slot` and include top banner, side rails, inline, mobile typing-area, and bottom banner placements. AdSense is loaded only when ad consent is accepted and the current account is on the free plan. Premium and admin accounts do not load ad slots or the AdSense script.
+The AdSense ownership loader for publisher `ca-pub-6817388263556075` is included once in the global Next.js layout, so Google can verify every route. Ad mounts are reusable through `data-ad-slot` and include top banner, side rails, inline, mobile typing-area, and bottom banner placements. Ad units are initialized only when ad consent is accepted and the current account is on the free plan. Premium and admin accounts do not render ad units.
+
+In Admin, set **AdSense client** to the publisher/client value, for example `ca-pub-6817388263556075`. Each slot field must be the numeric `data-ad-slot` value from an AdSense Display ad unit. For cleaner reporting, create separate responsive Display ad units in AdSense for top banner, side rails, inline, mobile typing-area, and bottom banner, then paste each unit's slot number into the matching Admin field. If you only use one manual ad unit, paste its slot number into **Default AdSense slot fallback**.
 
 ## Security and safety
 

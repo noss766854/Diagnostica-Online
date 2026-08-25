@@ -315,6 +315,7 @@
                       type="password"
                       autocomplete="new-password"
                       placeholder="rta_..."
+                      pattern="rta_.{8,}"
                       spellcheck="false"
                     />
                   </label>
@@ -332,71 +333,79 @@
                 </div>
                 <label>
                   <span>AdSense client</span>
-                  <input id="adsClientInput" type="text" />
+                  <input id="adsClientInput" type="text" placeholder="ca-pub-6817388263556075" pattern="ca-pub-[0-9]{12,24}" />
                 </label>
+                <div class="admin-help-box span-2">
+                  <strong>AdSense slots</strong>
+                  <span>
+                    Create Display ad units in AdSense, then paste only the numeric <code>data-ad-slot</code> value into these fields.
+                    The <code>ca-pub-...</code> publisher ID belongs in AdSense client, not in slot fields.
+                  </span>
+                  <a href="https://www.google.com/adsense/" target="_blank" rel="noreferrer">Open AdSense</a>
+                </div>
                 <label class="span-2">
                   <span>Default AdSense slot fallback</span>
-                  <input id="adsSlotInput" type="text" />
+                  <input id="adsSlotInput" type="text" inputmode="numeric" pattern="[0-9]{5,24}" placeholder="1234567890" />
                 </label>
                 <label class="span-2">
                   <span>Top banner slot</span>
-                  <input id="adSlotTopBannerInput" type="text" />
+                  <input id="adSlotTopBannerInput" type="text" inputmode="numeric" pattern="[0-9]{5,24}" placeholder="1234567890" />
                 </label>
                 <label>
                   <span>Left rail top slot</span>
-                  <input id="adSlotLeftTopInput" type="text" />
+                  <input id="adSlotLeftTopInput" type="text" inputmode="numeric" pattern="[0-9]{5,24}" placeholder="1234567890" />
                 </label>
                 <label>
                   <span>Left rail upper slot</span>
-                  <input id="adSlotLeftUpperInput" type="text" />
+                  <input id="adSlotLeftUpperInput" type="text" inputmode="numeric" pattern="[0-9]{5,24}" placeholder="1234567890" />
                 </label>
                 <label>
                   <span>Left rail middle slot</span>
-                  <input id="adSlotLeftMiddleInput" type="text" />
+                  <input id="adSlotLeftMiddleInput" type="text" inputmode="numeric" pattern="[0-9]{5,24}" placeholder="1234567890" />
                 </label>
                 <label>
                   <span>Left rail lower slot</span>
-                  <input id="adSlotLeftLowerInput" type="text" />
+                  <input id="adSlotLeftLowerInput" type="text" inputmode="numeric" pattern="[0-9]{5,24}" placeholder="1234567890" />
                 </label>
                 <label>
                   <span>Left rail bottom slot</span>
-                  <input id="adSlotLeftBottomInput" type="text" />
+                  <input id="adSlotLeftBottomInput" type="text" inputmode="numeric" pattern="[0-9]{5,24}" placeholder="1234567890" />
                 </label>
                 <label>
                   <span>Right rail top slot</span>
-                  <input id="adSlotRightTopInput" type="text" />
+                  <input id="adSlotRightTopInput" type="text" inputmode="numeric" pattern="[0-9]{5,24}" placeholder="1234567890" />
                 </label>
                 <label>
                   <span>Right rail upper slot</span>
-                  <input id="adSlotRightUpperInput" type="text" />
+                  <input id="adSlotRightUpperInput" type="text" inputmode="numeric" pattern="[0-9]{5,24}" placeholder="1234567890" />
                 </label>
                 <label>
                   <span>Right rail middle slot</span>
-                  <input id="adSlotRightMiddleInput" type="text" />
+                  <input id="adSlotRightMiddleInput" type="text" inputmode="numeric" pattern="[0-9]{5,24}" placeholder="1234567890" />
                 </label>
                 <label>
                   <span>Right rail lower slot</span>
-                  <input id="adSlotRightLowerInput" type="text" />
+                  <input id="adSlotRightLowerInput" type="text" inputmode="numeric" pattern="[0-9]{5,24}" placeholder="1234567890" />
                 </label>
                 <label>
                   <span>Right rail bottom slot</span>
-                  <input id="adSlotRightBottomInput" type="text" />
+                  <input id="adSlotRightBottomInput" type="text" inputmode="numeric" pattern="[0-9]{5,24}" placeholder="1234567890" />
                 </label>
                 <label>
                   <span>Inline ad one slot</span>
-                  <input id="adSlotInlineOneInput" type="text" />
+                  <input id="adSlotInlineOneInput" type="text" inputmode="numeric" pattern="[0-9]{5,24}" placeholder="1234567890" />
                 </label>
                 <label>
                   <span>Inline ad two slot</span>
-                  <input id="adSlotInlineTwoInput" type="text" />
+                  <input id="adSlotInlineTwoInput" type="text" inputmode="numeric" pattern="[0-9]{5,24}" placeholder="1234567890" />
                 </label>
                 <label class="span-2">
                   <span>Mobile typing-area slot</span>
-                  <input id="adSlotMobileChatInput" type="text" />
+                  <input id="adSlotMobileChatInput" type="text" inputmode="numeric" pattern="[0-9]{5,24}" placeholder="1234567890" />
                 </label>
                 <label class="span-2">
                   <span>Bottom banner slot</span>
-                  <input id="adSlotBottomBannerInput" type="text" />
+                  <input id="adSlotBottomBannerInput" type="text" inputmode="numeric" pattern="[0-9]{5,24}" placeholder="1234567890" />
                 </label>
                 <label>
                   <span>Checkout URL</span>

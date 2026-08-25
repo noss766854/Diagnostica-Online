@@ -108,6 +108,11 @@
     supabase: null,
     user: null,
     profile: null,
+    routeraCredential: {
+      configured: false,
+      source: "none",
+      suffix: "",
+    },
     platform: {
       profiles: [],
       plans: [],
@@ -203,6 +208,10 @@
       "textChatConfirmationSubjectInput",
       "routeraEndpointInput",
       "routeraModelInput",
+      "routeraApiKeyInput",
+      "saveRouteraApiKeyBtn",
+      "removeRouteraApiKeyBtn",
+      "routeraApiKeyMessage",
       "adsClientInput",
       "adsSlotInput",
       "adSlotTopBannerInput",
@@ -249,6 +258,8 @@
     els.adminLogoutBtn.addEventListener("click", logout);
     els.refreshAdminBtn.addEventListener("click", verifyAdminAndLoad);
     els.siteContentForm.addEventListener("submit", saveSiteContent);
+    els.saveRouteraApiKeyBtn.addEventListener("click", saveRouteraApiKey);
+    els.removeRouteraApiKeyBtn.addEventListener("click", removeRouteraApiKey);
     els.recommendedToolForm.addEventListener("submit", saveRecommendedTool);
     els.resetRecommendedToolBtn.addEventListener("click", resetRecommendedToolForm);
   }
@@ -298,7 +309,7 @@
     await loadConfigStatus();
     await loadDashboard();
     if (isAdmin) {
-      await Promise.all([loadPlatformDashboard(), loadRouteraModels()]);
+      await Promise.all([loadPlatformDashboard(), loadRouteraCredentialStatus(), loadRouteraModels()]);
     }
   }
 
@@ -324,13 +335,90 @@
     const list = document.getElementById("routeraModels");
     if (!list) return;
     try {
-      const payload = await adminApi("/api/admin/ai/models");
+      const payload = await adminPlatformRequest("/api/admin/ai/models");
       list.innerHTML = (payload.models || [])
         .map((model) => `<option value="${escapeHtml(model.id || "")}"></option>`)
         .join("");
     } catch {
       list.innerHTML = "";
     }
+  }
+
+  async function loadRouteraCredentialStatus() {
+    if (!els.routeraApiKeyMessage || state.profile?.role !== "admin") return;
+    els.routeraApiKeyMessage.textContent = "Checking credential status...";
+    try {
+      state.routeraCredential = await adminPlatformRequest("/api/admin/ai/credential");
+      renderRouteraCredentialStatus();
+    } catch (error) {
+      els.routeraApiKeyMessage.textContent = error.message || "Routera credential status is unavailable.";
+      els.removeRouteraApiKeyBtn.disabled = true;
+    }
+  }
+
+  function renderRouteraCredentialStatus(message = "") {
+    const credential = state.routeraCredential || {};
+    els.routeraApiKeyInput.value = "";
+    els.removeRouteraApiKeyBtn.disabled = credential.source !== "admin";
+    if (message) {
+      els.routeraApiKeyMessage.textContent = message;
+      return;
+    }
+    const suffix = credential.suffix ? ` ending in ${credential.suffix}` : "";
+    if (credential.source === "admin") {
+      els.routeraApiKeyMessage.textContent = `Configured securely in Admin${suffix}. The saved key is never returned to this page.`;
+    } else if (credential.source === "vercel") {
+      els.routeraApiKeyMessage.textContent = `Using the ROUTERA_API_KEY from Vercel${suffix}. Save a key here to override it.`;
+    } else {
+      els.routeraApiKeyMessage.textContent = "Not configured. Enter a Routera key beginning with rta_.";
+    }
+  }
+
+  async function saveRouteraApiKey() {
+    const apiKey = String(els.routeraApiKeyInput.value || "").trim();
+    if (!apiKey.startsWith("rta_") || apiKey.length < 12) {
+      els.routeraApiKeyMessage.textContent = "Enter a valid Routera API key beginning with rta_.";
+      els.routeraApiKeyInput.focus();
+      return;
+    }
+
+    setRouteraCredentialBusy(true);
+    els.routeraApiKeyMessage.textContent = "Encrypting and saving the Routera credential...";
+    try {
+      state.routeraCredential = await adminPlatformRequest("/api/admin/ai/credential", {
+        method: "POST",
+        body: JSON.stringify({ apiKey }),
+      });
+      renderRouteraCredentialStatus("Routera API key saved securely. Diagnostics will use it immediately.");
+      await Promise.all([loadRouteraModels(), loadConfigStatus()]);
+    } catch (error) {
+      els.routeraApiKeyMessage.textContent = error.message || "The Routera API key could not be saved.";
+    } finally {
+      setRouteraCredentialBusy(false);
+    }
+  }
+
+  async function removeRouteraApiKey() {
+    if (state.routeraCredential?.source !== "admin") return;
+    if (!window.confirm("Remove the Routera API key saved in Admin? The Vercel key will be used if one is configured.")) return;
+
+    setRouteraCredentialBusy(true);
+    els.routeraApiKeyMessage.textContent = "Removing the Admin credential...";
+    try {
+      state.routeraCredential = await adminPlatformRequest("/api/admin/ai/credential", { method: "DELETE" });
+      renderRouteraCredentialStatus("Admin credential removed. The current fallback configuration is now active.");
+      await Promise.all([loadRouteraModels(), loadConfigStatus()]);
+    } catch (error) {
+      els.routeraApiKeyMessage.textContent = error.message || "The Routera API key could not be removed.";
+    } finally {
+      setRouteraCredentialBusy(false);
+    }
+  }
+
+  function setRouteraCredentialBusy(busy) {
+    els.routeraApiKeyInput.disabled = busy;
+    els.saveRouteraApiKeyBtn.disabled = busy;
+    els.removeRouteraApiKeyBtn.disabled = busy || state.routeraCredential?.source !== "admin";
   }
 
   function renderConfigStatus(items) {

@@ -6,6 +6,7 @@ import {
   ROUTERA_DEFAULT_MODEL,
   type RouteraMessage,
 } from "@/lib/platform/routera";
+import { resolveRouteraCredential } from "@/lib/platform/secrets";
 import type { DiagnosticAttachment } from "@/lib/platform/uploads";
 import type { AiGenerationResult, DiagnosticCaseRecord, DiagnosticMessageRecord, EscalationCategory, SupportedLanguage } from "@/types/diagnostics";
 
@@ -62,6 +63,7 @@ export async function generateDiagnosticReply(input: GenerateInput): Promise<AiG
 
 async function generateWithRoutera(input: GenerateInput): Promise<AiGenerationResult> {
   const env = serverEnvironment();
+  const credential = await resolveRouteraCredential();
   const model = cleanRouteraModel(input.automation?.routeraModel || env.routeraModel, ROUTERA_DEFAULT_MODEL);
   const contents = conversationForProvider(input);
   const messages: RouteraMessage[] = [
@@ -69,7 +71,7 @@ async function generateWithRoutera(input: GenerateInput): Promise<AiGenerationRe
     ...routeraConversation(contents, input),
   ];
   const completion = await createRouteraCompletion({
-    apiKey: env.routeraApiKey,
+    apiKey: credential.apiKey,
     baseUrl: env.routeraApiBaseUrl,
     model,
     messages,

@@ -50,6 +50,12 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
         <link rel="stylesheet" href="/styles.css" />
         <link rel="preconnect" href="https://images.unsplash.com" />
         <script
+          id="adsbygoogle-script"
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6817388263556075"
+          crossOrigin="anonymous"
+        />
+        <script
           id="wrenchline-config"
           dangerouslySetInnerHTML={{
             __html: `window.WRENCHLINE_CONFIG=${JSON.stringify(clientConfig).replace(/</g, "\\u003c")};`,

@@ -69,6 +69,14 @@ create table if not exists public.site_settings (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.platform_secrets (
+  key text primary key,
+  encrypted_value text not null,
+  updated_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.admin_audit_logs (
   id uuid primary key default gen_random_uuid(),
   actor_id uuid references auth.users(id) on delete set null,
@@ -391,6 +399,12 @@ create trigger set_site_settings_updated_at
   for each row
   execute function public.set_updated_at();
 
+drop trigger if exists set_platform_secrets_updated_at on public.platform_secrets;
+create trigger set_platform_secrets_updated_at
+  before update on public.platform_secrets
+  for each row
+  execute function public.set_updated_at();
+
 drop trigger if exists set_notification_dispatches_updated_at on public.notification_dispatches;
 create trigger set_notification_dispatches_updated_at
   before update on public.notification_dispatches
@@ -682,6 +696,7 @@ alter table public.profiles enable row level security;
 alter table public.conversations enable row level security;
 alter table public.call_bookings enable row level security;
 alter table public.site_settings enable row level security;
+alter table public.platform_secrets enable row level security;
 alter table public.admin_audit_logs enable row level security;
 alter table public.auth_email_requests enable row level security;
 alter table public.notification_dispatches enable row level security;
@@ -814,6 +829,11 @@ create policy "Admins can manage site settings"
   for all
   using (public.is_admin())
   with check (public.is_admin());
+
+-- No anon/authenticated policies are created for platform_secrets. Only server
+-- routes using the service role may read or write encrypted credential values.
+revoke all on table public.platform_secrets from anon, authenticated;
+grant select, insert, update, delete on table public.platform_secrets to service_role;
 
 drop policy if exists "Admins can read audit logs" on public.admin_audit_logs;
 drop policy if exists "Admins can insert audit logs" on public.admin_audit_logs;

@@ -1,7 +1,7 @@
 import { requireAdmin } from "@/lib/platform/auth";
 import { errorResponse, json } from "@/lib/platform/http";
 import { CANONICAL_SITE_URL } from "@/lib/platform/site-url";
-import { isRouteraApiKey } from "@/lib/platform/routera";
+import { resolveRouteraCredential } from "@/lib/platform/secrets";
 import { supabaseService } from "@/lib/platform/supabase";
 
 export const runtime = "nodejs";
@@ -10,9 +10,10 @@ export async function GET(request: Request): Promise<Response> {
   try {
     await requireAdmin(request);
     const supabase = supabaseService();
-    const [{ data, error: settingsError }, { error: emailSchemaError }] = await Promise.all([
+    const [{ data, error: settingsError }, { error: emailSchemaError }, { error: secretsSchemaError }] = await Promise.all([
       supabase.from("site_settings").select("value").eq("key", "public_content").maybeSingle(),
       supabase.from("auth_email_requests").select("id", { count: "exact", head: true }),
+      supabase.from("platform_secrets").select("key", { count: "exact", head: true }),
     ]);
     const content = data?.value && typeof data.value === "object" && !Array.isArray(data.value)
       ? data.value as Record<string, unknown>
@@ -20,7 +21,8 @@ export async function GET(request: Request): Promise<Response> {
     const legalText = `${content.businessAddress || ""} ${content.refundText || content.refundPolicySummary || ""}`;
     const legalReady = Boolean(content.businessAddress && (content.refundText || content.refundPolicySummary) && !/add your|not configured|placeholder/i.test(legalText));
     const provider = aiProvider();
-    const aiReady = provider === "openai" ? Boolean(process.env.OPENAI_API_KEY) : isRouteraApiKey(process.env.ROUTERA_API_KEY);
+    const routeraCredential = provider === "routera" ? await resolveRouteraCredential() : null;
+    const aiReady = provider === "openai" ? Boolean(process.env.OPENAI_API_KEY) : Boolean(routeraCredential?.configured);
     const configuredSite = normalizeOrigin(process.env.PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "");
     const adSlots = content.adSlots && typeof content.adSlots === "object" ? content.adSlots as Record<string, unknown> : {};
     const adsReady = Boolean((process.env.NEXT_PUBLIC_ADSENSE_CLIENT || content.adsClient) && (process.env.NEXT_PUBLIC_ADSENSE_SLOT || content.adsSlot || Object.values(adSlots).some(Boolean)));
@@ -32,10 +34,16 @@ export async function GET(request: Request): Promise<Response> {
         envItem("Supabase service role key", Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY), "Vercel", true),
         envItem("Database connection", !settingsError, "Supabase"),
         envItem("Account email protection schema", !emailSchemaError, "Run latest supabase-schema.sql"),
+        envItem("Encrypted platform secrets schema", !secretsSchemaError, "Run latest supabase-schema.sql"),
         envItem("Resend API key", Boolean(process.env.RESEND_API_KEY), "Vercel", true),
         envItem("Account email rate-limit secret", Boolean(process.env.EMAIL_RATE_LIMIT_SECRET), "Vercel", true, true),
         envItem("Canonical site URL", configuredSite === CANONICAL_SITE_URL, "Vercel"),
-        envItem(`${providerLabel(provider)} API key`, aiReady, "Vercel", true),
+        envItem(
+          `${providerLabel(provider)} API key`,
+          aiReady,
+          provider === "routera" && routeraCredential?.source === "admin" ? "Admin - Routera" : "Vercel",
+          true
+        ),
         envItem("AdSense client and slot", adsReady, "Vercel and Admin - Ads"),
         envItem("Stripe secret key", Boolean(process.env.STRIPE_SECRET_KEY), "Vercel", true),
         envItem("Stripe webhook secret", Boolean(process.env.STRIPE_WEBHOOK_SECRET), "Vercel", true),
