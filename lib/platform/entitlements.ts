@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { serverEnvironment } from "@/lib/platform/env";
 import type { AuthContext } from "@/lib/platform/auth";
+import { isMissingDiagnosticSchema, legacyActiveCaseCount, legacyAiMessageCountToday } from "@/lib/platform/legacy-diagnostics";
 import type { Entitlements, PlanTier } from "@/types/diagnostics";
 
 export async function getEntitlements(supabase: SupabaseClient, context: AuthContext): Promise<Entitlements> {
@@ -12,7 +13,7 @@ export async function getEntitlements(supabase: SupabaseClient, context: AuthCon
   const startOfDay = new Date();
   startOfDay.setUTCHours(0, 0, 0, 0);
 
-  const [{ count: aiCount }, { count: caseCount }] = await Promise.all([
+  const [{ count: aiCount, error: aiError }, { count: caseCount, error: caseError }] = await Promise.all([
     supabase
       .from("usage_events")
       .select("id", { count: "exact", head: true })
@@ -26,8 +27,15 @@ export async function getEntitlements(supabase: SupabaseClient, context: AuthCon
       .in("status", ["active", "waiting_for_mechanic", "assigned"]),
   ]);
 
-  const aiMessagesUsedToday = aiCount || 0;
-  const activeCases = caseCount || 0;
+  const [legacyAiCount, legacyCaseCount] = await Promise.all([
+    aiError && isMissingDiagnosticSchema(aiError.message)
+      ? legacyAiMessageCountToday(supabase, context.user.id, startOfDay.toISOString()).catch(() => 0)
+      : Promise.resolve(0),
+    legacyActiveCaseCount(supabase, context.user.id).catch(() => 0),
+  ]);
+
+  const aiMessagesUsedToday = (aiCount || 0) + legacyAiCount;
+  const activeCases = (caseError && isMissingDiagnosticSchema(caseError.message) ? 0 : caseCount || 0) + legacyCaseCount;
   const aiMessagesDailyLimit = plan === "admin" ? null : plan === "premium" ? env.premiumAiMessagesPerDay : env.freeAiMessagesPerDay;
   const activeCaseLimit = plan === "admin" ? null : plan === "premium" ? 25 : 3;
   const isDisabled = context.profile.is_disabled;

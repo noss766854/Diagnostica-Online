@@ -2,6 +2,7 @@ import { requireActiveUser } from "@/lib/platform/auth";
 import { loadCaseForUser } from "@/lib/platform/cases";
 import { serverEnvironment } from "@/lib/platform/env";
 import { errorResponse, HttpError, json, readJson } from "@/lib/platform/http";
+import { isLegacyDiagnosticCase } from "@/lib/platform/legacy-diagnostics";
 import { supabaseService } from "@/lib/platform/supabase";
 import { processStoredUpload } from "@/lib/platform/uploads";
 import { safeFileName, uploadKindFor, uploadRequestSchema } from "@/lib/platform/validation";
@@ -20,7 +21,8 @@ export async function GET(request: Request, { params }: RouteContext): Promise<R
     const { caseId } = await params;
     const context = await requireActiveUser(request);
     const supabase = supabaseService();
-    await loadCaseForUser(supabase, context, caseId);
+    const diagnosticCase = await loadCaseForUser(supabase, context, caseId);
+    if (isLegacyDiagnosticCase(diagnosticCase)) return json({ uploads: [] });
     const { data, error } = await supabase.from("diagnostic_uploads").select("*").eq("case_id", caseId).order("created_at", { ascending: false });
     if (error) throw new HttpError(500, "Uploaded file metadata could not be loaded.");
     const uploads = await Promise.all(
@@ -40,7 +42,10 @@ export async function POST(request: Request, { params }: RouteContext): Promise<
     const { caseId } = await params;
     const context = await requireActiveUser(request);
     const supabase = supabaseService();
-    await loadCaseForUser(supabase, context, caseId);
+    const diagnosticCase = await loadCaseForUser(supabase, context, caseId);
+    if (isLegacyDiagnosticCase(diagnosticCase)) {
+      throw new HttpError(409, "File uploads require the full diagnostic upload schema. Chat and saved cases still work on this deployment.");
+    }
     const input = uploadRequestSchema.parse(await readJson(request));
 
     if (input.action === "sign") {
@@ -112,7 +117,10 @@ export async function DELETE(request: Request, { params }: RouteContext): Promis
     const { caseId } = await params;
     const context = await requireActiveUser(request);
     const supabase = supabaseService();
-    await loadCaseForUser(supabase, context, caseId);
+    const diagnosticCase = await loadCaseForUser(supabase, context, caseId);
+    if (isLegacyDiagnosticCase(diagnosticCase)) {
+      throw new HttpError(409, "File uploads require the full diagnostic upload schema.");
+    }
     const uploadId = new URL(request.url).searchParams.get("uploadId") || "";
     if (!/^[0-9a-f-]{36}$/i.test(uploadId)) throw new HttpError(400, "A valid upload ID is required.");
     const { data: upload, error } = await supabase

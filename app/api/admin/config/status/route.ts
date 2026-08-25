@@ -10,10 +10,11 @@ export async function GET(request: Request): Promise<Response> {
   try {
     await requireAdmin(request);
     const supabase = supabaseService();
-    const [{ data, error: settingsError }, { error: emailSchemaError }, { error: secretsSchemaError }] = await Promise.all([
+    const [{ data, error: settingsError }, { error: emailSchemaError }, { error: secretsSchemaError }, { error: diagnosticsSchemaError }] = await Promise.all([
       supabase.from("site_settings").select("value").eq("key", "public_content").maybeSingle(),
       supabase.from("auth_email_requests").select("id", { count: "exact", head: true }),
       supabase.from("platform_secrets").select("key", { count: "exact", head: true }),
+      supabase.from("vehicles").select("id", { count: "exact", head: true }),
     ]);
     const content = data?.value && typeof data.value === "object" && !Array.isArray(data.value)
       ? data.value as Record<string, unknown>
@@ -35,6 +36,7 @@ export async function GET(request: Request): Promise<Response> {
         envItem("Database connection", !settingsError, "Supabase"),
         envItem("Account email protection schema", !emailSchemaError, "Run latest supabase-schema.sql"),
         envItem("Dedicated encrypted secrets table", !secretsSchemaError, "Supabase schema", false, true),
+        envItem("Full diagnostic tables", !diagnosticsSchemaError, "Supabase schema", false, true),
         envItem("Resend API key", Boolean(process.env.RESEND_API_KEY), "Vercel", true),
         envItem("Account email rate-limit secret", Boolean(process.env.EMAIL_RATE_LIMIT_SECRET), "Vercel", true, true),
         envItem("Canonical site URL", configuredSite === CANONICAL_SITE_URL, "Vercel"),

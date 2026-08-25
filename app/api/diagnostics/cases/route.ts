@@ -2,6 +2,7 @@ import { requireActiveUser } from "@/lib/platform/auth";
 import { caseTitle, inferCasePriority } from "@/lib/platform/cases";
 import { getEntitlements } from "@/lib/platform/entitlements";
 import { errorResponse, HttpError, json, readJson } from "@/lib/platform/http";
+import { createLegacyDiagnosticCase, isMissingDiagnosticSchema, listLegacyDiagnosticCases } from "@/lib/platform/legacy-diagnostics";
 import { supabaseService } from "@/lib/platform/supabase";
 import { createCaseSchema } from "@/lib/platform/validation";
 import type { DiagnosticCaseRecord, VehicleRecord } from "@/types/diagnostics";
@@ -21,8 +22,16 @@ export async function GET(request: Request): Promise<Response> {
         .limit(50),
       getEntitlements(supabase, context),
     ]);
-    if (error) throw new HttpError(500, "Saved diagnostic cases could not be loaded. Run the latest Supabase schema if this is a new deployment.");
-    return json({ cases: (data || []) as DiagnosticCaseRecord[], entitlements });
+    if (error && !isMissingDiagnosticSchema(error.message)) {
+      throw new HttpError(500, "Saved diagnostic cases could not be loaded.");
+    }
+    const legacyCases = await listLegacyDiagnosticCases(supabase, context.user.id).catch(() => []);
+    const normalizedCases = error ? [] : (data || []) as DiagnosticCaseRecord[];
+    const legacyIds = new Set(legacyCases.map((diagnosticCase) => diagnosticCase.id));
+    const cases = [...legacyCases, ...normalizedCases.filter((diagnosticCase) => !legacyIds.has(diagnosticCase.id))]
+      .sort((a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime())
+      .slice(0, 50);
+    return json({ cases, entitlements });
   } catch (error) {
     return errorResponse(error, "Saved diagnostic cases could not be loaded.");
   }
@@ -50,7 +59,19 @@ export async function POST(request: Request): Promise<Response> {
       ecu: input.vehicle.ecu || null,
     };
     const { data: vehicle, error: vehicleError } = await supabase.from("vehicles").insert(vehiclePayload).select().single();
-    if (vehicleError || !vehicle) throw new HttpError(500, vehicleError?.message || "The vehicle could not be saved.");
+    if (vehicleError || !vehicle) {
+      if (vehicleError && isMissingDiagnosticSchema(vehicleError.message)) {
+        const legacy = await createLegacyDiagnosticCase(supabase, context, input);
+        return json(
+          {
+            ...legacy,
+            entitlements: await getEntitlements(supabase, context),
+          },
+          201
+        );
+      }
+      throw new HttpError(500, vehicleError?.message || "The vehicle could not be saved.");
+    }
 
     const casePayload = {
       owner_id: context.user.id,
@@ -72,6 +93,16 @@ export async function POST(request: Request): Promise<Response> {
     const { data: diagnosticCase, error: caseError } = await supabase.from("diagnostic_cases").insert(casePayload).select().single();
     if (caseError || !diagnosticCase) {
       await supabase.from("vehicles").delete().eq("id", vehicle.id).eq("owner_id", context.user.id);
+      if (caseError && isMissingDiagnosticSchema(caseError.message)) {
+        const legacy = await createLegacyDiagnosticCase(supabase, context, input);
+        return json(
+          {
+            ...legacy,
+            entitlements: await getEntitlements(supabase, context),
+          },
+          201
+        );
+      }
       const limitReached = /limit reached/i.test(caseError?.message || "");
       const limitMessage = limitReached ? "Your plan's active-case limit has been reached." : caseError?.message;
       throw new HttpError(limitReached ? 403 : 500, limitMessage || "The diagnostic case could not be saved.");

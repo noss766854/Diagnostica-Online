@@ -1236,7 +1236,10 @@
     try {
       const data = await platformRequest("/api/diagnostics/cases");
       const diagnosticRows = (data.cases || []).map((row) => fromDiagnosticCaseRow(row, []));
-      const compatibilityRows = state.conversations.filter((conversation) => conversation.source !== "diagnostic" && conversation.source !== "local");
+      const diagnosticIds = new Set(diagnosticRows.map((conversation) => conversation.id));
+      const compatibilityRows = state.conversations.filter(
+        (conversation) => conversation.source !== "diagnostic" && conversation.source !== "local" && !diagnosticIds.has(conversation.id)
+      );
       const currentId = state.activeId;
       state.conversations = [...diagnosticRows, ...compatibilityRows];
       state.entitlements = data.entitlements || state.entitlements;

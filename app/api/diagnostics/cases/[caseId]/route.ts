@@ -2,6 +2,11 @@ import { requireActiveUser } from "@/lib/platform/auth";
 import { loadCaseForUser } from "@/lib/platform/cases";
 import { getEntitlements } from "@/lib/platform/entitlements";
 import { errorResponse, HttpError, json, readJson } from "@/lib/platform/http";
+import {
+  isLegacyDiagnosticCase,
+  loadLegacyDiagnosticMessages,
+  updateLegacyDiagnosticCase,
+} from "@/lib/platform/legacy-diagnostics";
 import { recommendationsForCase } from "@/lib/platform/recommendations";
 import { supabaseService } from "@/lib/platform/supabase";
 import { updateCaseSchema } from "@/lib/platform/validation";
@@ -19,6 +24,16 @@ export async function GET(request: Request, { params }: RouteContext): Promise<R
     const context = await requireActiveUser(request);
     const supabase = supabaseService();
     const diagnosticCase = await loadCaseForUser(supabase, context, caseId);
+    if (isLegacyDiagnosticCase(diagnosticCase)) {
+      const messages = await loadLegacyDiagnosticMessages(supabase, context, caseId);
+      return json({
+        case: diagnosticCase,
+        messages,
+        uploads: [],
+        recommendations: await recommendationsForCase(supabase, diagnosticCase),
+        entitlements: await getEntitlements(supabase, context),
+      });
+    }
     const [{ data: messages, error: messageError }, { data: uploads, error: uploadError }, entitlements, recommendations] = await Promise.all([
       supabase.from("diagnostic_messages").select("*").eq("case_id", caseId).order("created_at", { ascending: true }).limit(250),
       supabase.from("diagnostic_uploads").select("*").eq("case_id", caseId).order("created_at", { ascending: false }).limit(100),
@@ -54,6 +69,10 @@ export async function PATCH(request: Request, { params }: RouteContext): Promise
     const supabase = supabaseService();
     const existing = await loadCaseForUser(supabase, context, caseId);
     const input = updateCaseSchema.parse(await readJson(request));
+    if (isLegacyDiagnosticCase(existing)) {
+      const updated = await updateLegacyDiagnosticCase(supabase, context, caseId, input);
+      return json({ case: updated, entitlements: await getEntitlements(supabase, context) });
+    }
 
     if (input.vehicle && existing.vehicle_id) {
       const vehicleUpdates = {

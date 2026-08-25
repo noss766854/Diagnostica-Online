@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AuthContext } from "@/lib/platform/auth";
 import { HttpError } from "@/lib/platform/http";
+import { isMissingDiagnosticSchema, loadLegacyDiagnosticCase } from "@/lib/platform/legacy-diagnostics";
 import type { DiagnosticCaseRecord } from "@/types/diagnostics";
 
 export async function loadCaseForUser(
@@ -13,8 +14,11 @@ export async function loadCaseForUser(
     .select("*,vehicle:vehicles(*)")
     .eq("id", caseId)
     .maybeSingle();
-  if (error) throw new HttpError(500, "The diagnostic case could not be loaded.");
-  if (!data) throw new HttpError(404, "Diagnostic case not found.");
+  if (error) {
+    if (isMissingDiagnosticSchema(error.message)) return loadLegacyDiagnosticCase(supabase, context, caseId);
+    throw new HttpError(500, "The diagnostic case could not be loaded.");
+  }
+  if (!data) return loadLegacyDiagnosticCase(supabase, context, caseId);
   if (data.owner_id !== context.user.id && context.profile.role !== "admin") {
     throw new HttpError(403, "You do not have access to this diagnostic case.");
   }

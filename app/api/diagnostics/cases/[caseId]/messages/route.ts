@@ -4,6 +4,12 @@ import { loadCaseForUser } from "@/lib/platform/cases";
 import { getEntitlements } from "@/lib/platform/entitlements";
 import { serverEnvironment } from "@/lib/platform/env";
 import { errorResponse, HttpError, json, readJson } from "@/lib/platform/http";
+import {
+  appendLegacyDiagnosticMessages,
+  conversationMessagesToDiagnosticRecords,
+  isLegacyDiagnosticCase,
+  legacyMessage,
+} from "@/lib/platform/legacy-diagnostics";
 import { recommendationsForCase } from "@/lib/platform/recommendations";
 import { cleanRouteraModel } from "@/lib/platform/routera";
 import { supabaseService } from "@/lib/platform/supabase";
@@ -29,6 +35,114 @@ export async function POST(request: Request, { params }: RouteContext): Promise<
       throw new HttpError(409, "Reopen this case before sending another diagnostic message.");
     }
     const input = diagnosticMessageSchema.parse(await readJson(request));
+    if (isLegacyDiagnosticCase(diagnosticCase)) {
+      if (["waiting_for_mechanic", "assigned"].includes(diagnosticCase.status)) {
+        const userLegacyMessage = legacyMessage({
+          role: "user",
+          content: input.content,
+          metadata: { source: "human_review_follow_up", language: input.language },
+        });
+        const { records } = await appendLegacyDiagnosticMessages(supabase, context, caseId, [userLegacyMessage]);
+        return json({
+          userMessage: records[0],
+          assistantMessage: null,
+          caseStatus: diagnosticCase.status,
+          priority: diagnosticCase.priority,
+          routing: {
+            required: true,
+            category: "specialist_judgment",
+            reason: "This case is already queued for human review.",
+          },
+        });
+      }
+
+      const entitlements = await getEntitlements(supabase, context);
+      if (!entitlements.canSendAiMessage) {
+        throw new HttpError(429, `Your ${entitlements.plan} plan has reached its daily diagnostic message limit. Your allowance resets at 00:00 UTC.`);
+      }
+
+      const automation = await loadAutomationConfig(supabase);
+      const userLegacyMessage = legacyMessage({
+        role: "user",
+        name: "Driver",
+        content: input.content,
+        metadata: { source: "diagnostic_chat", language: input.language },
+      });
+      const userAppend = await appendLegacyDiagnosticMessages(supabase, context, caseId, [userLegacyMessage]);
+      const userMessage = userAppend.records[0];
+      const history = conversationMessagesToDiagnosticRecords(userAppend.row);
+      const generation = await generateDiagnosticReply({
+        diagnosticCase,
+        messages: history,
+        userMessage: input.content,
+        automation,
+        attachments: [],
+        language: input.language,
+      });
+      const now = new Date().toISOString();
+      const priority = safetyPriority(`${diagnosticCase.symptoms} ${input.content} ${generation.text}`);
+      const nextStatus: "waiting_for_mechanic" | "active" = generation.escalation.required ? "waiting_for_mechanic" : "active";
+      const assistantLegacyMessage = legacyMessage({
+        role: "assistant",
+        name: "DiagnosticaOnline Diagnostics",
+        content: generation.text,
+        createdAt: now,
+        provider: generation.provider,
+        model: generation.model,
+        inputTokens: generation.inputTokens,
+        outputTokens: generation.outputTokens,
+        escalationRequired: generation.escalation.required,
+        escalationCategory: generation.escalation.category,
+        escalationReason: generation.escalation.reason,
+        metadata: {
+          diagnostic_format: "autonomous_test_plan",
+          escalation_required: generation.escalation.required,
+          escalation_category: generation.escalation.category,
+          escalation_reason: generation.escalation.reason,
+          language: input.language,
+          compatibility_storage: true,
+        },
+      });
+      const assistantAppend = await appendLegacyDiagnosticMessages(supabase, context, caseId, [assistantLegacyMessage], {
+        brief: generation.text.slice(0, 4000),
+        status: nextStatus,
+        priority,
+      });
+      await supabase
+        .from("usage_events")
+        .insert({
+          user_id: context.user.id,
+          case_id: null,
+          event_type: "ai_message",
+          provider: generation.provider,
+          model: generation.model,
+          input_tokens: generation.inputTokens,
+          output_tokens: generation.outputTokens,
+          estimated_cost_usd: generation.estimatedCostUsd,
+          metadata: {
+            status: "completed",
+            legacy_case_id: caseId,
+            escalation_required: generation.escalation.required,
+            escalation_category: generation.escalation.category,
+            language: input.language,
+          },
+        })
+        .then(() => undefined, () => undefined);
+      const updatedCase = { ...diagnosticCase, ai_summary: generation.text, last_message_at: now, priority, status: nextStatus };
+      const [refreshedEntitlements, recommendations] = await Promise.all([
+        getEntitlements(supabase, context),
+        recommendationsForCase(supabase, updatedCase),
+      ]);
+      return json({
+        userMessage,
+        assistantMessage: assistantAppend.records[0] as DiagnosticMessageRecord,
+        entitlements: refreshedEntitlements,
+        recommendations,
+        routing: generation.escalation,
+        caseStatus: nextStatus,
+        priority,
+      });
+    }
     if (["waiting_for_mechanic", "assigned"].includes(diagnosticCase.status)) {
       const now = new Date().toISOString();
       const { data: reviewMessage, error: reviewMessageError } = await supabase
