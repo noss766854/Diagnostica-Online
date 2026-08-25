@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>DiagnosticaOnline Admin</title>
     <link rel="stylesheet" href="./styles.css" />
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6817388263556075" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="./config.js"></script>
@@ -306,6 +307,29 @@
                   <input id="routeraModelInput" type="text" list="routeraModels" autocomplete="off" />
                   <datalist id="routeraModels"></datalist>
                 </label>
+                <div class="routera-secret-controls span-2">
+                  <label>
+                    <span>Routera API key</span>
+                    <input
+                      id="routeraApiKeyInput"
+                      type="password"
+                      autocomplete="new-password"
+                      placeholder="rta_..."
+                      spellcheck="false"
+                    />
+                  </label>
+                  <div class="routera-secret-actions">
+                    <button class="mini-button" id="saveRouteraApiKeyBtn" type="button">
+                      <i data-lucide="key-round"></i>
+                      <span>Save key</span>
+                    </button>
+                    <button class="secondary-button" id="removeRouteraApiKeyBtn" type="button" disabled>
+                      <i data-lucide="trash-2"></i>
+                      <span>Remove</span>
+                    </button>
+                  </div>
+                  <p class="form-message" id="routeraApiKeyMessage" role="status">Checking credential status...</p>
+                </div>
                 <label>
                   <span>AdSense client</span>
                   <input id="adsClientInput" type="text" />
