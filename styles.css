@@ -942,8 +942,12 @@ a {
 
 .banner-ad {
   width: 100%;
+  min-height: 0;
+  background: transparent;
+}
+
+.banner-ad:has(ins.adsbygoogle[data-ad-status="filled"]) {
   min-height: 90px;
-  background: var(--glass-2);
 }
 
 .bottom-ad-band {
@@ -1075,40 +1079,65 @@ a {
 
 /* ---------- Ads ---------- */
 .ad-mount {
-  min-height: 92px;
   display: grid;
   place-items: center;
-  border: 1px dashed var(--line-strong);
   border-radius: var(--radius-sm);
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 0.76rem;
-  background: var(--glass-2);
 }
 
-/* AdSense injects <ins class="adsbygoogle"> into mounts. The grid
-   centering above shrinks it to 0 width, which prevents Google from
-   filling the slot. Force the ins to span the full mount width/height. */
-.ad-mount ins.adsbygoogle {
-  display: block;
-  width: 100%;
-  height: 100%;
-  min-height: inherit;
-}
-
-/* When a live ad is present, drop the placeholder chrome so the ad
-   sits flush and is measured at full width. */
-.ad-mount:has(ins.adsbygoogle) {
+/* Collapsed by default so unfilled / unverified slots never flash an
+   empty "Advertisement" box on load. Space is only claimed once a real
+   ad fills (see :has(...[data-ad-status="filled"]) below). */
+.ad-mount {
+  min-height: 0;
   border: 0;
   background: transparent;
+}
+
+/* Show a subtle placeholder ONLY while an ad request is genuinely in
+   flight (ins present but not yet resolved). Keeps layout stable during
+   fill without flashing boxes when nothing will ever load. */
+.ad-mount:has(ins.adsbygoogle) {
   place-items: stretch;
 }
 
+/* AdSense injects <ins class="adsbygoogle">. Force it to span the mount
+   width so Google can measure and fill the slot. */
+.ad-mount ins.adsbygoogle {
+  display: block;
+  width: 100%;
+}
+
+/* Only a FILLED ad reserves visible height. Unfilled/none collapse to
+   nothing (Google sets the ins to display:none when unfilled). */
+.ad-mount:has(ins.adsbygoogle[data-ad-status="filled"]) {
+  min-height: 92px;
+}
+
+/* Hide the literal "Advertisement" placeholder text/span. It exists as a
+   pre-JS fallback but should never flash on screen for real visitors. */
+.ad-mount > span {
+  display: none;
+}
+
+/* Fallback for browsers without :has() — keep mounts from reserving a
+   big empty band; they simply stay compact until an ad paints. */
+@supports not (selector(:has(*))) {
+  .ad-mount {
+    min-height: 0;
+  }
+}
+
 .side-ad {
+  min-height: 0;
+  background: transparent;
+}
+
+.side-ad:has(ins.adsbygoogle[data-ad-status="filled"]) {
   min-height: 86px;
-  background: var(--glass-2);
-  backdrop-filter: blur(2px);
 }
 
 .inline-ads {
@@ -1118,16 +1147,25 @@ a {
 }
 
 .inline-ad {
+  min-height: 0;
+}
+
+.inline-ad:has(ins.adsbygoogle[data-ad-status="filled"]) {
   min-height: 96px;
 }
 
 .mobile-chat-ad {
   display: grid;
+  min-height: 0;
+  margin-bottom: 0;
+  color: var(--muted);
+  background: transparent;
+  border-color: transparent;
+}
+
+.mobile-chat-ad:has(ins.adsbygoogle[data-ad-status="filled"]) {
   min-height: 74px;
   margin-bottom: 12px;
-  color: var(--muted);
-  background: var(--glass-2);
-  border-color: var(--line);
 }
 
 /* ---------- Case tool panels ---------- */
