@@ -110,7 +110,7 @@ export interface Entitlements {
 
 export interface AiGenerationResult {
   text: string;
-  provider: "gemini" | "openai";
+  provider: "routera" | "openai";
   model: string;
   inputTokens: number;
   outputTokens: number;

@@ -606,8 +606,8 @@
   const DEFAULT_SETTINGS = {
     supabaseUrl: "",
     supabaseAnonKey: "",
-    geminiEndpoint: "/api/gemini",
-    geminiModel: "gemini-2.5-flash",
+    routeraEndpoint: "/api/routera",
+    routeraModel: "openai/gpt-5.5",
     adsClient: "ca-pub-6817388263556075",
     adsSlot: "",
     adSlots: {},
@@ -625,7 +625,7 @@
       "Tell me the year, make, model, mileage, symptoms, warning lights, sounds, smells, and when the issue happens. We will work through the diagnosis step by step.",
     typingMessage: "Reviewing the symptoms and test history...",
     systemPrompt: [
-      "You are Gemini Diagnostic AI for DiagnosticaOnline.",
+      "You are DiagnosticaOnline's diagnostic engine.",
       "You are the primary AI diagnostician, not an intake assistant.",
       "Own the case from the first question through test planning and interpretation.",
       "Ask one concise diagnostic question at a time unless the driver has already provided enough information.",
@@ -687,8 +687,8 @@
       "Free text chat is not charged. Paid voice or video calls are charged based on the selected duration and rate shown at checkout. Add your final refund, cancellation, no-show, and rescheduling rules in admin before accepting production payments.",
     disclaimerText:
       "AI intake and remote consulting are not emergency services and cannot guarantee a diagnosis or repair. Vehicle work can involve fire, fuel, toxic chemicals, high voltage, moving components, stored pressure, air bags, and crushing hazards. Stop driving and seek qualified local help for smoke, fire risk, fuel leaks, brake or steering loss, severe overheating, oil-pressure warnings, or other immediate danger. ECU, immobilizer, and emissions laws vary by location. DiagnosticaOnline refuses emissions defeat, immobilizer bypass without lawful ownership procedures, odometer fraud, theft enablement, and unsafe bypass instructions, while allowing lawful diagnostics, repair, and restoration of original or factory software.",
-    geminiEndpoint: DEFAULT_SETTINGS.geminiEndpoint,
-    geminiModel: DEFAULT_SETTINGS.geminiModel,
+    routeraEndpoint: DEFAULT_SETTINGS.routeraEndpoint,
+    routeraModel: DEFAULT_SETTINGS.routeraModel,
     adsClient: DEFAULT_SETTINGS.adsClient,
     adsSlot: DEFAULT_SETTINGS.adsSlot,
     adSlots: {
@@ -905,8 +905,8 @@
       "integrationStatus",
       "supabaseUrlInput",
       "supabaseAnonInput",
-      "geminiEndpointInput",
-      "geminiModelInput",
+      "routeraEndpointInput",
+      "routeraModelInput",
       "adsClientInput",
       "adsSlotInput",
       "checkoutUrlInput",
@@ -1576,8 +1576,8 @@
     state.typing = true;
     renderMessages();
     try {
-      const result = await getGeminiReply();
-      if (!result.text) throw new Error("Gemini returned an empty response.");
+      const result = await getDiagnosticReply();
+      if (!result.text) throw new Error("The diagnostic service returned an empty response.");
       const conversation = currentConversation();
       if (result.routing?.required && conversation) conversation.status = "waiting_for_mechanic";
       await addMessage("assistant", result.text, {
@@ -1597,11 +1597,11 @@
     }
   }
 
-  async function getGeminiReply() {
+  async function getDiagnosticReply() {
     const conversation = currentConversation();
     if (!conversation) return "";
-    const endpoint = state.settings.geminiEndpoint || DEFAULT_SETTINGS.geminiEndpoint;
-    if (!endpoint) throw new Error("Gemini endpoint is not configured.");
+    const endpoint = state.settings.routeraEndpoint || DEFAULT_SETTINGS.routeraEndpoint;
+    if (!endpoint) throw new Error("The diagnostic endpoint is not configured.");
     const response = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1611,12 +1611,12 @@
         brief: conversation.brief,
         siteContent: state.siteContent,
         systemPrompt: mechanicSystemPrompt(),
-        model: state.settings.geminiModel || DEFAULT_SETTINGS.geminiModel,
+        model: state.settings.routeraModel || DEFAULT_SETTINGS.routeraModel,
         language: state.language,
       }),
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Gemini endpoint failed.");
+    if (!response.ok) throw new Error(data.error || "The diagnostic endpoint failed.");
     return {
       text: customerFacingReply((data.text || data.reply || "").trim()),
       routing: data.routing || { required: false, category: "none", reason: "" },
@@ -1998,8 +1998,8 @@
     const content = state.siteContent || {};
     state.settings = {
       ...state.settings,
-      geminiEndpoint: content.geminiEndpoint ?? state.settings.geminiEndpoint,
-      geminiModel: content.geminiModel ?? state.settings.geminiModel,
+      routeraEndpoint: content.routeraEndpoint ?? state.settings.routeraEndpoint,
+      routeraModel: content.routeraModel ?? state.settings.routeraModel,
       adsClient: content.adsClient ?? state.settings.adsClient,
       adsSlot: content.adsSlot ?? state.settings.adsSlot,
       adSlots: content.adSlots ?? state.settings.adSlots,
@@ -2018,6 +2018,7 @@
 
   function sanitizeSiteContent(value) {
     const merged = { ...DEFAULT_SITE_CONTENT, ...(value || {}) };
+    const legacy = value || {};
     return {
       assistantName: /Gemini Diagnostic AI|DiagnosticaOnline AI/i.test(String(merged.assistantName || ""))
         ? DEFAULT_SITE_CONTENT.assistantName
@@ -2058,8 +2059,8 @@
       textChatWaitingMessage: cleanText(merged.textChatWaitingMessage, DEFAULT_SITE_CONTENT.textChatWaitingMessage),
       bookingConfirmationSubject: cleanText(merged.bookingConfirmationSubject, DEFAULT_SITE_CONTENT.bookingConfirmationSubject),
       textChatConfirmationSubject: cleanText(merged.textChatConfirmationSubject, DEFAULT_SITE_CONTENT.textChatConfirmationSubject),
-      geminiEndpoint: cleanEndpoint(merged.geminiEndpoint, DEFAULT_SETTINGS.geminiEndpoint),
-      geminiModel: cleanText(merged.geminiModel, DEFAULT_SETTINGS.geminiModel),
+      routeraEndpoint: cleanEndpoint(legacy.routeraEndpoint || legacy.geminiEndpoint, DEFAULT_SETTINGS.routeraEndpoint),
+      routeraModel: cleanText(legacy.routeraModel || legacy.geminiModel, DEFAULT_SETTINGS.routeraModel),
       adsClient: cleanAdsClient(merged.adsClient),
       adsSlot: cleanAdSlot(merged.adsSlot),
       adSlots: cleanAdSlots(merged.adSlots),
@@ -2897,7 +2898,7 @@
   function renderStatus() {
     const rows = [
       ["Supabase", Boolean(state.supabase && state.supabaseUser)],
-      ["Gemini", Boolean(state.settings.geminiEndpoint || DEFAULT_SETTINGS.geminiEndpoint)],
+      ["Routera", Boolean(state.settings.routeraEndpoint || DEFAULT_SETTINGS.routeraEndpoint)],
       ["Ads", Boolean(state.settings.adsClient && hasAnyAdSlot())],
       ["Checkout", Boolean(state.settings.checkoutUrl)],
     ];
@@ -3052,7 +3053,13 @@
 
   function loadSettings() {
     try {
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(STORAGE.settings) || "{}") };
+      const saved = JSON.parse(localStorage.getItem(STORAGE.settings) || "{}");
+      return {
+        ...DEFAULT_SETTINGS,
+        ...saved,
+        routeraEndpoint: saved.routeraEndpoint || saved.geminiEndpoint || DEFAULT_SETTINGS.routeraEndpoint,
+        routeraModel: saved.routeraModel || saved.geminiModel || DEFAULT_SETTINGS.routeraModel,
+      };
     } catch (error) {
       return { ...DEFAULT_SETTINGS };
     }
@@ -3061,8 +3068,8 @@
   function fillSettingsForm() {
     els.supabaseUrlInput.value = state.settings.supabaseUrl || "";
     els.supabaseAnonInput.value = state.settings.supabaseAnonKey || "";
-    els.geminiEndpointInput.value = state.settings.geminiEndpoint || DEFAULT_SETTINGS.geminiEndpoint;
-    els.geminiModelInput.value = state.settings.geminiModel || DEFAULT_SETTINGS.geminiModel;
+    els.routeraEndpointInput.value = state.settings.routeraEndpoint || DEFAULT_SETTINGS.routeraEndpoint;
+    els.routeraModelInput.value = state.settings.routeraModel || DEFAULT_SETTINGS.routeraModel;
     els.adsClientInput.value = state.settings.adsClient || "";
     els.adsSlotInput.value = state.settings.adsSlot || "";
     els.checkoutUrlInput.value = state.settings.checkoutUrl || "";
@@ -3073,8 +3080,8 @@
     state.settings = {
       supabaseUrl: els.supabaseUrlInput.value.trim(),
       supabaseAnonKey: els.supabaseAnonInput.value.trim(),
-      geminiEndpoint: els.geminiEndpointInput.value.trim() || DEFAULT_SETTINGS.geminiEndpoint,
-      geminiModel: els.geminiModelInput.value.trim() || DEFAULT_SETTINGS.geminiModel,
+      routeraEndpoint: els.routeraEndpointInput.value.trim() || DEFAULT_SETTINGS.routeraEndpoint,
+      routeraModel: els.routeraModelInput.value.trim() || DEFAULT_SETTINGS.routeraModel,
       adsClient: cleanAdsClient(els.adsClientInput.value),
       adsSlot: cleanAdSlot(els.adsSlotInput.value),
       adSlots: state.settings.adSlots || DEFAULT_SETTINGS.adSlots,

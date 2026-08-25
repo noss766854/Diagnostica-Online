@@ -1,8 +1,8 @@
 window.WRENCHLINE_CONFIG = {
   supabaseUrl: "",
   supabaseAnonKey: "",
-  geminiEndpoint: "/api/gemini",
-  geminiModel: "gemini-2.5-flash",
+  routeraEndpoint: "/api/routera",
+  routeraModel: "openai/gpt-5.5",
   adsClient: "ca-pub-6817388263556075",
   adsSlot: "",
   checkoutUrl: "",

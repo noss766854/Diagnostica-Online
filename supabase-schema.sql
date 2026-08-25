@@ -1059,7 +1059,7 @@ values (
     "assistantAvatarText": "DO",
     "welcomeMessage": "Tell me the year, make, model, mileage, symptoms, warning lights, sounds, smells, and when the issue happens. We will work through the diagnosis step by step.",
     "typingMessage": "Reviewing the symptoms and test history...",
-    "systemPrompt": "You are Gemini Diagnostic AI for DiagnosticaOnline. You are the primary AI diagnostician, not an intake assistant. Own the case from initial questions through test planning and interpretation. Do not offer human contact during a normal case. Request human review only when you cannot continue safely or reliably after reasonable remote diagnostics. Never show the customer internal notes or routing metadata.",
+    "systemPrompt": "You are DiagnosticaOnline''s diagnostic engine. Own the case from initial questions through evidence-led test planning and interpretation. Do not offer human contact during a normal case. Request human review only when you cannot continue safely or reliably after reasonable remote diagnostics. Never show the customer internal notes or routing metadata.",
     "autonomousMode": true,
     "escalationPolicy": "Escalate only after the AI has used the available vehicle details and reasonable remote tests and still needs human judgment. Do not escalate merely because more information or another test is needed.",
     "escalationCustomerMessage": "This case needs a human review before I can guide you further safely. I have sent only the relevant case details to the review queue.",
@@ -1102,8 +1102,8 @@ values (
     "cookieText": "We use essential browser storage for login state, saved drafts, consent choices, and site preferences. Advertising is disabled for premium and admin plans. On free plans, Google AdSense may use cookies or similar technologies only after ad consent is accepted. Choosing Essential only keeps ad storage and personalized ad loading disabled.",
     "refundText": "Free text chat is not charged. Paid voice or video calls are charged based on the selected duration and rate shown at checkout. Add your final refund, cancellation, no-show, and rescheduling rules in admin before accepting production payments.",
     "disclaimerText": "AI intake and remote consulting are not emergency services and cannot guarantee a diagnosis or repair. Vehicle work can involve fire, fuel, toxic chemicals, high voltage, moving components, stored pressure, air bags, and crushing hazards. Stop driving and seek qualified local help for smoke, fire risk, fuel leaks, brake or steering loss, severe overheating, oil-pressure warnings, or other immediate danger. ECU, immobilizer, and emissions laws vary by location. DiagnosticaOnline refuses emissions defeat, immobilizer bypass without lawful ownership procedures, odometer fraud, theft enablement, and unsafe bypass instructions, while allowing lawful diagnostics, repair, and restoration of original or factory software.",
-    "geminiEndpoint": "/api/gemini",
-    "geminiModel": "gemini-2.5-flash",
+    "routeraEndpoint": "/api/routera",
+    "routeraModel": "openai/gpt-5.5",
     "adsClient": "ca-pub-6817388263556075",
     "adsSlot": "",
     "adSlots": {
@@ -1131,7 +1131,7 @@ on conflict (key) do nothing;
 
 update public.site_settings
 set value = jsonb_set(
-  value || jsonb_build_object(
+  (value - 'geminiEndpoint' - 'geminiModel') || jsonb_build_object(
     'assistantName', case
       when coalesce(value->>'assistantName', '') = '' or value->>'assistantName' in ('Gemini Diagnostic AI', 'DiagnosticaOnline AI')
         then 'DiagnosticaOnline Diagnostics'
@@ -1153,9 +1153,14 @@ set value = jsonb_set(
       else value->>'typingMessage'
     end,
     'systemPrompt', case
-      when coalesce(value->>'systemPrompt', '') = '' or value->>'systemPrompt' like '%intake LLM before a live technician handoff%'
-        then 'You are Gemini Diagnostic AI for DiagnosticaOnline. You are the primary AI diagnostician, not an intake assistant. Own the case from initial questions through test planning and interpretation. Do not offer human contact during a normal case. Request human review only when you cannot continue safely or reliably after reasonable remote diagnostics. Never show the customer internal notes or routing metadata.'
+      when coalesce(value->>'systemPrompt', '') = '' or value->>'systemPrompt' like '%intake LLM before a live technician handoff%' or value->>'systemPrompt' like '%Gemini Diagnostic AI%'
+        then 'You are DiagnosticaOnline''s diagnostic engine. Own the case from initial questions through evidence-led test planning and interpretation. Do not offer human contact during a normal case. Request human review only when you cannot continue safely or reliably after reasonable remote diagnostics. Never show the customer internal notes or routing metadata.'
       else value->>'systemPrompt'
+    end,
+    'routeraEndpoint', '/api/routera',
+    'routeraModel', case
+      when coalesce(value->>'routeraModel', '') = '' then 'openai/gpt-5.5'
+      else value->>'routeraModel'
     end,
     'autonomousMode', coalesce(value->'autonomousMode', 'true'::jsonb),
     'escalationPolicy', case

@@ -5,6 +5,7 @@ import { getEntitlements } from "@/lib/platform/entitlements";
 import { serverEnvironment } from "@/lib/platform/env";
 import { errorResponse, HttpError, json, readJson } from "@/lib/platform/http";
 import { recommendationsForCase } from "@/lib/platform/recommendations";
+import { cleanRouteraModel } from "@/lib/platform/routera";
 import { supabaseService } from "@/lib/platform/supabase";
 import { loadDiagnosticAttachments } from "@/lib/platform/uploads";
 import { diagnosticMessageSchema } from "@/lib/platform/validation";
@@ -60,8 +61,11 @@ export async function POST(request: Request, { params }: RouteContext): Promise<
       throw new HttpError(429, `Your ${entitlements.plan} plan has reached its daily diagnostic message limit. Your allowance resets at 00:00 UTC.`);
     }
 
+    const automation = await loadAutomationConfig(supabase);
     const provider = env.aiProvider;
-    const model = provider === "openai" ? env.openAiModel : env.geminiModel;
+    const model = provider === "openai"
+      ? env.openAiModel
+      : cleanRouteraModel(automation.routeraModel || env.routeraModel);
     const { data: usageId, error: claimError } = await supabase.rpc("claim_ai_message", {
       p_user_id: context.user.id,
       p_case_id: caseId,
@@ -97,10 +101,7 @@ export async function POST(request: Request, { params }: RouteContext): Promise<
       .limit(250);
     if (historyError) throw new HttpError(500, "The case history could not be loaded for diagnosis.");
 
-    const [automation, attachments] = await Promise.all([
-      loadAutomationConfig(supabase),
-      loadDiagnosticAttachments(supabase, caseId),
-    ]);
+    const attachments = await loadDiagnosticAttachments(supabase, caseId);
     const generation = await generateDiagnosticReply({
       diagnosticCase,
       messages: (history || []) as DiagnosticMessageRecord[],
@@ -195,6 +196,7 @@ async function loadAutomationConfig(supabase: ReturnType<typeof supabaseService>
   systemPrompt: string;
   escalationPolicy: string;
   escalationCustomerMessage: string;
+  routeraModel: string;
 }> {
   const { data } = await supabase.from("site_settings").select("value").eq("key", "public_content").maybeSingle();
   const value = data?.value && typeof data.value === "object" ? (data.value as Record<string, unknown>) : {};
@@ -209,6 +211,7 @@ async function loadAutomationConfig(supabase: ReturnType<typeof supabaseService>
       value.escalationCustomerMessage,
       "This case needs a human review before I can guide you further safely. I have sent only the relevant case details to the review queue."
     ),
+    routeraModel: cleanSetting(value.routeraModel || value.aiModel, ""),
   };
 }
 

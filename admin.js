@@ -4,8 +4,8 @@
   const DEFAULT_SETTINGS = {
     supabaseUrl: "",
     supabaseAnonKey: "",
-    geminiEndpoint: "/api/gemini",
-    geminiModel: "gemini-2.5-flash",
+    routeraEndpoint: "/api/routera",
+    routeraModel: "openai/gpt-5.5",
     adsClient: "ca-pub-6817388263556075",
     adsSlot: "",
     adSlots: {},
@@ -21,7 +21,7 @@
       "Tell me the year, make, model, mileage, symptoms, warning lights, sounds, smells, and when the issue happens. We will work through the diagnosis step by step.",
     typingMessage: "Reviewing the symptoms and test history...",
     systemPrompt:
-      "You are Gemini Diagnostic AI for DiagnosticaOnline. You are the primary AI diagnostician, not an intake assistant. Own the case from initial questions through test planning and interpretation. Do not offer human contact during a normal case. Request human review only when you cannot continue safely or reliably after reasonable remote diagnostics. Never show the customer internal notes or routing metadata.",
+      "You are DiagnosticaOnline's diagnostic engine. Own the case from initial questions through evidence-led test planning and interpretation. Do not offer human contact during a normal case. Request human review only when you cannot continue safely or reliably after reasonable remote diagnostics. Never show the customer internal notes or routing metadata.",
     autonomousMode: true,
     escalationPolicy:
       "Escalate only after the AI has used the available vehicle details and reasonable remote tests and still needs human judgment. Do not escalate merely because more information or another test is needed.",
@@ -76,8 +76,8 @@
       "Free text chat is not charged. Paid voice or video calls are charged based on the selected duration and rate shown at checkout. Add your final refund, cancellation, no-show, and rescheduling rules in admin before accepting production payments.",
     disclaimerText:
       "AI intake and remote consulting are not emergency services and cannot guarantee a diagnosis or repair. Vehicle work can involve fire, fuel, toxic chemicals, high voltage, moving components, stored pressure, air bags, and crushing hazards. Stop driving and seek qualified local help for smoke, fire risk, fuel leaks, brake or steering loss, severe overheating, oil-pressure warnings, or other immediate danger. ECU, immobilizer, and emissions laws vary by location. DiagnosticaOnline refuses emissions defeat, immobilizer bypass without lawful ownership procedures, odometer fraud, theft enablement, and unsafe bypass instructions, while allowing lawful diagnostics, repair, and restoration of original or factory software.",
-    geminiEndpoint: DEFAULT_SETTINGS.geminiEndpoint,
-    geminiModel: DEFAULT_SETTINGS.geminiModel,
+    routeraEndpoint: DEFAULT_SETTINGS.routeraEndpoint,
+    routeraModel: DEFAULT_SETTINGS.routeraModel,
     adsClient: DEFAULT_SETTINGS.adsClient,
     adsSlot: DEFAULT_SETTINGS.adsSlot,
     adSlots: {
@@ -201,8 +201,8 @@
       "textChatWaitingMessageInput",
       "bookingConfirmationSubjectInput",
       "textChatConfirmationSubjectInput",
-      "geminiEndpointInput",
-      "geminiModelInput",
+      "routeraEndpointInput",
+      "routeraModelInput",
       "adsClientInput",
       "adsSlotInput",
       "adSlotTopBannerInput",
@@ -297,7 +297,9 @@
     await loadSiteContent();
     await loadConfigStatus();
     await loadDashboard();
-    if (isAdmin) await loadPlatformDashboard();
+    if (isAdmin) {
+      await Promise.all([loadPlatformDashboard(), loadRouteraModels()]);
+    }
   }
 
   async function loadConfigStatus() {
@@ -315,6 +317,19 @@
       renderConfigStatus(payload.items || []);
     } catch (error) {
       els.configStatus.innerHTML = `<div class="empty-state">${escapeHtml(error.message || "Configuration status is unavailable.")}</div>`;
+    }
+  }
+
+  async function loadRouteraModels() {
+    const list = document.getElementById("routeraModels");
+    if (!list) return;
+    try {
+      const payload = await adminApi("/api/admin/ai/models");
+      list.innerHTML = (payload.models || [])
+        .map((model) => `<option value="${escapeHtml(model.id || "")}"></option>`)
+        .join("");
+    } catch {
+      list.innerHTML = "";
     }
   }
 
@@ -792,8 +807,8 @@
       textChatWaitingMessage: els.textChatWaitingMessageInput.value,
       bookingConfirmationSubject: els.bookingConfirmationSubjectInput.value,
       textChatConfirmationSubject: els.textChatConfirmationSubjectInput.value,
-      geminiEndpoint: els.geminiEndpointInput.value,
-      geminiModel: els.geminiModelInput.value,
+      routeraEndpoint: els.routeraEndpointInput.value,
+      routeraModel: els.routeraModelInput.value,
       adsClient: els.adsClientInput.value,
       adsSlot: els.adsSlotInput.value,
       adSlots: {
@@ -846,7 +861,7 @@
       await logAdminAction("site_settings_updated", "site_settings", "public_content", {
         changedAt: new Date().toISOString(),
       });
-      els.siteContentMessage.textContent = "Saved. The public site will use these autonomous AI, exception-routing, ad, call, and email settings.";
+      els.siteContentMessage.textContent = "Saved. The public site will use these diagnostic, exception-routing, ad, call, and email settings.";
     } catch (error) {
       els.siteContentMessage.textContent = error.message || "Could not save settings.";
     } finally {
@@ -884,8 +899,8 @@
     els.textChatWaitingMessageInput.value = content.textChatWaitingMessage;
     els.bookingConfirmationSubjectInput.value = content.bookingConfirmationSubject;
     els.textChatConfirmationSubjectInput.value = content.textChatConfirmationSubject;
-    els.geminiEndpointInput.value = content.geminiEndpoint;
-    els.geminiModelInput.value = content.geminiModel;
+    els.routeraEndpointInput.value = content.routeraEndpoint;
+    els.routeraModelInput.value = content.routeraModel;
     els.adsClientInput.value = content.adsClient;
     els.adsSlotInput.value = content.adsSlot;
     els.adSlotTopBannerInput.value = content.adSlots.topBanner || "";
@@ -925,6 +940,7 @@
 
   function sanitizeSiteContent(value) {
     const merged = { ...DEFAULT_SITE_CONTENT, ...(value || {}) };
+    const legacy = value || {};
     return {
       assistantName: /Gemini Diagnostic AI|DiagnosticaOnline AI/i.test(String(merged.assistantName || ""))
         ? DEFAULT_SITE_CONTENT.assistantName
@@ -967,8 +983,8 @@
       textChatWaitingMessage: cleanText(merged.textChatWaitingMessage, DEFAULT_SITE_CONTENT.textChatWaitingMessage),
       bookingConfirmationSubject: cleanText(merged.bookingConfirmationSubject, DEFAULT_SITE_CONTENT.bookingConfirmationSubject),
       textChatConfirmationSubject: cleanText(merged.textChatConfirmationSubject, DEFAULT_SITE_CONTENT.textChatConfirmationSubject),
-      geminiEndpoint: cleanEndpoint(merged.geminiEndpoint, DEFAULT_SETTINGS.geminiEndpoint),
-      geminiModel: cleanText(merged.geminiModel, DEFAULT_SETTINGS.geminiModel),
+      routeraEndpoint: cleanEndpoint(legacy.routeraEndpoint || legacy.geminiEndpoint, DEFAULT_SETTINGS.routeraEndpoint),
+      routeraModel: cleanText(legacy.routeraModel || legacy.geminiModel, DEFAULT_SETTINGS.routeraModel),
       adsClient: cleanAdsClient(merged.adsClient),
       adsSlot: cleanAdSlot(merged.adsSlot),
       adSlots: cleanAdSlots(merged.adSlots),

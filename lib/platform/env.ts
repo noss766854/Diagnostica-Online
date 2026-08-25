@@ -1,10 +1,10 @@
 export interface ServerEnvironment {
   supabaseUrl: string;
   supabaseServiceRoleKey: string;
-  aiProvider: "gemini" | "openai";
-  geminiApiKey: string;
-  geminiModel: string;
-  geminiApiBaseUrl: string;
+  aiProvider: "routera" | "openai";
+  routeraApiKey: string;
+  routeraModel: string;
+  routeraApiBaseUrl: string;
   openAiApiKey: string;
   openAiModel: string;
   freeAiMessagesPerDay: number;
@@ -24,15 +24,15 @@ export function serverEnvironment(): ServerEnvironment {
     throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be configured on the server.");
   }
 
-  const requestedProvider = process.env.AI_PROVIDER === "openai" ? "openai" : "gemini";
+  const requestedProvider = aiProvider(process.env.AI_PROVIDER);
   const maxUploadMb = positiveInteger(process.env.MAX_DIAGNOSTIC_UPLOAD_MB, 25);
   cachedEnvironment = {
     supabaseUrl,
     supabaseServiceRoleKey,
     aiProvider: requestedProvider,
-    geminiApiKey: process.env.GEMINI_API_KEY || "",
-    geminiModel: process.env.GEMINI_MODEL || process.env.NEXT_PUBLIC_GEMINI_MODEL || "gemini-2.5-flash",
-    geminiApiBaseUrl: secureBaseUrl(process.env.GEMINI_API_BASE_URL, "https://generativelanguage.googleapis.com"),
+    routeraApiKey: process.env.ROUTERA_API_KEY || "",
+    routeraModel: process.env.ROUTERA_MODEL || process.env.NEXT_PUBLIC_ROUTERA_MODEL || "openai/gpt-5.5",
+    routeraApiBaseUrl: secureBaseUrl(process.env.ROUTERA_API_BASE_URL, "https://api.routera.one/v1"),
     openAiApiKey: process.env.OPENAI_API_KEY || "",
     openAiModel: process.env.OPENAI_MODEL || "gpt-4.1-mini",
     freeAiMessagesPerDay: Math.max(10, positiveInteger(process.env.FREE_AI_MESSAGES_PER_DAY, 10)),
@@ -42,6 +42,11 @@ export function serverEnvironment(): ServerEnvironment {
     aiOutputCostPerMillion: nonNegativeNumber(process.env.AI_OUTPUT_COST_PER_MILLION, 0),
   };
   return cachedEnvironment;
+}
+
+function aiProvider(value: string | undefined): ServerEnvironment["aiProvider"] {
+  const provider = String(value || "routera").trim().toLowerCase();
+  return provider === "openai" ? "openai" : "routera";
 }
 
 function nonNegativeNumber(value: string | undefined, fallback: number): number {

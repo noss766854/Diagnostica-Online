@@ -53,13 +53,13 @@ Public values:
 - `NEXT_PUBLIC_ADSENSE_SLOT`
 - `NEXT_PUBLIC_JITSI_DOMAIN`
 - `NEXT_PUBLIC_CHECKOUT_URL`
-- `NEXT_PUBLIC_GEMINI_MODEL`
+- `NEXT_PUBLIC_ROUTERA_MODEL`
 
 Server-only secrets:
 
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `GEMINI_API_KEY`
+- `ROUTERA_API_KEY`
 - `OPENAI_API_KEY` when `AI_PROVIDER=openai`
 - `RESEND_API_KEY`
 - `EMAIL_RATE_LIMIT_SECRET` (recommended random server-only value; the service-role key is used as a fallback pepper)
@@ -69,9 +69,9 @@ Server-only secrets:
 
 Platform configuration:
 
-- `AI_PROVIDER=gemini` or `openai`
-- `GEMINI_MODEL`
-- `GEMINI_API_BASE_URL`
+- `AI_PROVIDER=routera` (the production default) or `openai`
+- `ROUTERA_MODEL`
+- `ROUTERA_API_BASE_URL=https://api.routera.one/v1`
 - `OPENAI_MODEL`
 - `MAX_DIAGNOSTIC_UPLOAD_MB`
 - `FREE_AI_MESSAGES_PER_DAY`
@@ -80,7 +80,16 @@ Platform configuration:
 - `AI_OUTPUT_COST_PER_MILLION`
 - `PUBLIC_SITE_URL=https://diagnostica-online.com` (server-side canonical URL for verification, notification, and checkout links)
 
-Never put the service-role, Gemini, OpenAI, Resend, or Stripe secret keys in browser settings or `site_settings`.
+Never put the service-role, Routera, OpenAI, Resend, or Stripe secret keys in browser settings or `site_settings`.
+
+## Routera diagnostics
+
+1. Create a Routera API key under **Account > API Keys**. Routera keys use the `rta_` prefix and are displayed only once.
+2. Add the key to Vercel as the server-only `ROUTERA_API_KEY` environment variable.
+3. Set `AI_PROVIDER=routera` and redeploy.
+4. In Admin, choose a model under **Routera, ads, and calls**. The protected model list is loaded from Routera; the API key is never sent to the browser.
+
+The server calls Routera's OpenAI-compatible `POST /v1/chat/completions` endpoint. Saved case context, selected language, safety instructions, private escalation routing, message limits, and token/cost records continue to be enforced by DiagnosticaOnline.
 
 ## Account email
 
@@ -108,7 +117,7 @@ Supported uploads include images, PDF reports, TXT/CSV logs, OBD/VCDS/ODIS text 
 
 ECU binaries are stored and marked unsupported for analysis. They are never presented to the AI as inspected content.
 
-TXT, CSV, OBD, VCDS, and ODIS text files are normalized into bounded diagnostic context. JPEG, PNG, GIF, WebP, and PDF files are attached to the configured multimodal provider when the case is discussed. Every stored file receives a server-side SHA-256 integrity hash. HEIC files remain stored but are marked unavailable to the model unless converted to a supported image format.
+TXT, CSV, OBD, VCDS, and ODIS text files are normalized into bounded diagnostic context. JPEG, PNG, GIF, and WebP files are sent as OpenAI-compatible image message parts when the selected Routera model supports vision. PDF files remain stored and hashed, but the Routera path does not claim to inspect raw PDF binaries; customers are asked for copied text or screenshots when necessary. HEIC files remain stored but are unavailable unless converted to a supported image format.
 
 ## Stripe and live sessions
 

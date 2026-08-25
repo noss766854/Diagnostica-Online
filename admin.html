@@ -173,11 +173,11 @@
 
           <section class="admin-table-card">
             <div class="table-heading">
-              <h2>Site, AI, ads, and call settings</h2>
+              <h2>Site, diagnostics, ads, and call settings</h2>
             </div>
             <form class="site-content-form" id="siteContentForm">
               <div class="settings-grid">
-                <div class="settings-section-title span-2">Autonomous AI</div>
+                <div class="settings-section-title span-2">Autonomous diagnostics</div>
                 <label>
                   <span>Assistant name</span>
                   <input id="assistantNameInput" type="text" />
@@ -191,13 +191,13 @@
                   <textarea id="welcomeMessageInput" rows="3"></textarea>
                 </label>
                 <label class="span-2">
-                  <span>Gemini system prompt</span>
+                  <span>Diagnostic system prompt</span>
                   <textarea id="systemPromptInput" rows="6"></textarea>
                 </label>
                 <label>
                   <span>Operating mode</span>
                   <select id="autonomousModeInput">
-                    <option value="true">AI handles cases autonomously</option>
+                    <option value="true">Diagnostic service handles cases autonomously</option>
                     <option value="false">Allow broader human review</option>
                   </select>
                 </label>
@@ -296,14 +296,15 @@
                   <span>Text chat email subject</span>
                   <input id="textChatConfirmationSubjectInput" type="text" />
                 </label>
-                <div class="settings-section-title span-2">Ads and calls</div>
+                <div class="settings-section-title span-2">Routera, ads, and calls</div>
                 <label>
-                  <span>Gemini endpoint</span>
-                  <input id="geminiEndpointInput" type="text" />
+                  <span>Routera server endpoint</span>
+                  <input id="routeraEndpointInput" type="text" />
                 </label>
                 <label>
-                  <span>Gemini model</span>
-                  <input id="geminiModelInput" type="text" />
+                  <span>Routera model</span>
+                  <input id="routeraModelInput" type="text" list="routeraModels" autocomplete="off" />
+                  <datalist id="routeraModels"></datalist>
                 </label>
                 <label>
                   <span>AdSense client</span>

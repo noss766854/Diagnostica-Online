@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { CANONICAL_SITE_URL } from "@/lib/platform/site-url";
+import { isRouteraApiKey } from "@/lib/platform/routera";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,10 +9,10 @@ export async function GET(): Promise<Response> {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-  const provider = (process.env.AI_PROVIDER || "gemini").toLowerCase();
+  const provider = aiProvider();
   const siteUrl = process.env.PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
   const authentication = Boolean(supabaseUrl && serviceRoleKey && anonKey);
-  const ai = provider === "openai" ? Boolean(process.env.OPENAI_API_KEY) : Boolean(process.env.GEMINI_API_KEY);
+  const ai = provider === "openai" ? Boolean(process.env.OPENAI_API_KEY) : isRouteraApiKey(process.env.ROUTERA_API_KEY);
   const email = Boolean(process.env.RESEND_API_KEY && supabaseUrl && serviceRoleKey);
   const canonicalUrl = normalizeOrigin(siteUrl) === CANONICAL_SITE_URL;
 
@@ -55,6 +56,11 @@ export async function GET(): Promise<Response> {
     },
     { status: requiredReady ? 200 : 503, headers: { "Cache-Control": "no-store" } }
   );
+}
+
+function aiProvider(): "routera" | "openai" {
+  const provider = String(process.env.AI_PROVIDER || "routera").toLowerCase();
+  return provider === "openai" ? "openai" : "routera";
 }
 
 function normalizeOrigin(value: string): string {
