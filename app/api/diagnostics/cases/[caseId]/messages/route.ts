@@ -1,5 +1,6 @@
 import { generateDiagnosticReply } from "@/lib/platform/ai";
 import { requireActiveUser } from "@/lib/platform/auth";
+import { loadBillingSettings } from "@/lib/platform/billing-settings";
 import { loadCaseForUser } from "@/lib/platform/cases";
 import { getEntitlements } from "@/lib/platform/entitlements";
 import { serverEnvironment } from "@/lib/platform/env";
@@ -176,6 +177,7 @@ export async function POST(request: Request, { params }: RouteContext): Promise<
     }
 
     const automation = await loadAutomationConfig(supabase);
+    const billingSettings = await loadBillingSettings(supabase);
     const provider = env.aiProvider;
     const model = provider === "openai"
       ? env.openAiModel
@@ -185,8 +187,8 @@ export async function POST(request: Request, { params }: RouteContext): Promise<
       p_case_id: caseId,
       p_provider: provider,
       p_model: model,
-      p_free_limit: env.freeAiMessagesPerDay,
-      p_premium_limit: env.premiumAiMessagesPerDay,
+      p_free_limit: billingSettings.freeAiMessagesPerDay,
+      p_premium_limit: billingSettings.premiumAiMessagesPerDay,
     });
     if (claimError || !usageId) {
       const status = /daily (?:ai|diagnostic) message limit/i.test(claimError?.message || "") ? 429 : 403;

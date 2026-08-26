@@ -1,4 +1,5 @@
 import { requireActiveUser } from "@/lib/platform/auth";
+import { loadBillingSettings, selectPremiumPlan } from "@/lib/platform/billing-settings";
 import { errorResponse, HttpError, json } from "@/lib/platform/http";
 import { canonicalSiteOrigin } from "@/lib/platform/site-url";
 import { stripeRequest } from "@/lib/platform/stripe";
@@ -12,12 +13,10 @@ export async function POST(request: Request): Promise<Response> {
     if (context.profile.role === "admin" || context.plan.plan_tier === "admin") {
       throw new HttpError(409, "Admin accounts already have unlimited access.");
     }
-    const priceId = (process.env.STRIPE_PREMIUM_PRICE_ID || "").trim();
-    if (!/^price_[A-Za-z0-9]+$/.test(priceId)) {
-      throw new HttpError(503, "Premium billing is not configured. Add STRIPE_PREMIUM_PRICE_ID in Vercel.");
-    }
 
     const supabase = supabaseService();
+    const input = await optionalJson(request);
+    const billingSettings = await loadBillingSettings(supabase);
     const { data: plan } = await supabase
       .from("user_plans")
       .select("provider_customer_id,provider_subscription_id,plan_tier,status")
@@ -33,6 +32,11 @@ export async function POST(request: Request): Promise<Response> {
       return json({ url: portal.url });
     }
 
+    const selectedPlan = selectPremiumPlan(billingSettings, input.planKey);
+    if (!selectedPlan) {
+      throw new HttpError(503, "Premium billing is not configured. Add at least one active Stripe price ID in Admin.");
+    }
+
     const params = new URLSearchParams();
     params.set("mode", "subscription");
     params.set("success_url", `${siteUrl}/?billing=success`);
@@ -40,9 +44,13 @@ export async function POST(request: Request): Promise<Response> {
     params.set("client_reference_id", context.user.id);
     params.set("metadata[kind]", "premium_subscription");
     params.set("metadata[userId]", context.user.id);
+    params.set("metadata[planKey]", selectedPlan.key);
+    params.set("metadata[priceId]", selectedPlan.stripePriceId);
     params.set("subscription_data[metadata][kind]", "premium_subscription");
     params.set("subscription_data[metadata][userId]", context.user.id);
-    params.set("line_items[0][price]", priceId);
+    params.set("subscription_data[metadata][planKey]", selectedPlan.key);
+    params.set("subscription_data[metadata][priceId]", selectedPlan.stripePriceId);
+    params.set("line_items[0][price]", selectedPlan.stripePriceId);
     params.set("line_items[0][quantity]", "1");
     params.set("allow_promotion_codes", "true");
     if (plan?.provider_customer_id) params.set("customer", plan.provider_customer_id);
@@ -50,8 +58,25 @@ export async function POST(request: Request): Promise<Response> {
 
     const session = await stripeRequest<{ id: string; url?: string }>("checkout/sessions", { params });
     if (!session.url) throw new HttpError(502, "Stripe did not return a Premium checkout URL.");
-    return json({ url: session.url });
+    return json({
+      url: session.url,
+      plan: {
+        key: selectedPlan.key,
+        label: selectedPlan.label,
+        displayPrice: selectedPlan.displayPrice,
+        interval: selectedPlan.interval,
+      },
+    });
   } catch (error) {
     return errorResponse(error, "Premium checkout could not be started.");
+  }
+}
+
+async function optionalJson(request: Request): Promise<Record<string, unknown>> {
+  try {
+    const body = await request.json();
+    return body && typeof body === "object" && !Array.isArray(body) ? body as Record<string, unknown> : {};
+  } catch {
+    return {};
   }
 }

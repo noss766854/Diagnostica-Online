@@ -161,6 +161,14 @@
       "status.resolved": "Resolved",
       "status.archived": "Archived",
       "ad.label": "Advertisement",
+      "premium.kicker": "Premium access",
+      "premium.title": "Choose a Premium plan",
+      "premium.copy": "Premium increases your diagnostic limits, removes ads, and keeps saved cases available for bigger repair jobs.",
+      "premium.close": "Close Premium plans",
+      "premium.choose": "Choose plan",
+      "premium.featured": "Best value",
+      "premium.notConfigured": "Premium billing is not configured yet.",
+      "premium.opening": "Opening secure Stripe checkout...",
     },
     es: {
       "language.title": "Elige tu idioma",
@@ -307,6 +315,14 @@
       "status.resolved": "Resuelto",
       "status.archived": "Archivado",
       "ad.label": "Publicidad",
+      "premium.kicker": "Acceso Premium",
+      "premium.title": "Elige un plan Premium",
+      "premium.copy": "Premium aumenta tus límites de diagnóstico, elimina anuncios y mantiene tus casos guardados para reparaciones más grandes.",
+      "premium.close": "Cerrar planes Premium",
+      "premium.choose": "Elegir plan",
+      "premium.featured": "Mejor valor",
+      "premium.notConfigured": "La facturación Premium todavía no está configurada.",
+      "premium.opening": "Abriendo el pago seguro de Stripe...",
     },
     ro: {
       "language.title": "Alege limba",
@@ -453,6 +469,14 @@
       "status.resolved": "Rezolvat",
       "status.archived": "Arhivat",
       "ad.label": "Publicitate",
+      "premium.kicker": "Acces Premium",
+      "premium.title": "Alege un plan Premium",
+      "premium.copy": "Premium mărește limitele de diagnostic, elimină reclamele și păstrează cazurile salvate pentru reparații mai complexe.",
+      "premium.close": "Închide planurile Premium",
+      "premium.choose": "Alege planul",
+      "premium.featured": "Cea mai bună valoare",
+      "premium.notConfigured": "Facturarea Premium nu este încă configurată.",
+      "premium.opening": "Se deschide plata securizată Stripe...",
     },
     "ca-valencia": {
       "language.title": "Tria el teu idioma",
@@ -599,6 +623,14 @@
       "status.resolved": "Resolts",
       "status.archived": "Arxivat",
       "ad.label": "Publicitat",
+      "premium.kicker": "Accés Premium",
+      "premium.title": "Tria un pla Premium",
+      "premium.copy": "Premium augmenta els límits de diagnòstic, elimina anuncis i manté els casos guardats per a reparacions més grans.",
+      "premium.close": "Tanca els plans Premium",
+      "premium.choose": "Tria el pla",
+      "premium.featured": "Millor valor",
+      "premium.notConfigured": "La facturació Premium encara no està configurada.",
+      "premium.opening": "S'està obrint el pagament segur de Stripe...",
     },
   };
 
@@ -671,6 +703,32 @@
     maximumCallMinutes: 240,
     durationOptions: "30,60,90,120",
     refundPolicySummary: "Paid calls can be refunded or rescheduled if no technician joins the scheduled session.",
+    freeAiMessagesPerDay: 10,
+    premiumAiMessagesPerDay: 100,
+    freeActiveCaseLimit: 3,
+    premiumActiveCaseLimit: 25,
+    premiumPlans: [
+      {
+        key: "monthly",
+        label: "Premium Monthly",
+        description: "Higher diagnostic limits, more saved active cases, and no ads.",
+        displayPrice: "$19/month",
+        interval: "month",
+        stripePriceId: "",
+        active: true,
+        featured: false,
+      },
+      {
+        key: "yearly",
+        label: "Premium Yearly",
+        description: "Same Premium access with yearly billing.",
+        displayPrice: "$149/year",
+        interval: "year",
+        stripePriceId: "",
+        active: false,
+        featured: true,
+      },
+    ],
     consentEnabled: true,
     consentTitle: "Cookie and ad consent",
     consentBody:
@@ -684,7 +742,7 @@
     cookieText:
       "We use essential browser storage for login state, saved drafts, consent choices, and site preferences. Advertising is disabled for premium and admin plans. On free plans, Google AdSense may use cookies or similar technologies only after ad consent is accepted. Choosing Essential only keeps ad storage and personalized ad loading disabled.",
     refundText:
-      "Free text chat is not charged. Paid voice or video calls are charged based on the selected duration and rate shown at checkout. Add your final refund, cancellation, no-show, and rescheduling rules in admin before accepting production payments.",
+      "Free text chat is not charged. Premium subscriptions and paid voice/video calls are processed by Stripe. Premium can be managed or cancelled from the billing portal after purchase. Paid calls are charged based on the selected duration and rate shown at checkout. Add your final refund, cancellation, no-show, and rescheduling rules in admin before accepting production payments.",
     disclaimerText:
       "AI intake and remote consulting are not emergency services and cannot guarantee a diagnosis or repair. Vehicle work can involve fire, fuel, toxic chemicals, high voltage, moving components, stored pressure, air bags, and crushing hazards. Stop driving and seek qualified local help for smoke, fire risk, fuel leaks, brake or steering loss, severe overheating, oil-pressure warnings, or other immediate danger. ECU, immobilizer, and emissions laws vary by location. DiagnosticaOnline refuses emissions defeat, immobilizer bypass without lawful ownership procedures, odometer fraud, theft enablement, and unsafe bypass instructions, while allowing lawful diagnostics, repair, and restoration of original or factory software.",
     routeraEndpoint: DEFAULT_SETTINGS.routeraEndpoint,
@@ -842,6 +900,11 @@
       "planUsageCopy",
       "usageMeterFill",
       "premiumBtn",
+      "premiumDialog",
+      "premiumPlanList",
+      "premiumMessage",
+      "closePremiumDialogBtn",
+      "cancelPremiumBtn",
       "caseUploadsPanel",
       "caseUploadInput",
       "caseUploadBtn",
@@ -1009,6 +1072,12 @@
     els.durationSelect.addEventListener("change", renderBooking);
     els.bookingBtn.addEventListener("click", reserveMechanic);
     els.premiumBtn.addEventListener("click", openPremiumBilling);
+    els.closePremiumDialogBtn.addEventListener("click", () => els.premiumDialog.close());
+    els.cancelPremiumBtn.addEventListener("click", () => els.premiumDialog.close());
+    els.premiumPlanList.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-premium-plan-key]");
+      if (button) startPremiumCheckout(button.dataset.premiumPlanKey);
+    });
     els.refreshBookingsBtn.addEventListener("click", async () => {
       await loadBookings();
       renderAll();
@@ -1474,15 +1543,73 @@
       return;
     }
     const premiumActive = state.entitlements.plan === "premium";
+    if (!premiumActive) {
+      renderPremiumPlans();
+      els.premiumDialog.showModal();
+      createIcons();
+      return;
+    }
+
     els.premiumBtn.disabled = true;
     try {
-      const data = await platformRequest(premiumActive ? "/api/billing/portal" : "/api/billing/checkout", { method: "POST" });
+      const data = await platformRequest("/api/billing/portal", { method: "POST" });
       if (!data.url) throw new Error("Stripe did not return a billing URL.");
       window.location.href = data.url;
     } catch (error) {
       showLocalCaseNotice(error.message || "Billing could not be opened.", true);
       els.premiumBtn.disabled = false;
     }
+  }
+
+  async function startPremiumCheckout(planKey) {
+    if (!state.supabaseUser) {
+      els.premiumDialog.close();
+      openAuth("login", "Log in before changing your plan.");
+      return;
+    }
+    const buttons = Array.from(els.premiumPlanList.querySelectorAll("[data-premium-plan-key]"));
+    buttons.forEach((button) => (button.disabled = true));
+    els.premiumMessage.textContent = t("premium.opening");
+    try {
+      const data = await platformRequest("/api/billing/checkout", {
+        method: "POST",
+        body: JSON.stringify({ planKey }),
+      });
+      if (!data.url) throw new Error("Stripe did not return a billing URL.");
+      window.location.href = data.url;
+    } catch (error) {
+      els.premiumMessage.textContent = error.message || "Premium checkout could not be started.";
+      buttons.forEach((button) => (button.disabled = false));
+    }
+  }
+
+  function renderPremiumPlans() {
+    const plans = activePremiumPlans();
+    if (!plans.length) {
+      els.premiumPlanList.innerHTML = `<div class="empty-state compact">${escapeHtml(t("premium.notConfigured"))}</div>`;
+      els.premiumMessage.textContent = "";
+      return;
+    }
+    els.premiumPlanList.innerHTML = plans
+      .map(
+        (plan) => `
+          <button class="premium-plan-card" type="button" data-premium-plan-key="${escapeAttr(plan.key)}">
+            <span>
+              <strong>${escapeHtml(plan.label)}</strong>
+              <span>${escapeHtml(plan.description)}</span>
+              ${plan.featured ? `<small>${escapeHtml(t("premium.featured"))}</small>` : ""}
+            </span>
+            <span class="premium-plan-price">${escapeHtml(plan.displayPrice)}</span>
+          </button>
+        `
+      )
+      .join("");
+    els.premiumMessage.textContent = "";
+  }
+
+  function activePremiumPlans() {
+    return (Array.isArray(state.siteContent.premiumPlans) ? state.siteContent.premiumPlans : [])
+      .filter((plan) => plan?.active !== false && /^price_[A-Za-z0-9_]{8,}$/.test(String(plan?.stripePriceId || "")));
   }
 
   async function joinBooking(bookingId) {
@@ -2075,6 +2202,11 @@
       maximumCallMinutes: cleanMinuteNumber(merged.maximumCallMinutes, DEFAULT_SITE_CONTENT.maximumCallMinutes),
       durationOptions: cleanDurationOptions(merged.durationOptions, DEFAULT_SITE_CONTENT.durationOptions),
       refundPolicySummary: cleanText(merged.refundPolicySummary, DEFAULT_SITE_CONTENT.refundPolicySummary),
+      freeAiMessagesPerDay: cleanLimitNumber(merged.freeAiMessagesPerDay, DEFAULT_SITE_CONTENT.freeAiMessagesPerDay, 1, 1000),
+      premiumAiMessagesPerDay: cleanLimitNumber(merged.premiumAiMessagesPerDay, DEFAULT_SITE_CONTENT.premiumAiMessagesPerDay, 1, 10000),
+      freeActiveCaseLimit: cleanLimitNumber(merged.freeActiveCaseLimit, DEFAULT_SITE_CONTENT.freeActiveCaseLimit, 1, 100),
+      premiumActiveCaseLimit: cleanLimitNumber(merged.premiumActiveCaseLimit, DEFAULT_SITE_CONTENT.premiumActiveCaseLimit, 1, 1000),
+      premiumPlans: cleanPremiumPlans(merged.premiumPlans),
       consentEnabled: merged.consentEnabled !== false && merged.consentEnabled !== "false",
       consentTitle: cleanText(merged.consentTitle, DEFAULT_SITE_CONTENT.consentTitle),
       consentBody: cleanText(merged.consentBody, DEFAULT_SITE_CONTENT.consentBody),
@@ -2119,6 +2251,42 @@
       .filter((number) => Number.isFinite(number) && number >= 5 && number <= 480);
     const unique = Array.from(new Set(options)).sort((a, b) => a - b);
     return unique.length ? unique.join(",") : fallback;
+  }
+
+  function cleanLimitNumber(value, fallback, min, max) {
+    const number = Number(value);
+    return Number.isInteger(number) ? Math.min(max, Math.max(min, number)) : fallback;
+  }
+
+  function cleanPremiumPlans(value) {
+    const source = Array.isArray(value) && value.length ? value : DEFAULT_SITE_CONTENT.premiumPlans;
+    return source.slice(0, 6).map((plan, index) => {
+      const fallback = DEFAULT_SITE_CONTENT.premiumPlans[index] || DEFAULT_SITE_CONTENT.premiumPlans[0];
+      return {
+        key: cleanPlanKey(plan?.key || fallback.key),
+        label: cleanText(plan?.label, fallback.label).slice(0, 80),
+        description: cleanText(plan?.description, fallback.description).slice(0, 220),
+        displayPrice: cleanText(plan?.displayPrice, fallback.displayPrice).slice(0, 40),
+        interval: ["month", "year", "custom"].includes(String(plan?.interval)) ? plan.interval : fallback.interval,
+        stripePriceId: cleanStripePriceId(plan?.stripePriceId),
+        active: plan?.active !== false && plan?.active !== "false",
+        featured: plan?.featured === true || plan?.featured === "true",
+      };
+    });
+  }
+
+  function cleanPlanKey(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40);
+  }
+
+  function cleanStripePriceId(value) {
+    const text = cleanOptionalText(value);
+    return /^price_[A-Za-z0-9_]{8,}$/.test(text) ? text : "";
   }
 
   function cleanAdsClient(value) {

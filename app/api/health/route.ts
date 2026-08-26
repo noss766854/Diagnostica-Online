@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { activePremiumPlans, billingSettingsFromContent } from "@/lib/platform/billing-settings";
 import { CANONICAL_SITE_URL } from "@/lib/platform/site-url";
 import { resolveRouteraCredential } from "@/lib/platform/secrets";
 
@@ -19,6 +20,7 @@ export async function GET(): Promise<Response> {
   let database = false;
   let schema = false;
   let legal = false;
+  let premiumBillingConfigured = Boolean(process.env.STRIPE_PREMIUM_PRICE_ID);
   let adsConfigured = Boolean(process.env.NEXT_PUBLIC_ADSENSE_CLIENT && process.env.NEXT_PUBLIC_ADSENSE_SLOT);
 
   if (supabaseUrl && serviceRoleKey) {
@@ -37,6 +39,7 @@ export async function GET(): Promise<Response> {
       : {};
     const legalText = `${content.businessAddress || ""} ${content.refundText || content.refundPolicySummary || ""}`;
     legal = Boolean(content.businessAddress && (content.refundText || content.refundPolicySummary) && !/add your|not configured|placeholder/i.test(legalText));
+    premiumBillingConfigured = activePremiumPlans(billingSettingsFromContent(content, process.env.STRIPE_PREMIUM_PRICE_ID || "")).length > 0;
     adsConfigured = adsConfigured || Boolean(content.adsClient && (content.adsSlot || hasConfiguredAdSlot(content.adSlots)));
   }
 
@@ -47,7 +50,7 @@ export async function GET(): Promise<Response> {
   const payments = Boolean(
     process.env.STRIPE_SECRET_KEY &&
     process.env.STRIPE_WEBHOOK_SECRET &&
-    process.env.STRIPE_PREMIUM_PRICE_ID &&
+    premiumBillingConfigured &&
     legal
   );
   const requiredReady = authentication && database && schema && ai && email && canonicalUrl;

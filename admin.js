@@ -60,6 +60,32 @@
     maximumCallMinutes: 240,
     durationOptions: "30,60,90,120",
     refundPolicySummary: "Paid calls can be refunded or rescheduled if no technician joins the scheduled session.",
+    freeAiMessagesPerDay: 10,
+    premiumAiMessagesPerDay: 100,
+    freeActiveCaseLimit: 3,
+    premiumActiveCaseLimit: 25,
+    premiumPlans: [
+      {
+        key: "monthly",
+        label: "Premium Monthly",
+        description: "Higher diagnostic limits, more saved active cases, and no ads.",
+        displayPrice: "$19/month",
+        interval: "month",
+        stripePriceId: "",
+        active: true,
+        featured: false,
+      },
+      {
+        key: "yearly",
+        label: "Premium Yearly",
+        description: "Same Premium access with yearly billing.",
+        displayPrice: "$149/year",
+        interval: "year",
+        stripePriceId: "",
+        active: false,
+        featured: true,
+      },
+    ],
     consentEnabled: true,
     consentTitle: "Cookie and ad consent",
     consentBody:
@@ -73,7 +99,7 @@
     cookieText:
       "We use essential browser storage for login state, saved drafts, consent choices, and site preferences. Advertising is disabled for premium and admin plans. On free plans, Google AdSense may use cookies or similar technologies only after ad consent is accepted. Choosing Essential only keeps ad storage and personalized ad loading disabled.",
     refundText:
-      "Free text chat is not charged. Paid voice or video calls are charged based on the selected duration and rate shown at checkout. Add your final refund, cancellation, no-show, and rescheduling rules in admin before accepting production payments.",
+      "Free text chat is not charged. Premium subscriptions and paid voice/video calls are processed by Stripe. Premium can be managed or cancelled from the billing portal after purchase. Paid calls are charged based on the selected duration and rate shown at checkout. Add your final refund, cancellation, no-show, and rescheduling rules in admin before accepting production payments.",
     disclaimerText:
       "AI intake and remote consulting are not emergency services and cannot guarantee a diagnosis or repair. Vehicle work can involve fire, fuel, toxic chemicals, high voltage, moving components, stored pressure, air bags, and crushing hazards. Stop driving and seek qualified local help for smoke, fire risk, fuel leaks, brake or steering loss, severe overheating, oil-pressure warnings, or other immediate danger. ECU, immobilizer, and emissions laws vary by location. DiagnosticaOnline refuses emissions defeat, immobilizer bypass without lawful ownership procedures, odometer fraud, theft enablement, and unsafe bypass instructions, while allowing lawful diagnostics, repair, and restoration of original or factory software.",
     routeraEndpoint: DEFAULT_SETTINGS.routeraEndpoint,
@@ -230,6 +256,20 @@
       "adSlotMobileChatInput",
       "adSlotBottomBannerInput",
       "checkoutUrlInput",
+      "freeAiMessagesPerDayInput",
+      "premiumAiMessagesPerDayInput",
+      "freeActiveCaseLimitInput",
+      "premiumActiveCaseLimitInput",
+      "premiumMonthlyActiveInput",
+      "premiumMonthlyDisplayPriceInput",
+      "premiumMonthlyLabelInput",
+      "premiumMonthlyStripePriceIdInput",
+      "premiumMonthlyDescriptionInput",
+      "premiumYearlyActiveInput",
+      "premiumYearlyDisplayPriceInput",
+      "premiumYearlyLabelInput",
+      "premiumYearlyStripePriceIdInput",
+      "premiumYearlyDescriptionInput",
       "jitsiDomainInput",
       "videoRateUsdInput",
       "voiceRateUsdInput",
@@ -932,6 +972,11 @@
       maximumCallMinutes: els.maximumCallMinutesInput.value,
       durationOptions: els.durationOptionsInput.value,
       refundPolicySummary: els.refundPolicySummaryInput.value,
+      freeAiMessagesPerDay: els.freeAiMessagesPerDayInput.value,
+      premiumAiMessagesPerDay: els.premiumAiMessagesPerDayInput.value,
+      freeActiveCaseLimit: els.freeActiveCaseLimitInput.value,
+      premiumActiveCaseLimit: els.premiumActiveCaseLimitInput.value,
+      premiumPlans: premiumPlansFromForm(),
       consentEnabled: els.consentEnabledInput.value === "true",
       consentTitle: els.consentTitleInput.value,
       consentBody: els.consentBodyInput.value,
@@ -957,12 +1002,37 @@
       await logAdminAction("site_settings_updated", "site_settings", "public_content", {
         changedAt: new Date().toISOString(),
       });
-      els.siteContentMessage.textContent = "Saved. The public site will use these diagnostic, exception-routing, ad, call, and email settings.";
+      els.siteContentMessage.textContent = "Saved. The public site will use these diagnostic, exception-routing, Premium, ad, call, and email settings.";
     } catch (error) {
       els.siteContentMessage.textContent = error.message || "Could not save settings.";
     } finally {
       els.saveSiteContentBtn.disabled = false;
     }
+  }
+
+  function premiumPlansFromForm() {
+    return [
+      {
+        key: "monthly",
+        label: els.premiumMonthlyLabelInput.value,
+        description: els.premiumMonthlyDescriptionInput.value,
+        displayPrice: els.premiumMonthlyDisplayPriceInput.value,
+        interval: "month",
+        stripePriceId: els.premiumMonthlyStripePriceIdInput.value,
+        active: els.premiumMonthlyActiveInput.value === "true",
+        featured: false,
+      },
+      {
+        key: "yearly",
+        label: els.premiumYearlyLabelInput.value,
+        description: els.premiumYearlyDescriptionInput.value,
+        displayPrice: els.premiumYearlyDisplayPriceInput.value,
+        interval: "year",
+        stripePriceId: els.premiumYearlyStripePriceIdInput.value,
+        active: els.premiumYearlyActiveInput.value === "true",
+        featured: true,
+      },
+    ];
   }
 
   function fillSiteContentForm() {
@@ -1022,6 +1092,22 @@
     els.maximumCallMinutesInput.value = content.maximumCallMinutes;
     els.durationOptionsInput.value = content.durationOptions;
     els.refundPolicySummaryInput.value = content.refundPolicySummary;
+    els.freeAiMessagesPerDayInput.value = content.freeAiMessagesPerDay;
+    els.premiumAiMessagesPerDayInput.value = content.premiumAiMessagesPerDay;
+    els.freeActiveCaseLimitInput.value = content.freeActiveCaseLimit;
+    els.premiumActiveCaseLimitInput.value = content.premiumActiveCaseLimit;
+    const monthlyPlan = premiumPlan(content.premiumPlans, "monthly");
+    const yearlyPlan = premiumPlan(content.premiumPlans, "yearly");
+    els.premiumMonthlyActiveInput.value = String(monthlyPlan.active);
+    els.premiumMonthlyDisplayPriceInput.value = monthlyPlan.displayPrice;
+    els.premiumMonthlyLabelInput.value = monthlyPlan.label;
+    els.premiumMonthlyStripePriceIdInput.value = monthlyPlan.stripePriceId;
+    els.premiumMonthlyDescriptionInput.value = monthlyPlan.description;
+    els.premiumYearlyActiveInput.value = String(yearlyPlan.active);
+    els.premiumYearlyDisplayPriceInput.value = yearlyPlan.displayPrice;
+    els.premiumYearlyLabelInput.value = yearlyPlan.label;
+    els.premiumYearlyStripePriceIdInput.value = yearlyPlan.stripePriceId;
+    els.premiumYearlyDescriptionInput.value = yearlyPlan.description;
     els.consentEnabledInput.value = String(Boolean(content.consentEnabled));
     els.consentTitleInput.value = content.consentTitle;
     els.consentBodyInput.value = content.consentBody;
@@ -1092,6 +1178,11 @@
       maximumCallMinutes: cleanMinuteNumber(merged.maximumCallMinutes, DEFAULT_SITE_CONTENT.maximumCallMinutes),
       durationOptions: cleanDurationOptions(merged.durationOptions, DEFAULT_SITE_CONTENT.durationOptions),
       refundPolicySummary: cleanText(merged.refundPolicySummary, DEFAULT_SITE_CONTENT.refundPolicySummary),
+      freeAiMessagesPerDay: cleanLimitNumber(merged.freeAiMessagesPerDay, DEFAULT_SITE_CONTENT.freeAiMessagesPerDay, 1, 1000),
+      premiumAiMessagesPerDay: cleanLimitNumber(merged.premiumAiMessagesPerDay, DEFAULT_SITE_CONTENT.premiumAiMessagesPerDay, 1, 10000),
+      freeActiveCaseLimit: cleanLimitNumber(merged.freeActiveCaseLimit, DEFAULT_SITE_CONTENT.freeActiveCaseLimit, 1, 100),
+      premiumActiveCaseLimit: cleanLimitNumber(merged.premiumActiveCaseLimit, DEFAULT_SITE_CONTENT.premiumActiveCaseLimit, 1, 1000),
+      premiumPlans: cleanPremiumPlans(merged.premiumPlans),
       consentEnabled: merged.consentEnabled !== false && merged.consentEnabled !== "false",
       consentTitle: cleanText(merged.consentTitle, DEFAULT_SITE_CONTENT.consentTitle),
       consentBody: cleanText(merged.consentBody, DEFAULT_SITE_CONTENT.consentBody),
@@ -1136,6 +1227,46 @@
       .filter((number) => Number.isFinite(number) && number >= 5 && number <= 480);
     const unique = Array.from(new Set(options)).sort((a, b) => a - b);
     return unique.length ? unique.join(",") : fallback;
+  }
+
+  function cleanLimitNumber(value, fallback, min, max) {
+    const number = Number(value);
+    return Number.isInteger(number) ? Math.min(max, Math.max(min, number)) : fallback;
+  }
+
+  function premiumPlan(plans, key) {
+    return cleanPremiumPlans(plans).find((plan) => plan.key === key) || DEFAULT_SITE_CONTENT.premiumPlans.find((plan) => plan.key === key);
+  }
+
+  function cleanPremiumPlans(value) {
+    const source = Array.isArray(value) && value.length ? value : DEFAULT_SITE_CONTENT.premiumPlans;
+    return source.slice(0, 6).map((plan, index) => {
+      const fallback = DEFAULT_SITE_CONTENT.premiumPlans[index] || DEFAULT_SITE_CONTENT.premiumPlans[0];
+      return {
+        key: cleanPlanKey(plan?.key || fallback.key),
+        label: cleanText(plan?.label, fallback.label).slice(0, 80),
+        description: cleanText(plan?.description, fallback.description).slice(0, 220),
+        displayPrice: cleanText(plan?.displayPrice, fallback.displayPrice).slice(0, 40),
+        interval: ["month", "year", "custom"].includes(String(plan?.interval)) ? plan.interval : fallback.interval,
+        stripePriceId: cleanStripePriceId(plan?.stripePriceId),
+        active: plan?.active !== false && plan?.active !== "false",
+        featured: plan?.featured === true || plan?.featured === "true",
+      };
+    });
+  }
+
+  function cleanPlanKey(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40);
+  }
+
+  function cleanStripePriceId(value) {
+    const text = cleanOptionalText(value);
+    return /^price_[A-Za-z0-9_]{8,}$/.test(text) ? text : "";
   }
 
   function cleanAdsClient(value) {

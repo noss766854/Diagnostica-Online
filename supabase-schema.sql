@@ -520,6 +520,7 @@ declare
   account_plan_status text;
   active_count integer;
   active_limit integer;
+  settings jsonb;
 begin
   if new.status not in ('active', 'waiting_for_mechanic', 'assigned') then
     return new;
@@ -537,9 +538,21 @@ begin
     return new;
   end if;
 
+  select value into settings
+  from public.site_settings
+  where key = 'public_content';
+
   active_limit := case
-    when account_plan = 'premium' and account_plan_status in ('active', 'trialing') then 25
-    else 3
+    when account_plan = 'premium' and account_plan_status in ('active', 'trialing') then
+      coalesce(
+        case when coalesce(settings->>'premiumActiveCaseLimit', '') ~ '^[0-9]+$' then (settings->>'premiumActiveCaseLimit')::integer end,
+        25
+      )
+    else
+      coalesce(
+        case when coalesce(settings->>'freeActiveCaseLimit', '') ~ '^[0-9]+$' then (settings->>'freeActiveCaseLimit')::integer end,
+        3
+      )
   end;
 
   select count(*) into active_count
@@ -1112,6 +1125,32 @@ values (
     "maximumCallMinutes": 240,
     "durationOptions": "30,60,90,120",
     "refundPolicySummary": "Paid calls can be refunded or rescheduled if no technician joins the scheduled session.",
+    "freeAiMessagesPerDay": 10,
+    "premiumAiMessagesPerDay": 100,
+    "freeActiveCaseLimit": 3,
+    "premiumActiveCaseLimit": 25,
+    "premiumPlans": [
+      {
+        "key": "monthly",
+        "label": "Premium Monthly",
+        "description": "Higher diagnostic limits, more saved active cases, and no ads.",
+        "displayPrice": "$19/month",
+        "interval": "month",
+        "stripePriceId": "",
+        "active": true,
+        "featured": false
+      },
+      {
+        "key": "yearly",
+        "label": "Premium Yearly",
+        "description": "Same Premium access with yearly billing.",
+        "displayPrice": "$149/year",
+        "interval": "year",
+        "stripePriceId": "",
+        "active": false,
+        "featured": true
+      }
+    ],
     "consentEnabled": true,
     "consentTitle": "Cookie and ad consent",
     "consentBody": "We use essential storage for login and saved cases. With your consent, we also use ads to keep free text help available.",
@@ -1120,7 +1159,7 @@ values (
     "termsText": "DiagnosticaOnline provides AI-assisted automotive diagnostics, saved cases, file storage, free text chat when available, and optional paid voice or video consulting. Guidance is informational, may be incomplete, and does not replace an in-person inspection, factory service information, recall check, repair estimate, or safety inspection. You must have lawful authority to diagnose or modify the vehicle and remain responsible for safe tools, lifting, isolation, protective equipment, and deciding whether the vehicle can be operated.",
     "privacyText": "We collect account details; vehicle information such as VIN or ECU identifiers when supplied; symptoms, DTCs, messages, uploads, AI usage and token estimates; booking/payment identifiers; and technical security logs. We use this data to provide and secure the service, enforce plan limits, send account or booking emails, and improve diagnostics. Data may be processed by Supabase, the configured AI provider, Resend, Stripe, Jitsi, and, after consent on free plans, Google AdSense. Contact the listed support address for access or deletion requests, subject to legal and fraud-prevention retention duties.",
     "cookieText": "We use essential browser storage for login state, saved drafts, consent choices, and site preferences. Advertising is disabled for premium and admin plans. On free plans, Google AdSense may use cookies or similar technologies only after ad consent is accepted. Choosing Essential only keeps ad storage and personalized ad loading disabled.",
-    "refundText": "Free text chat is not charged. Paid voice or video calls are charged based on the selected duration and rate shown at checkout. Add your final refund, cancellation, no-show, and rescheduling rules in admin before accepting production payments.",
+    "refundText": "Free text chat is not charged. Premium subscriptions and paid voice/video calls are processed by Stripe. Premium can be managed or cancelled from the billing portal after purchase. Paid calls are charged based on the selected duration and rate shown at checkout. Add your final refund, cancellation, no-show, and rescheduling rules in admin before accepting production payments.",
     "disclaimerText": "AI intake and remote consulting are not emergency services and cannot guarantee a diagnosis or repair. Vehicle work can involve fire, fuel, toxic chemicals, high voltage, moving components, stored pressure, air bags, and crushing hazards. Stop driving and seek qualified local help for smoke, fire risk, fuel leaks, brake or steering loss, severe overheating, oil-pressure warnings, or other immediate danger. ECU, immobilizer, and emissions laws vary by location. DiagnosticaOnline refuses emissions defeat, immobilizer bypass without lawful ownership procedures, odometer fraud, theft enablement, and unsafe bypass instructions, while allowing lawful diagnostics, repair, and restoration of original or factory software.",
     "routeraEndpoint": "/api/routera",
     "routeraModel": "openai/gpt-5.5",
@@ -1203,6 +1242,35 @@ set value = jsonb_set(
         then 'Use this secure link to choose a new password for your DiagnosticaOnline account.'
       else value->>'passwordResetIntro'
     end,
+    'freeAiMessagesPerDay', coalesce(value->'freeAiMessagesPerDay', '10'::jsonb),
+    'premiumAiMessagesPerDay', coalesce(value->'premiumAiMessagesPerDay', '100'::jsonb),
+    'freeActiveCaseLimit', coalesce(value->'freeActiveCaseLimit', '3'::jsonb),
+    'premiumActiveCaseLimit', coalesce(value->'premiumActiveCaseLimit', '25'::jsonb),
+    'premiumPlans', coalesce(
+      value->'premiumPlans',
+      '[
+        {
+          "key": "monthly",
+          "label": "Premium Monthly",
+          "description": "Higher diagnostic limits, more saved active cases, and no ads.",
+          "displayPrice": "$19/month",
+          "interval": "month",
+          "stripePriceId": "",
+          "active": true,
+          "featured": false
+        },
+        {
+          "key": "yearly",
+          "label": "Premium Yearly",
+          "description": "Same Premium access with yearly billing.",
+          "displayPrice": "$149/year",
+          "interval": "year",
+          "stripePriceId": "",
+          "active": false,
+          "featured": true
+        }
+      ]'::jsonb
+    ),
     'termsText', case
       when coalesce(value->>'termsText', '') = '' or value->>'termsText' like 'DiagnosticaOnline provides remote automotive information%'
         then 'DiagnosticaOnline provides AI-assisted automotive diagnostics, saved cases, file storage, free text chat when available, and optional paid voice or video consulting. Guidance is informational, may be incomplete, and does not replace an in-person inspection, factory service information, recall check, repair estimate, or safety inspection. You must have lawful authority to diagnose or modify the vehicle and remain responsible for safe tools, lifting, isolation, protective equipment, and deciding whether the vehicle can be operated.'
@@ -1217,6 +1285,11 @@ set value = jsonb_set(
       when coalesce(value->>'cookieText', '') = '' or value->>'cookieText' like 'We use local storage for login state%'
         then 'We use essential browser storage for login state, saved drafts, consent choices, and site preferences. Advertising is disabled for premium and admin plans. On free plans, Google AdSense may use cookies or similar technologies only after ad consent is accepted. Choosing Essential only keeps ad storage and personalized ad loading disabled.'
       else value->>'cookieText'
+    end,
+    'refundText', case
+      when coalesce(value->>'refundText', '') = '' or value->>'refundText' like 'Free text chat is not charged. Paid voice or video calls%'
+        then 'Free text chat is not charged. Premium subscriptions and paid voice/video calls are processed by Stripe. Premium can be managed or cancelled from the billing portal after purchase. Paid calls are charged based on the selected duration and rate shown at checkout. Add your final refund, cancellation, no-show, and rescheduling rules in admin before accepting production payments.'
+      else value->>'refundText'
     end,
     'disclaimerText', case
       when coalesce(value->>'disclaimerText', '') = '' or value->>'disclaimerText' like 'AI intake and remote mechanic consulting%'

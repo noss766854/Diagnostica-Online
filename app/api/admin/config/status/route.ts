@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/platform/auth";
+import { activePremiumPlans, billingSettingsFromContent } from "@/lib/platform/billing-settings";
 import { errorResponse, json } from "@/lib/platform/http";
 import { CANONICAL_SITE_URL } from "@/lib/platform/site-url";
 import { resolveRouteraCredential } from "@/lib/platform/secrets";
@@ -27,6 +28,8 @@ export async function GET(request: Request): Promise<Response> {
     const configuredSite = normalizeOrigin(process.env.PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "");
     const adSlots = content.adSlots && typeof content.adSlots === "object" ? content.adSlots as Record<string, unknown> : {};
     const adsReady = Boolean((process.env.NEXT_PUBLIC_ADSENSE_CLIENT || content.adsClient) && (process.env.NEXT_PUBLIC_ADSENSE_SLOT || content.adsSlot || Object.values(adSlots).some(Boolean)));
+    const billingSettings = billingSettingsFromContent(content, process.env.STRIPE_PREMIUM_PRICE_ID || "");
+    const premiumBillingReady = activePremiumPlans(billingSettings).length > 0;
 
     return json({
       items: [
@@ -49,7 +52,7 @@ export async function GET(request: Request): Promise<Response> {
         envItem("AdSense client and slot", adsReady, "Vercel and Admin - Ads"),
         envItem("Stripe secret key", Boolean(process.env.STRIPE_SECRET_KEY), "Vercel", true),
         envItem("Stripe webhook secret", Boolean(process.env.STRIPE_WEBHOOK_SECRET), "Vercel", true),
-        envItem("Stripe Premium price", Boolean(process.env.STRIPE_PREMIUM_PRICE_ID), "Vercel"),
+        envItem("Stripe Premium prices", premiumBillingReady, "Admin - Premium plans"),
         envItem("Paid-booking legal details", legalReady, "Admin - Legal content"),
       ],
     });

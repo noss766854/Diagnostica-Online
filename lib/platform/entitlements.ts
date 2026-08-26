@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { serverEnvironment } from "@/lib/platform/env";
 import type { AuthContext } from "@/lib/platform/auth";
+import { loadBillingSettings } from "@/lib/platform/billing-settings";
 import { isMissingDiagnosticSchema, legacyActiveCaseCount, legacyAiMessageCountToday } from "@/lib/platform/legacy-diagnostics";
 import type { Entitlements, PlanTier } from "@/types/diagnostics";
 
@@ -10,6 +11,7 @@ export async function getEntitlements(supabase: SupabaseClient, context: AuthCon
   const planNotExpired = !context.plan.ends_at || new Date(context.plan.ends_at).getTime() > Date.now();
   const activePlan = (context.plan.status === "active" || context.plan.status === "trialing") && planNotExpired;
   const plan: PlanTier = isAdmin ? "admin" : activePlan && context.plan.plan_tier === "premium" ? "premium" : "free";
+  const billingSettings = await loadBillingSettings(supabase);
   const startOfDay = new Date();
   startOfDay.setUTCHours(0, 0, 0, 0);
 
@@ -36,8 +38,16 @@ export async function getEntitlements(supabase: SupabaseClient, context: AuthCon
 
   const aiMessagesUsedToday = (aiCount || 0) + legacyAiCount;
   const activeCases = (caseError && isMissingDiagnosticSchema(caseError.message) ? 0 : caseCount || 0) + legacyCaseCount;
-  const aiMessagesDailyLimit = plan === "admin" ? null : plan === "premium" ? env.premiumAiMessagesPerDay : env.freeAiMessagesPerDay;
-  const activeCaseLimit = plan === "admin" ? null : plan === "premium" ? 25 : 3;
+  const aiMessagesDailyLimit = plan === "admin"
+    ? null
+    : plan === "premium"
+      ? billingSettings.premiumAiMessagesPerDay
+      : billingSettings.freeAiMessagesPerDay || env.freeAiMessagesPerDay;
+  const activeCaseLimit = plan === "admin"
+    ? null
+    : plan === "premium"
+      ? billingSettings.premiumActiveCaseLimit
+      : billingSettings.freeActiveCaseLimit;
   const isDisabled = context.profile.is_disabled;
 
   return {

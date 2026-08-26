@@ -432,6 +432,26 @@
       </form>
     </dialog>
 
+    <dialog class="premium-dialog" id="premiumDialog">
+      <section class="premium-panel" aria-labelledby="premiumTitle">
+        <div class="dialog-header">
+          <div>
+            <p class="label-text" data-i18n="premium.kicker">Premium access</p>
+            <h2 id="premiumTitle" data-i18n="premium.title">Choose a Premium plan</h2>
+          </div>
+          <button class="icon-link dark" id="closePremiumDialogBtn" type="button" aria-label="Close Premium plans" data-i18n-aria-label="premium.close">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <p class="premium-copy" data-i18n="premium.copy">Premium increases your diagnostic limits, removes ads, and keeps your saved cases available for bigger repair jobs.</p>
+        <div class="premium-plan-list" id="premiumPlanList"></div>
+        <p class="form-message" id="premiumMessage"></p>
+        <div class="dialog-actions">
+          <button class="ghost-button" id="cancelPremiumBtn" type="button" data-i18n="common.cancel">Cancel</button>
+        </div>
+      </section>
+    </dialog>
+
     <dialog class="settings-dialog" id="settingsDialog">
       <form method="dialog" class="settings-form" id="settingsForm">
         <div class="dialog-header">
@@ -470,7 +490,7 @@
             <input id="adsSlotInput" type="text" placeholder="1234567890" />
           </label>
           <label>
-            <span>Stripe checkout function</span>
+            <span>Paid call checkout function</span>
             <input id="checkoutUrlInput" type="text" placeholder="/api/checkout" />
           </label>
           <label>

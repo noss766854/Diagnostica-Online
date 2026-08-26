@@ -408,9 +408,81 @@
                   <input id="adSlotBottomBannerInput" type="text" inputmode="numeric" pattern="[0-9]{5,24}" placeholder="1234567890" />
                 </label>
                 <label>
-                  <span>Checkout URL</span>
+                  <span>Paid call checkout URL</span>
                   <input id="checkoutUrlInput" type="text" />
                 </label>
+                <div class="settings-section-title span-2">Premium subscription billing</div>
+                <div class="admin-help-box span-2">
+                  <strong>Stripe Premium plans</strong>
+                  <span>
+                    Create recurring subscription prices in Stripe, then paste the <code>price_...</code> IDs here.
+                    Secret keys stay in Vercel; these fields only decide which approved prices customers can buy.
+                  </span>
+                  <a href="https://dashboard.stripe.com/products" target="_blank" rel="noreferrer">Open Stripe products</a>
+                </div>
+                <label>
+                  <span>Free AI messages/day</span>
+                  <input id="freeAiMessagesPerDayInput" type="number" min="1" max="1000" step="1" />
+                </label>
+                <label>
+                  <span>Premium AI messages/day</span>
+                  <input id="premiumAiMessagesPerDayInput" type="number" min="1" max="10000" step="1" />
+                </label>
+                <label>
+                  <span>Free active cases</span>
+                  <input id="freeActiveCaseLimitInput" type="number" min="1" max="100" step="1" />
+                </label>
+                <label>
+                  <span>Premium active cases</span>
+                  <input id="premiumActiveCaseLimitInput" type="number" min="1" max="1000" step="1" />
+                </label>
+                <label>
+                  <span>Monthly plan active</span>
+                  <select id="premiumMonthlyActiveInput">
+                    <option value="true">Active</option>
+                    <option value="false">Hidden</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Monthly display price</span>
+                  <input id="premiumMonthlyDisplayPriceInput" type="text" placeholder="$19/month" />
+                </label>
+                <label>
+                  <span>Monthly label</span>
+                  <input id="premiumMonthlyLabelInput" type="text" placeholder="Premium Monthly" />
+                </label>
+                <label>
+                  <span>Monthly Stripe price ID</span>
+                  <input id="premiumMonthlyStripePriceIdInput" type="text" placeholder="price_..." pattern="price_[A-Za-z0-9_]{8,}" />
+                </label>
+                <label class="span-2">
+                  <span>Monthly description</span>
+                  <input id="premiumMonthlyDescriptionInput" type="text" />
+                </label>
+                <label>
+                  <span>Yearly plan active</span>
+                  <select id="premiumYearlyActiveInput">
+                    <option value="true">Active</option>
+                    <option value="false">Hidden</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Yearly display price</span>
+                  <input id="premiumYearlyDisplayPriceInput" type="text" placeholder="$149/year" />
+                </label>
+                <label>
+                  <span>Yearly label</span>
+                  <input id="premiumYearlyLabelInput" type="text" placeholder="Premium Yearly" />
+                </label>
+                <label>
+                  <span>Yearly Stripe price ID</span>
+                  <input id="premiumYearlyStripePriceIdInput" type="text" placeholder="price_..." pattern="price_[A-Za-z0-9_]{8,}" />
+                </label>
+                <label class="span-2">
+                  <span>Yearly description</span>
+                  <input id="premiumYearlyDescriptionInput" type="text" />
+                </label>
+                <div class="settings-section-title span-2">Paid voice/video sessions</div>
                 <label>
                   <span>Jitsi domain</span>
                   <input id="jitsiDomainInput" type="text" />
