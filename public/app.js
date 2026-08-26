@@ -2372,17 +2372,24 @@
     try {
       const { data, error } = await state.supabase
         .from("conversations")
-        .select("id,title,vehicle,messages,brief,created_at,updated_at")
+        .select("id,owner_id,title,vehicle,messages,brief,created_at,updated_at")
+        .eq("owner_id", state.supabaseUser.id)
         .order("updated_at", { ascending: false })
         .limit(30);
       if (error) throw error;
-      if (Array.isArray(data) && data.length) {
-        state.conversations = data.map(fromSupabaseRow);
-        state.activeId = state.conversations[0].id;
-        state.vehicle = { ...(state.conversations[0].vehicle || {}) };
-        persistLocal();
-      }
+      state.conversations = Array.isArray(data)
+        ? data.filter((row) => row.owner_id === state.supabaseUser.id).map(fromSupabaseRow)
+        : [];
+      if (!state.conversations.length) createConversation(false);
+      state.activeId = state.conversations[0].id;
+      state.vehicle = { ...(state.conversations[0].vehicle || {}) };
+      persistLocal();
     } catch (error) {
+      state.conversations = state.conversations.filter((conversation) => conversation?.source === "local");
+      if (!state.conversations.length) createConversation(false);
+      state.activeId = state.conversations[0].id;
+      state.vehicle = { ...(state.conversations[0].vehicle || {}) };
+      persistLocal();
       renderStatus();
     }
   }
@@ -2393,10 +2400,12 @@
     try {
       const { data, error } = await state.supabase
         .from("conversations")
-        .select("id,title,vehicle,messages,brief,created_at,updated_at")
+        .select("id,owner_id,title,vehicle,messages,brief,created_at,updated_at")
         .eq("id", conversation.id)
+        .eq("owner_id", state.supabaseUser.id)
         .maybeSingle();
       if (error || !data) return false;
+      if (data.owner_id !== state.supabaseUser.id) return false;
       const index = state.conversations.findIndex((item) => item.id === conversation.id);
       const remoteConversation = fromSupabaseRow(data);
       if (index >= 0) {
@@ -2443,7 +2452,11 @@
         updated_at: new Date().toISOString(),
       };
       if (isUuid(conversation.id) && conversation.source === "supabase") {
-        const { error } = await state.supabase.from("conversations").update(payload).eq("id", conversation.id);
+        const { error } = await state.supabase
+          .from("conversations")
+          .update(payload)
+          .eq("id", conversation.id)
+          .eq("owner_id", state.supabaseUser.id);
         if (error) throw error;
       } else {
         const { data, error } = await state.supabase.from("conversations").insert(payload).select().single();
@@ -3031,7 +3044,10 @@
 
   function loadLocalConversations() {
     try {
-      state.conversations = JSON.parse(localStorage.getItem(STORAGE.conversations) || "[]");
+      const saved = JSON.parse(localStorage.getItem(STORAGE.conversations) || "[]");
+      state.conversations = Array.isArray(saved)
+        ? saved.filter((conversation) => conversation?.source === "local")
+        : [];
       state.conversations.forEach((conversation) => {
         (conversation.messages || []).forEach((message) => {
           if (/chatbot|Gemini Diagnostic AI|DiagnosticaOnline AI/i.test(message.name || "")) {
@@ -3051,7 +3067,8 @@
   }
 
   function persistLocal() {
-    localStorage.setItem(STORAGE.conversations, JSON.stringify(state.conversations.slice(0, 40)));
+    const localOnly = state.conversations.filter((conversation) => conversation?.source === "local");
+    localStorage.setItem(STORAGE.conversations, JSON.stringify(localOnly.slice(0, 40)));
   }
 
   function loadSettings() {
