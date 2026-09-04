@@ -147,9 +147,13 @@ Premium checkout uses Stripe subscriptions. Checkout and subscription webhooks s
 
 ## Ads and consent
 
-The AdSense ownership loader for publisher `ca-pub-6817388263556075` is included once in the global Next.js layout, so Google can verify every route. Ad mounts are reusable through `data-ad-slot` and include top banner, side rails, inline, mobile typing-area, and bottom banner placements. Ad units are initialized only when ad consent is accepted and the current account is on the free plan. Premium and admin accounts do not render ad units.
+Ad mounts are reusable through `data-ad-slot` and include top banner, desktop side rails, inline, mobile diagnostic-content, and bottom banner placements. The public site emits a `google-adsense-account` meta tag from `NEXT_PUBLIC_ADSENSE_CLIENT`, and `/ads.txt` returns the configured Google seller line using the Admin/Vercel publisher client.
 
-In Admin, set **AdSense client** to the publisher/client value, for example `ca-pub-6817388263556075`. Each slot field must be the numeric `data-ad-slot` value from an AdSense Display ad unit. For cleaner reporting, create separate responsive Display ad units in AdSense for top banner, side rails, inline, mobile typing-area, and bottom banner, then paste each unit's slot number into the matching Admin field. If you only use one manual ad unit, paste its slot number into **Default AdSense slot fallback**.
+In Admin, set **AdSense client** to the publisher/client value, for example `ca-pub-6817388263556075`. Each slot field must be the numeric `data-ad-slot` value from an AdSense Display ad unit. For cleaner reporting, create separate responsive Display ad units in AdSense for top banner, side rails, inline, mobile diagnostic-content, and bottom banner, then paste each unit's slot number into the matching Admin field. If you only use one manual ad unit, paste its slot number into **Default AdSense slot fallback**.
+
+AdSense units are requested only when ad consent is accepted, the current account is on the free plan, and the mount is visible in the current viewport. Premium/admin accounts and private admin/billing pages do not request ad slots. Keep ad unit labels as `Advertisement`, do not ask users to click ads, and avoid placing ads directly beside buttons, menus, downloads, or message inputs.
+
+For EEA, UK, or Switzerland traffic, configure a Google-certified CMP in AdSense/privacy settings before serving personalized ads. Code support does not guarantee AdSense approval; Google reviews the live site, content, traffic, consent setup, and policy compliance.
 
 ## Security and safety
 

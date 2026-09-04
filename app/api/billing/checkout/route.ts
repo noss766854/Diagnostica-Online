@@ -26,7 +26,7 @@ export async function POST(request: Request): Promise<Response> {
     if (plan?.provider_subscription_id && plan?.provider_customer_id && plan.status !== "canceled") {
       const portalParams = new URLSearchParams();
       portalParams.set("customer", plan.provider_customer_id);
-      portalParams.set("return_url", siteUrl);
+      portalParams.set("return_url", `${siteUrl}/premium`);
       const portal = await stripeRequest<{ url?: string }>("billing_portal/sessions", { params: portalParams });
       if (!portal.url) throw new HttpError(502, "Stripe did not return a billing portal URL.");
       return json({ url: portal.url });
@@ -39,8 +39,8 @@ export async function POST(request: Request): Promise<Response> {
 
     const params = new URLSearchParams();
     params.set("mode", "subscription");
-    params.set("success_url", `${siteUrl}/?billing=success`);
-    params.set("cancel_url", `${siteUrl}/?billing=cancelled`);
+    params.set("success_url", `${siteUrl}/premium?billing=success`);
+    params.set("cancel_url", `${siteUrl}/premium?billing=cancelled`);
     params.set("client_reference_id", context.user.id);
     params.set("metadata[kind]", "premium_subscription");
     params.set("metadata[userId]", context.user.id);

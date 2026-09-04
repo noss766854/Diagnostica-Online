@@ -44,8 +44,8 @@
   --shadow-soft: 0 4px 16px rgba(0, 0, 0, 0.28);
 
   --ad-gap: 4cm;
-  --ad-rail-width: clamp(64px, calc((100vw - var(--content-width) - (2 * var(--ad-gap))) / 2), 118px);
-  --content-width: min(760px, calc(100vw - (2 * var(--ad-gap)) - 150px));
+  --ad-rail-width: clamp(160px, calc((100vw - var(--content-width) - (2 * var(--ad-gap))) / 2), 220px);
+  --content-width: min(720px, calc(100vw - (2 * var(--ad-gap)) - 360px));
 
   font-family: "Inter", "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
 }
@@ -143,8 +143,8 @@ a {
   bottom: 18px;
   width: var(--ad-rail-width);
   display: none;
-  grid-template-rows: repeat(5, minmax(112px, 1fr));
-  gap: 12px;
+  grid-template-rows: repeat(3, minmax(250px, 1fr));
+  gap: 14px;
   z-index: 1;
 }
 
@@ -1107,12 +1107,7 @@ a {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 0.76rem;
-}
-
-/* Collapsed by default so unfilled / unverified slots never flash an
-   empty "Advertisement" box on load. Space is only claimed once a real
-   ad fills (see :has(...[data-ad-status="filled"]) below). */
-.ad-mount {
+  overflow: hidden;
   min-height: 0;
   border: 0;
   background: transparent;
@@ -1171,7 +1166,7 @@ ins.adsbygoogle[data-ad-status="filled"] {
 }
 
 .side-ad:has(ins.adsbygoogle[data-ad-status="filled"]) {
-  min-height: 86px;
+  min-height: 250px;
 }
 
 .inline-ads {
@@ -1198,7 +1193,7 @@ ins.adsbygoogle[data-ad-status="filled"] {
 }
 
 .mobile-chat-ad:has(ins.adsbygoogle[data-ad-status="filled"]) {
-  min-height: 74px;
+  min-height: 90px;
   margin-bottom: 12px;
 }
 
@@ -1871,6 +1866,74 @@ ins.adsbygoogle[data-ad-status="filled"] {
   border-color: rgba(255, 138, 92, 0.5);
 }
 
+.premium-page-shell {
+  width: min(100% - 28px, 980px);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 28px 0;
+}
+
+.premium-header {
+  margin-bottom: 42px;
+}
+
+.premium-account-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+
+.premium-account-panel {
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--ink);
+  background: var(--glass);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(12px);
+}
+
+.premium-account-panel h1,
+.premium-account-panel h2,
+.premium-account-panel p {
+  margin-top: 0;
+}
+
+.premium-account-panel h1 {
+  max-width: 640px;
+  color: var(--ink);
+  font-size: clamp(2rem, 4vw, 3.15rem);
+  line-height: 1.02;
+}
+
+.premium-copy {
+  max-width: 680px;
+  color: var(--ink-soft);
+  line-height: 1.55;
+}
+
+.premium-plan-strip {
+  display: flex;
+  margin-top: 20px;
+  color: #ffffff;
+  background: #10262d;
+}
+
+.premium-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.inline-nav-link {
+  margin-top: 10px;
+}
+
+.form-message.error {
+  color: #b73224;
+}
+
 .legal-meta {
   display: grid;
   grid-template-columns: 1fr;
@@ -2357,6 +2420,17 @@ svg {
   }
 }
 
+@media (max-width: 1120px) {
+  .ad-rail {
+    display: none;
+  }
+
+  :root {
+    --ad-gap: 0px;
+    --content-width: min(720px, calc(100vw - 28px));
+  }
+}
+
 /* ============================================================
    Phones — primary experience (most traffic is mobile)
    ============================================================ */
@@ -2683,6 +2757,10 @@ svg {
 
   .hero-copy > p {
     max-width: 420px;
+  }
+
+  .premium-account-grid {
+    grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
   }
 
   .config-status-grid {

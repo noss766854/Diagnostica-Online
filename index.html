@@ -22,17 +22,13 @@
 
     <aside class="ad-rail ad-rail-left" aria-label="Sponsored links left">
       <div class="ad-mount side-ad" data-ad-slot="left-top"><span>Advertisement</span></div>
-      <div class="ad-mount side-ad" data-ad-slot="left-upper"><span>Advertisement</span></div>
       <div class="ad-mount side-ad" data-ad-slot="left-middle"><span>Advertisement</span></div>
-      <div class="ad-mount side-ad" data-ad-slot="left-lower"><span>Advertisement</span></div>
       <div class="ad-mount side-ad" data-ad-slot="left-bottom"><span>Advertisement</span></div>
     </aside>
 
     <aside class="ad-rail ad-rail-right" aria-label="Sponsored links right">
       <div class="ad-mount side-ad" data-ad-slot="right-top"><span>Advertisement</span></div>
-      <div class="ad-mount side-ad" data-ad-slot="right-upper"><span>Advertisement</span></div>
       <div class="ad-mount side-ad" data-ad-slot="right-middle"><span>Advertisement</span></div>
-      <div class="ad-mount side-ad" data-ad-slot="right-lower"><span>Advertisement</span></div>
       <div class="ad-mount side-ad" data-ad-slot="right-bottom"><span>Advertisement</span></div>
     </aside>
 
@@ -52,6 +48,7 @@
           <button class="nav-link" id="loginNavBtn" type="button" data-i18n="nav.login">Login</button>
           <button class="nav-link" id="signupNavBtn" type="button" data-i18n="nav.createAccount">Create account</button>
           <button class="nav-link" id="adminNavBtn" type="button" hidden disabled data-i18n="nav.admin">Admin dashboard</button>
+          <a class="nav-link" href="/premium">Premium</a>
           <a class="nav-link" id="contactNavLink" href="mailto:support@diagnostica-online.com" data-i18n="nav.contact">Contact us</a>
           <a class="nav-link" href="./legal.html" data-i18n="nav.legal">Legal</a>
           <button class="nav-link" id="logoutBtn" type="button" hidden data-i18n="nav.signOut">Sign out</button>
@@ -75,6 +72,8 @@
             <button id="savedCasesToggle" type="button" data-i18n="tabs.savedCases">Saved cases</button>
             <button id="repairLibraryToggle" type="button"><span data-i18n="tabs.repairLibrary">Repair library</span> <i data-lucide="chevron-down"></i></button>
           </div>
+
+          <div class="ad-mount mobile-chat-ad" data-ad-slot="mobile-chat"><span>Advertisement</span></div>
 
           <section class="consult-card">
             <div class="expert-strip">
@@ -121,7 +120,6 @@
             <div class="messages" id="messages" aria-live="polite"></div>
 
             <form class="question-box" id="chatForm">
-              <div class="ad-mount mobile-chat-ad" data-ad-slot="mobile-chat"><span>Advertisement</span></div>
               <label class="visually-hidden" for="messageInput" data-i18n="chat.questionLabel">Type your car question</label>
               <textarea id="messageInput" rows="3" placeholder="Type your car question here..." data-i18n-placeholder="chat.placeholder"></textarea>
               <div class="question-footer">

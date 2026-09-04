@@ -738,9 +738,9 @@
     termsText:
       "DiagnosticaOnline provides AI-assisted automotive diagnostics, saved cases, file storage, free text chat when available, and optional paid voice or video consulting. Guidance is informational, may be incomplete, and does not replace an in-person inspection, factory service information, recall check, repair estimate, or safety inspection. You must have lawful authority to diagnose or modify the vehicle and remain responsible for safe tools, lifting, isolation, protective equipment, and deciding whether the vehicle can be operated.",
     privacyText:
-      "We collect account details; vehicle information such as VIN or ECU identifiers when supplied; symptoms, DTCs, messages, uploads, AI usage and token estimates; booking/payment identifiers; and technical security logs. We use this data to provide and secure the service, enforce plan limits, send account or booking emails, and improve diagnostics. Data may be processed by Supabase, the configured AI provider, Resend, Stripe, Jitsi, and, after consent on free plans, Google AdSense. Contact the listed support address for access or deletion requests, subject to legal and fraud-prevention retention duties.",
+      "We collect account details; vehicle information such as VIN or ECU identifiers when supplied; symptoms, DTCs, messages, uploads, AI usage and token estimates; booking/payment identifiers; consent choices; and technical security logs. We use this data to provide and secure the service, enforce plan limits, send account or booking emails, process payments, show ads on free plans after consent, and improve diagnostics. Data may be processed by Supabase, the configured AI provider, Resend, Stripe, Jitsi, and Google AdSense. Google may use cookies, local storage, IP addresses, device information, and ad interactions to provide, measure, and personalize ads according to your consent choices and Google policies. Contact the listed support address for access or deletion requests, subject to legal and fraud-prevention retention duties.",
     cookieText:
-      "We use essential browser storage for login state, saved drafts, consent choices, and site preferences. Advertising is disabled for premium and admin plans. On free plans, Google AdSense may use cookies or similar technologies only after ad consent is accepted. Choosing Essential only keeps ad storage and personalized ad loading disabled.",
+      "We use essential browser storage for login state, saved drafts, consent choices, and site preferences. Advertising is disabled for premium and admin plans. On free plans, Google AdSense ad units load only after ad consent is accepted. Choosing Essential only keeps ad storage and personalized ad loading disabled. If you serve ads to users in the EEA, UK, or Switzerland, configure a Google-certified consent management platform in your AdSense privacy settings before relying on personalized ads.",
     refundText:
       "Free text chat is not charged. Premium subscriptions and paid voice/video calls are processed by Stripe. Premium can be managed or cancelled from the billing portal after purchase. Paid calls are charged based on the selected duration and rate shown at checkout. Add your final refund, cancellation, no-show, and rescheduling rules in admin before accepting production payments.",
     disclaimerText:
@@ -845,6 +845,7 @@
   async function init() {
     cacheElements();
     bindEvents();
+    updateGoogleConsent(loadConsent());
     applyTranslations();
     loadLocalConversations();
     if (!state.conversations.length) {
@@ -1088,6 +1089,7 @@
     });
     els.consentAcceptBtn.addEventListener("click", () => saveConsent("ads"));
     els.consentRejectBtn.addEventListener("click", () => saveConsent("essential"));
+    window.addEventListener("resize", scheduleAdRender);
     els.caseForm.addEventListener("submit", handleCreateDiagnosticCase);
     els.closeCaseDialogBtn.addEventListener("click", () => els.caseDialog.close());
     els.cancelCaseBtn.addEventListener("click", () => els.caseDialog.close());
@@ -1538,27 +1540,7 @@
   }
 
   async function openPremiumBilling() {
-    if (!state.supabaseUser) {
-      openAuth("login", "Log in before changing your plan.");
-      return;
-    }
-    const premiumActive = state.entitlements.plan === "premium";
-    if (!premiumActive) {
-      renderPremiumPlans();
-      els.premiumDialog.showModal();
-      createIcons();
-      return;
-    }
-
-    els.premiumBtn.disabled = true;
-    try {
-      const data = await platformRequest("/api/billing/portal", { method: "POST" });
-      if (!data.url) throw new Error("Stripe did not return a billing URL.");
-      window.location.href = data.url;
-    } catch (error) {
-      showLocalCaseNotice(error.message || "Billing could not be opened.", true);
-      els.premiumBtn.disabled = false;
-    }
+    window.location.href = "/premium";
   }
 
   async function startPremiumCheckout(planKey) {
@@ -2680,6 +2662,7 @@
     renderLiveSessions();
     renderStatus();
     renderConsent();
+    renderAds();
     createIcons();
   }
 
@@ -2714,6 +2697,7 @@
 
   function saveConsent(value) {
     localStorage.setItem(STORAGE.consent, value);
+    updateGoogleConsent(value);
     renderConsent();
     renderAds();
   }
@@ -2724,7 +2708,31 @@
 
   function canRenderAds() {
     const planAllowsAds = !state.supabaseUser || state.entitlements.showAds !== false;
-    return planAllowsAds && (!state.siteContent.consentEnabled || loadConsent() === "ads");
+    return planAllowsAds && !isPrivateDiagnosticCommunicationActive() && (!state.siteContent.consentEnabled || loadConsent() === "ads");
+  }
+
+  function isPrivateDiagnosticCommunicationActive() {
+    const conversation = currentConversation();
+    if (!conversation) return false;
+    if (conversation.source === "diagnostic" || conversation.source === "supabase") return true;
+    const messages = Array.isArray(conversation.messages) ? conversation.messages : [];
+    return state.typing || messages.some((message) => message.role === "user" && String(message.content || "").trim());
+  }
+
+  function updateGoogleConsent(value) {
+    const granted = value === "ads";
+    window.dataLayer = window.dataLayer || [];
+    window.gtag =
+      window.gtag ||
+      function gtag() {
+        window.dataLayer.push(arguments);
+      };
+    window.gtag("consent", "update", {
+      ad_storage: granted ? "granted" : "denied",
+      ad_user_data: granted ? "granted" : "denied",
+      ad_personalization: granted ? "granted" : "denied",
+      analytics_storage: "denied",
+    });
   }
 
   function renderAuth() {
@@ -3096,45 +3104,74 @@
     const adsAllowed = canRenderAds();
     mounts.forEach((mount) => {
       mount.hidden = !adsAllowed;
+      if (!adsAllowed) clearAdMount(mount);
     });
     if (!adsAllowed) return;
     if (!state.settings.adsClient || !hasAnyAdSlot()) {
       mounts.forEach((mount) => {
-        mount.innerHTML = `<span>${escapeHtml(t("ad.label"))}</span>`;
+        clearAdMount(mount);
       });
       return;
     }
     const scriptId = "adsbygoogle-script";
-    if (!document.getElementById(scriptId)) {
+    const existingScript = document.getElementById(scriptId);
+    if (!existingScript || existingScript.dataset.adsClient !== state.settings.adsClient) {
+      if (existingScript) existingScript.remove();
       const script = document.createElement("script");
       script.id = scriptId;
       script.async = true;
       script.crossOrigin = "anonymous";
+      script.dataset.adsClient = state.settings.adsClient;
       script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(state.settings.adsClient)}`;
       document.head.appendChild(script);
     }
     mounts.forEach((mount) => {
       const slot = adSlotForMount(mount);
-      if (!slot) {
-        mount.innerHTML = `<span>${escapeHtml(t("ad.label"))}</span>`;
+      if (!isAdMountVisible(mount)) {
+        clearAdMount(mount);
         return;
       }
+      if (!slot) {
+        clearAdMount(mount);
+        return;
+      }
+      if (mount.dataset.renderedClient === state.settings.adsClient && mount.dataset.renderedSlot === slot) return;
       mount.innerHTML = "";
       const ad = document.createElement("ins");
       ad.className = "adsbygoogle";
       ad.style.display = "block";
+      ad.style.minHeight = mount.classList.contains("banner-ad") ? "90px" : mount.classList.contains("side-ad") ? "250px" : "100px";
+      ad.setAttribute("aria-label", t("ad.label"));
       ad.dataset.adClient = state.settings.adsClient;
       ad.dataset.adSlot = slot;
       ad.dataset.adFormat = "auto";
       ad.dataset.fullWidthResponsive = "true";
       mount.appendChild(ad);
+      mount.dataset.renderedClient = state.settings.adsClient;
+      mount.dataset.renderedSlot = slot;
       try {
         window.adsbygoogle = window.adsbygoogle || [];
         window.adsbygoogle.push({});
       } catch (error) {
-        mount.innerHTML = `<span>${escapeHtml(t("ad.label"))}</span>`;
+        clearAdMount(mount);
       }
     });
+  }
+
+  function clearAdMount(mount) {
+    delete mount.dataset.renderedClient;
+    delete mount.dataset.renderedSlot;
+    mount.innerHTML = `<span>${escapeHtml(t("ad.label"))}</span>`;
+  }
+
+  function isAdMountVisible(mount) {
+    const style = window.getComputedStyle(mount);
+    return style.display !== "none" && style.visibility !== "hidden" && mount.getClientRects().length > 0;
+  }
+
+  function scheduleAdRender() {
+    window.clearTimeout(scheduleAdRender.timer);
+    scheduleAdRender.timer = window.setTimeout(renderAds, 250);
   }
 
   function hasAnyAdSlot() {

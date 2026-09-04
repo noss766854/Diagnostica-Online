@@ -26,8 +26,11 @@ export async function GET(request: Request): Promise<Response> {
     const routeraCredential = provider === "routera" ? await resolveRouteraCredential() : null;
     const aiReady = provider === "openai" ? Boolean(process.env.OPENAI_API_KEY) : Boolean(routeraCredential?.configured);
     const configuredSite = normalizeOrigin(process.env.PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "");
+    const adsClient = cleanAdsenseClient(process.env.NEXT_PUBLIC_ADSENSE_CLIENT || content.adsClient);
     const adSlots = content.adSlots && typeof content.adSlots === "object" ? content.adSlots as Record<string, unknown> : {};
-    const adsReady = Boolean((process.env.NEXT_PUBLIC_ADSENSE_CLIENT || content.adsClient) && (process.env.NEXT_PUBLIC_ADSENSE_SLOT || content.adsSlot || Object.values(adSlots).some(Boolean)));
+    const hasAdSlot = Boolean(process.env.NEXT_PUBLIC_ADSENSE_SLOT || content.adsSlot || Object.values(adSlots).some(Boolean));
+    const adDisclosureText = `${content.privacyText || ""} ${content.cookieText || ""}`;
+    const adDisclosureReady = /google adsense/i.test(adDisclosureText) && /consent/i.test(adDisclosureText);
     const billingSettings = billingSettingsFromContent(content, process.env.STRIPE_PREMIUM_PRICE_ID || "");
     const premiumBillingReady = activePremiumPlans(billingSettings).length > 0;
 
@@ -49,7 +52,11 @@ export async function GET(request: Request): Promise<Response> {
           provider === "routera" && routeraCredential?.source === "admin" ? "Admin - Routera" : "Vercel",
           true
         ),
-        envItem("AdSense client and slot", adsReady, "Vercel and Admin - Ads"),
+        envItem("AdSense publisher client", Boolean(adsClient), "Vercel or Admin - Ads"),
+        envItem("AdSense ad unit slot", hasAdSlot, "Admin - Ads"),
+        envItem("ads.txt publisher line", Boolean(adsClient), "/ads.txt"),
+        envItem("Ad consent gate", content.consentEnabled !== false, "Admin - Legal content"),
+        envItem("AdSense legal disclosure", adDisclosureReady, "Admin - Legal content"),
         envItem("Stripe secret key", Boolean(process.env.STRIPE_SECRET_KEY), "Vercel", true),
         envItem("Stripe webhook secret", Boolean(process.env.STRIPE_WEBHOOK_SECRET), "Vercel", true),
         envItem("Stripe Premium prices", premiumBillingReady, "Admin - Premium plans"),
@@ -77,6 +84,13 @@ function normalizeOrigin(value: string): string {
   } catch {
     return "";
   }
+}
+
+function cleanAdsenseClient(value: unknown): string {
+  const match = String(value || "").match(/(?:ca-)?pub-\d{8,}/i);
+  if (!match) return "";
+  const client = match[0].toLowerCase();
+  return client.startsWith("ca-") ? client : `ca-${client}`;
 }
 
 function envItem(label: string, configured: boolean, location: string, secret = false, optional = false) {

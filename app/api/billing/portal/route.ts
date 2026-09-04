@@ -19,7 +19,7 @@ export async function POST(request: Request): Promise<Response> {
 
     const params = new URLSearchParams();
     params.set("customer", plan.provider_customer_id);
-    params.set("return_url", canonicalSiteOrigin(request));
+    params.set("return_url", `${canonicalSiteOrigin(request)}/premium`);
     const session = await stripeRequest<{ url?: string }>("billing_portal/sessions", { params });
     if (!session.url) throw new HttpError(502, "Stripe did not return a billing portal URL.");
     return json({ url: session.url });
