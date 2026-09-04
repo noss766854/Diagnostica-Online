@@ -59,13 +59,6 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
           }}
         />
         <script
-          id="adsbygoogle-script"
-          async
-          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(adsenseClient)}`}
-          crossOrigin="anonymous"
-          data-ads-client={adsenseClient}
-        />
-        <script
           id="wrenchline-config"
           dangerouslySetInnerHTML={{
             __html: `window.WRENCHLINE_CONFIG=${JSON.stringify(clientConfig).replace(/</g, "\\u003c")};`,

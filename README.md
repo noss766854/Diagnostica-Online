@@ -145,13 +145,15 @@ Premium checkout uses Stripe subscriptions. Checkout and subscription webhooks s
 - Vercel environment-configuration status without exposing secret values
 - Stripe webhook failure counts, booking payment state, upload hashes, and processing results
 
-## Ads and consent
+## Ads, consent, and publisher content
 
-Ad mounts are reusable through `data-ad-slot` and include top banner, desktop side rails, inline, mobile diagnostic-content, and bottom banner placements. The public site emits a `google-adsense-account` meta tag from `NEXT_PUBLIC_ADSENSE_CLIENT`, and `/ads.txt` returns the configured Google seller line using the Admin/Vercel publisher client.
+The public site emits a `google-adsense-account` meta tag from `NEXT_PUBLIC_ADSENSE_CLIENT`, and `/ads.txt` returns the configured Google seller line using the Admin/Vercel publisher client.
 
-In Admin, set **AdSense client** to the publisher/client value, for example `ca-pub-6817388263556075`. Each slot field must be the numeric `data-ad-slot` value from an AdSense Display ad unit. For cleaner reporting, create separate responsive Display ad units in AdSense for top banner, side rails, inline, mobile diagnostic-content, and bottom banner, then paste each unit's slot number into the matching Admin field. If you only use one manual ad unit, paste its slot number into **Default AdSense slot fallback**.
+AdSense units are limited to public publisher-content surfaces: the `/guides` hub, individual `/guides/[slug]` articles, and the original guide section on the homepage. `/about` and `/legal` are crawlable trust/legal pages but remain ad-free. The interactive diagnostic chat, saved cases, admin dashboard, Premium billing, account verification, reset-password pages, and API routes do not request AdSense units. This is intentional because Google can reject ad serving on screens without enough publisher content or on private communication screens.
 
-AdSense units are requested only when ad consent is accepted, the current account is on the free plan, and the mount is visible in the current viewport. Premium/admin accounts and private admin/billing pages do not request ad slots. Keep ad unit labels as `Advertisement`, do not ask users to click ads, and avoid placing ads directly beside buttons, menus, downloads, or message inputs.
+In Admin, set **AdSense client** to the publisher/client value, for example `ca-pub-6817388263556075`. Each slot field must be the numeric `data-ad-slot` value from an AdSense Display ad unit. For cleaner reporting, create separate responsive Display ad units in AdSense for top banner, article inline, article sidebar, and bottom banner, then paste each unit's slot number into the matching Admin field. If you only use one manual ad unit, paste its slot number into **Default AdSense slot fallback**.
+
+AdSense units are requested only when ad consent is accepted, the current account is on the free plan, the page has `data-publisher-content="true"`, and the mount is visible in the current viewport. Premium/admin accounts and private pages do not request ad slots. Keep ad unit labels as `Advertisement`, do not ask users to click ads, and avoid placing ads directly beside buttons, menus, downloads, or message inputs.
 
 For EEA, UK, or Switzerland traffic, configure a Google-certified CMP in AdSense/privacy settings before serving personalized ads. Code support does not guarantee AdSense approval; Google reviews the live site, content, traffic, consent setup, and policy compliance.
 

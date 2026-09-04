@@ -10,7 +10,6 @@
     <title>DiagnosticaOnline</title>
     <link rel="stylesheet" href="./styles.css" />
     <link rel="preconnect" href="https://images.unsplash.com" />
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6817388263556075" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="./config.js"></script>
@@ -19,18 +18,6 @@
     <div class="photo-backdrop" aria-hidden="true"></div>
     <div class="shade" aria-hidden="true"></div>
     <div class="site-notice" id="siteNotice" role="status" hidden></div>
-
-    <aside class="ad-rail ad-rail-left" aria-label="Sponsored links left">
-      <div class="ad-mount side-ad" data-ad-slot="left-top"><span>Advertisement</span></div>
-      <div class="ad-mount side-ad" data-ad-slot="left-middle"><span>Advertisement</span></div>
-      <div class="ad-mount side-ad" data-ad-slot="left-bottom"><span>Advertisement</span></div>
-    </aside>
-
-    <aside class="ad-rail ad-rail-right" aria-label="Sponsored links right">
-      <div class="ad-mount side-ad" data-ad-slot="right-top"><span>Advertisement</span></div>
-      <div class="ad-mount side-ad" data-ad-slot="right-middle"><span>Advertisement</span></div>
-      <div class="ad-mount side-ad" data-ad-slot="right-bottom"><span>Advertisement</span></div>
-    </aside>
 
     <div class="page-shell">
       <header class="masthead">
@@ -49,6 +36,8 @@
           <button class="nav-link" id="signupNavBtn" type="button" data-i18n="nav.createAccount">Create account</button>
           <button class="nav-link" id="adminNavBtn" type="button" hidden disabled data-i18n="nav.admin">Admin dashboard</button>
           <a class="nav-link" href="/premium">Premium</a>
+          <a class="nav-link" href="/guides">Guides</a>
+          <a class="nav-link" href="/about">About</a>
           <a class="nav-link" id="contactNavLink" href="mailto:support@diagnostica-online.com" data-i18n="nav.contact">Contact us</a>
           <a class="nav-link" href="./legal.html" data-i18n="nav.legal">Legal</a>
           <button class="nav-link" id="logoutBtn" type="button" hidden data-i18n="nav.signOut">Sign out</button>
@@ -57,10 +46,6 @@
           </button>
         </nav>
       </header>
-
-      <section class="top-ad-band" aria-label="Sponsored">
-        <div class="ad-mount banner-ad" data-ad-slot="top-banner"><span>Advertisement</span></div>
-      </section>
 
       <main class="hero-grid">
         <section class="consult-stack" aria-label="Guided diagnostic chat">
@@ -72,8 +57,6 @@
             <button id="savedCasesToggle" type="button" data-i18n="tabs.savedCases">Saved cases</button>
             <button id="repairLibraryToggle" type="button"><span data-i18n="tabs.repairLibrary">Repair library</span> <i data-lucide="chevron-down"></i></button>
           </div>
-
-          <div class="ad-mount mobile-chat-ad" data-ad-slot="mobile-chat"><span>Advertisement</span></div>
 
           <section class="consult-card">
             <div class="expert-strip">
@@ -247,15 +230,60 @@
             <div class="recommendation-list" id="recommendationList"></div>
           </section>
 
-          <section class="ad-panel inline-ads" aria-label="Advertisements">
-            <div class="ad-mount inline-ad" data-ad-slot="inline-one"><span>Advertisement</span></div>
-            <div class="ad-mount inline-ad" data-ad-slot="inline-two"><span>Advertisement</span></div>
-          </section>
         </section>
       </main>
 
-      <section class="bottom-ad-band" aria-label="Sponsored">
-        <div class="ad-mount banner-ad" data-ad-slot="bottom-banner"><span>Advertisement</span></div>
+      <section class="publisher-content" data-publisher-content="true" aria-labelledby="diagnosticGuidesTitle">
+        <div class="publisher-content-header">
+          <p class="label-text">Diagnostic guide library</p>
+          <h2 id="diagnosticGuidesTitle">Common faults explained before you start testing.</h2>
+          <p>
+            These guides are written as practical diagnostic notes: what to observe first, which tests normally come next,
+            and when a symptom becomes a safety issue. Use them to understand the fault path before opening a saved case.
+          </p>
+        </div>
+
+        <div class="publisher-guide-grid">
+          <article class="publisher-guide-card">
+            <span>No start</span>
+            <h3><a href="/guides/engine-cranks-no-start">Engine cranks but will not start</a></h3>
+            <p>Separate fuel, spark, compression, immobilizer, and sensor causes before replacing parts.</p>
+          </article>
+          <article class="publisher-guide-card">
+            <span>Warning light</span>
+            <h3><a href="/guides/check-engine-light-rough-idle">Check engine light with rough idle</a></h3>
+            <p>Use freeze-frame data, misfire counters, trims, and basic leak checks to narrow the fault.</p>
+          </article>
+          <article class="publisher-guide-card">
+            <span>Cooling</span>
+            <h3><a href="/guides/overheating-temperature-climb">Temperature climbs or overheating</a></h3>
+            <p>Work through coolant level, airflow, thermostat behavior, fan control, and head-gasket warning signs.</p>
+          </article>
+          <article class="publisher-guide-card">
+            <span>Brakes</span>
+            <h3><a href="/guides/brake-grinding-noise">Grinding noise when braking</a></h3>
+            <p>Understand pad wear, rotor damage, backing plates, caliper faults, and when to stop driving.</p>
+          </article>
+          <article class="publisher-guide-card">
+            <span>Electrical</span>
+            <h3><a href="/guides/battery-alternator-starting">Battery, alternator, or starter problem</a></h3>
+            <p>Voltage checks, voltage-drop testing, parasitic draw clues, and charging-system interpretation.</p>
+          </article>
+          <article class="publisher-guide-card">
+            <span>Diesel</span>
+            <h3><a href="/guides/diesel-dpf-warning">Diesel DPF warning or limp mode</a></h3>
+            <p>Legal diagnostics for soot loading, differential pressure, temperature sensors, and regeneration failures.</p>
+          </article>
+        </div>
+
+        <section class="publisher-ad-band" aria-label="Advertisement">
+          <div class="ad-mount banner-ad content-ad" data-ad-surface="publisher" data-ad-slot="bottom-banner"><span>Advertisement</span></div>
+        </section>
+
+        <a class="secondary-button publisher-guides-link" href="/guides">
+          <i data-lucide="book-open"></i>
+          <span>Open all diagnostic guides</span>
+        </a>
       </section>
     </div>
 

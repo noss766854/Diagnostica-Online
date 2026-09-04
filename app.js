@@ -2708,7 +2708,8 @@
 
   function canRenderAds() {
     const planAllowsAds = !state.supabaseUser || state.entitlements.showAds !== false;
-    return planAllowsAds && !isPrivateDiagnosticCommunicationActive() && (!state.siteContent.consentEnabled || loadConsent() === "ads");
+    const hasPublisherContent = Boolean(document.querySelector("[data-publisher-content='true']"));
+    return planAllowsAds && hasPublisherContent && !isPrivateDiagnosticCommunicationActive() && (!state.siteContent.consentEnabled || loadConsent() === "ads");
   }
 
   function isPrivateDiagnosticCommunicationActive() {
@@ -3103,8 +3104,9 @@
     const mounts = els.adMounts || [];
     const adsAllowed = canRenderAds();
     mounts.forEach((mount) => {
-      mount.hidden = !adsAllowed;
-      if (!adsAllowed) clearAdMount(mount);
+      const mountAllowed = adsAllowed && mount.dataset.adSurface === "publisher";
+      mount.hidden = !mountAllowed;
+      if (!mountAllowed) clearAdMount(mount);
     });
     if (!adsAllowed) return;
     if (!state.settings.adsClient || !hasAnyAdSlot()) {

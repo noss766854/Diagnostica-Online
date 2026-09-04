@@ -55,6 +55,7 @@ export async function GET(request: Request): Promise<Response> {
         envItem("AdSense publisher client", Boolean(adsClient), "Vercel or Admin - Ads"),
         envItem("AdSense ad unit slot", hasAdSlot, "Admin - Ads"),
         envItem("ads.txt publisher line", Boolean(adsClient), "/ads.txt"),
+        envItem("Public guide content", true, "/guides"),
         envItem("Ad consent gate", content.consentEnabled !== false, "Admin - Legal content"),
         envItem("AdSense legal disclosure", adDisclosureReady, "Admin - Legal content"),
         envItem("Stripe secret key", Boolean(process.env.STRIPE_SECRET_KEY), "Vercel", true),
