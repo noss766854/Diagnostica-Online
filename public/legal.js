@@ -2,7 +2,6 @@
   const BOOT_CONFIG = window.WRENCHLINE_CONFIG || {};
   const DEFAULT_CONTENT = {
     supportEmail: "support@diagnostica-online.com",
-    businessAddress: "Add your business address in admin.",
     serviceArea: "Remote mechanic consulting",
     termsText:
       "DiagnosticaOnline provides AI-assisted automotive diagnostics, saved cases, file storage, free text chat when available, and optional paid voice or video consulting. Guidance is informational, may be incomplete, and does not replace an in-person inspection, factory service information, recall check, repair estimate, or safety inspection. You must have lawful authority to diagnose or modify the vehicle and remain responsible for safe tools, lifting, isolation, protective equipment, and deciding whether the vehicle can be operated.",
@@ -29,7 +28,6 @@
       "legalContactLink",
       "legalUpdatedCopy",
       "legalSupportEmail",
-      "legalBusinessAddress",
       "legalServiceArea",
       "legalTermsText",
       "legalPrivacyText",
@@ -59,7 +57,6 @@
   function render(content) {
     els.legalContactLink.href = `mailto:${content.supportEmail}`;
     els.legalSupportEmail.textContent = content.supportEmail;
-    els.legalBusinessAddress.textContent = content.businessAddress;
     els.legalServiceArea.textContent = content.serviceArea;
     els.legalTermsText.textContent = content.termsText;
     els.legalPrivacyText.textContent = content.privacyText;
@@ -73,7 +70,6 @@
     const merged = { ...DEFAULT_CONTENT, ...(value && typeof value === "object" ? value : {}) };
     return {
       supportEmail: cleanEmail(merged.supportEmail, DEFAULT_CONTENT.supportEmail),
-      businessAddress: cleanText(merged.businessAddress, DEFAULT_CONTENT.businessAddress),
       serviceArea: cleanText(merged.serviceArea, DEFAULT_CONTENT.serviceArea),
       termsText: cleanText(merged.termsText, DEFAULT_CONTENT.termsText),
       privacyText: cleanText(merged.privacyText, DEFAULT_CONTENT.privacyText),
