@@ -1,7 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { activePremiumPlans, billingSettingsFromContent } from "@/lib/platform/billing-settings";
+import { paidBookingLegalDetails } from "@/lib/platform/booking-legal";
 import { CANONICAL_SITE_URL } from "@/lib/platform/site-url";
-import { resolveRouteraCredential } from "@/lib/platform/secrets";
+import { resolveRouteraCredential, resolveStripeCredentials } from "@/lib/platform/secrets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +21,7 @@ export async function GET(): Promise<Response> {
   let database = false;
   let schema = false;
   let legal = false;
+  let stripeConfigured = false;
   let premiumBillingConfigured = Boolean(process.env.STRIPE_PREMIUM_PRICE_ID);
   let adsConfigured = Boolean(process.env.NEXT_PUBLIC_ADSENSE_CLIENT && process.env.NEXT_PUBLIC_ADSENSE_SLOT);
 
@@ -37,8 +39,13 @@ export async function GET(): Promise<Response> {
     const content = settings.data?.value && typeof settings.data.value === "object" && !Array.isArray(settings.data.value)
       ? settings.data.value as Record<string, unknown>
       : {};
-    const legalText = `${content.businessAddress || ""} ${content.refundText || content.refundPolicySummary || ""}`;
-    legal = Boolean(content.businessAddress && (content.refundText || content.refundPolicySummary) && !/add your|not configured|placeholder/i.test(legalText));
+    legal = paidBookingLegalDetails(content).ready;
+    try {
+      const credentials = await resolveStripeCredentials();
+      stripeConfigured = credentials.secretKey.configured && credentials.webhookSecret.configured;
+    } catch {
+      stripeConfigured = false;
+    }
     premiumBillingConfigured = activePremiumPlans(billingSettingsFromContent(content, process.env.STRIPE_PREMIUM_PRICE_ID || "")).length > 0;
     adsConfigured = adsConfigured || Boolean(content.adsClient && (content.adsSlot || hasConfiguredAdSlot(content.adSlots)));
   }
@@ -48,8 +55,7 @@ export async function GET(): Promise<Response> {
   }
 
   const payments = Boolean(
-    process.env.STRIPE_SECRET_KEY &&
-    process.env.STRIPE_WEBHOOK_SECRET &&
+    stripeConfigured &&
     premiumBillingConfigured &&
     legal
   );

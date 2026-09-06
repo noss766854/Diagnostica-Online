@@ -57,6 +57,8 @@
           <section class="admin-table-card">
             <div class="table-heading">
               <h2>Production configuration</h2>
+              <a class="nav-link" href="#stripe-payments">Stripe payments</a>
+              <a class="nav-link" href="#paid-booking-legal">Paid-booking legal details</a>
             </div>
             <div class="config-status-grid" id="configStatus"></div>
           </section>
@@ -266,10 +268,6 @@
                   <input id="staffNotificationEmailInput" type="email" />
                 </label>
                 <label>
-                  <span>Business address</span>
-                  <input id="businessAddressInput" type="text" />
-                </label>
-                <label>
                   <span>Service area</span>
                   <input id="serviceAreaInput" type="text" />
                 </label>
@@ -421,12 +419,50 @@
                   <span>Paid call checkout URL</span>
                   <input id="checkoutUrlInput" type="text" />
                 </label>
+                <h3 class="settings-section-title span-2" id="stripe-payments" tabindex="-1">Stripe payments</h3>
+                <div class="credential-controls">
+                  <label>
+                    <span>Stripe secret key</span>
+                    <input id="stripeSecretKeyInput" type="password" autocomplete="new-password" spellcheck="false" autocapitalize="none" maxlength="500" placeholder="sk_live_... or sk_test_..." aria-describedby="stripeSecretKeyMessage" />
+                  </label>
+                  <div class="credential-actions">
+                    <button class="mini-button" id="saveStripeSecretKeyBtn" type="button">
+                      <i data-lucide="key-round"></i><span>Save secret key</span>
+                    </button>
+                    <button class="secondary-button" id="removeStripeSecretKeyBtn" type="button" disabled>
+                      <i data-lucide="trash-2"></i><span>Remove</span>
+                    </button>
+                  </div>
+                  <p class="form-message" id="stripeSecretKeyMessage" role="status">Checking credential status...</p>
+                  <a class="nav-link" href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noreferrer">Find your Stripe API key</a>
+                </div>
+                <div class="credential-controls">
+                  <label>
+                    <span>Stripe webhook secret</span>
+                    <input id="stripeWebhookSecretInput" type="password" autocomplete="new-password" spellcheck="false" autocapitalize="none" maxlength="500" placeholder="whsec_..." aria-describedby="stripeWebhookSecretMessage" />
+                  </label>
+                  <div class="credential-actions">
+                    <button class="mini-button" id="saveStripeWebhookSecretBtn" type="button">
+                      <i data-lucide="key-round"></i><span>Save webhook secret</span>
+                    </button>
+                    <button class="secondary-button" id="removeStripeWebhookSecretBtn" type="button" disabled>
+                      <i data-lucide="trash-2"></i><span>Remove</span>
+                    </button>
+                  </div>
+                  <p class="form-message" id="stripeWebhookSecretMessage" role="status">Checking credential status...</p>
+                  <a class="nav-link" href="https://dashboard.stripe.com/webhooks" target="_blank" rel="noreferrer">Find your webhook signing secret</a>
+                </div>
+                <label class="span-2">
+                  <span>Stripe webhook endpoint URL</span>
+                  <input id="stripeWebhookUrl" type="url" value="https://diagnostica-online.com/api/webhooks/stripe" readonly />
+                </label>
+                <p class="form-message span-2">Keys saved here are encrypted on the server and take priority over Vercel settings. Use matching test or live keys, webhook endpoint, and price IDs.</p>
                 <div class="settings-section-title span-2">Premium subscription billing</div>
                 <div class="admin-help-box span-2">
                   <strong>Stripe Premium plans</strong>
                   <span>
                     Create recurring subscription prices in Stripe, then paste the <code>price_...</code> IDs here.
-                    Secret keys stay in Vercel; these fields only decide which approved prices customers can buy.
+                    Save your credentials in Stripe payments above, then choose the prices customers can buy here.
                   </span>
                   <a href="https://dashboard.stripe.com/products" target="_blank" rel="noreferrer">Open Stripe products</a>
                 </div>
@@ -517,9 +553,20 @@
                   <span>Duration options (minutes)</span>
                   <input id="durationOptionsInput" type="text" placeholder="30,60,90,120" />
                 </label>
+                <h3 class="settings-section-title span-2" id="paid-booking-legal" tabindex="-1">Paid-booking legal details</h3>
+                <p class="form-message span-2">Paid bookings require a completed operator address and final refund/cancellation policy. The address is not displayed in the Legal Centre.</p>
                 <label class="span-2">
-                  <span>Refund policy summary</span>
-                  <textarea id="refundPolicySummaryInput" rows="3"></textarea>
+                  <span>Operator / business address</span>
+                  <textarea id="businessAddressInput" rows="2" maxlength="1000" placeholder="Street, city, postal code, country"></textarea>
+                </label>
+                <label class="span-2">
+                  <span>Booking refund summary</span>
+                  <textarea id="refundPolicySummaryInput" rows="3" maxlength="2000"></textarea>
+                </label>
+                <label class="span-2">
+                  <span>Full refund and cancellation policy</span>
+                  <textarea id="refundTextInput" rows="6" maxlength="12000" aria-describedby="bookingPolicyHelp"></textarea>
+                  <small id="bookingPolicyHelp">Include cancellations, refunds, no-shows, rescheduling, and how customers contact you. This policy appears in the Legal Centre.</small>
                 </label>
                 <div class="settings-section-title span-2">Consent and legal pages</div>
                 <label>
@@ -556,10 +603,6 @@
                 <label class="span-2">
                   <span>Cookie policy</span>
                   <textarea id="cookieTextInput" rows="4"></textarea>
-                </label>
-                <label class="span-2">
-                  <span>Refund policy</span>
-                  <textarea id="refundTextInput" rows="4"></textarea>
                 </label>
                 <label class="span-2">
                   <span>Service disclaimer</span>

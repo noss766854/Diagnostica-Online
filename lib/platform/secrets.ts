@@ -9,11 +9,71 @@ const ROUTERA_SECRET_NAME = "routera_api_key";
 const FALLBACK_SETTINGS_KEY = "private_platform_secrets";
 const ENCRYPTION_VERSION = "v1";
 
-export interface RouteraCredential {
+export interface ServerCredential {
   apiKey: string;
   configured: boolean;
   source: "admin" | "vercel" | "none";
   suffix: string;
+}
+
+export type RouteraCredential = ServerCredential;
+export type StripeCredentialKind = "secretKey" | "webhookSecret";
+
+const STRIPE_CREDENTIALS = {
+  secretKey: {
+    name: "stripe_secret_key",
+    environment: "STRIPE_SECRET_KEY",
+    pattern: /^(?:sk|rk)_(?:test|live)_[A-Za-z0-9]{16,}$/,
+    error: "Enter a Stripe secret or restricted key beginning with sk_test_, sk_live_, rk_test_, or rk_live_.",
+  },
+  webhookSecret: {
+    name: "stripe_webhook_secret",
+    environment: "STRIPE_WEBHOOK_SECRET",
+    pattern: /^whsec_[A-Za-z0-9]{16,}$/,
+    error: "Enter the endpoint signing secret beginning with whsec_.",
+  },
+} as const;
+
+export async function resolveStripeCredential(kind: StripeCredentialKind): Promise<ServerCredential> {
+  const config = STRIPE_CREDENTIALS[kind];
+  try {
+    const encrypted = await readEncryptedSecret(config.name);
+    if (encrypted) {
+      const value = decryptSecret(config.name, encrypted);
+      if (!config.pattern.test(value)) throw new HttpError(503, "The saved Stripe credential is invalid. Save it again in Admin.");
+      return credential(value, "admin");
+    }
+  } catch (error) {
+    if (!isRecoverableSecretStorageError(error)) throw error;
+  }
+  return stripeEnvironmentCredential(kind);
+}
+
+export async function resolveStripeCredentials() {
+  const [secretKey, webhookSecret] = await Promise.all([
+    resolveStripeCredential("secretKey"),
+    resolveStripeCredential("webhookSecret"),
+  ]);
+  return { secretKey, webhookSecret };
+}
+
+export async function saveStripeCredential(kind: StripeCredentialKind, value: string, actorId: string): Promise<ServerCredential> {
+  const config = STRIPE_CREDENTIALS[kind];
+  const normalized = value.trim();
+  if (normalized.length > 500 || !config.pattern.test(normalized)) throw new HttpError(400, config.error);
+  await writeEncryptedSecret(config.name, encryptSecret(config.name, normalized), actorId);
+  return credential(normalized, "admin");
+}
+
+export async function removeStripeCredential(kind: StripeCredentialKind): Promise<ServerCredential> {
+  await removeEncryptedSecret(STRIPE_CREDENTIALS[kind].name);
+  return stripeEnvironmentCredential(kind);
+}
+
+function stripeEnvironmentCredential(kind: StripeCredentialKind): ServerCredential {
+  const config = STRIPE_CREDENTIALS[kind];
+  const value = (process.env[config.environment] || "").trim();
+  return config.pattern.test(value) ? credential(value, "vercel") : credential("", "none");
 }
 
 export async function resolveRouteraCredential(): Promise<RouteraCredential> {
@@ -38,10 +98,15 @@ export async function saveRouteraCredential(apiKey: string, actorId: string): Pr
     throw new HttpError(400, "Enter a valid Routera API key beginning with rta_.");
   }
   const encrypted = encryptSecret(ROUTERA_SECRET_NAME, normalized);
+  await writeEncryptedSecret(ROUTERA_SECRET_NAME, encrypted, actorId);
+  return credential(normalized, "admin");
+}
+
+async function writeEncryptedSecret(name: string, encrypted: string, actorId: string): Promise<void> {
   const supabase = supabaseService();
   const { error } = await supabase.from("platform_secrets").upsert(
     {
-      key: ROUTERA_SECRET_NAME,
+      key: name,
       encrypted_value: encrypted,
       updated_by: actorId,
     },
@@ -50,21 +115,24 @@ export async function saveRouteraCredential(apiKey: string, actorId: string): Pr
   if (error) {
     const storageError = secretStorageError(error.message);
     if (!isRecoverableSecretStorageError(storageError)) throw storageError;
-    await writeSettingsSecret(ROUTERA_SECRET_NAME, encrypted, actorId);
+    await writeSettingsSecret(name, encrypted, actorId);
   }
-  return credential(normalized, "admin");
 }
 
 export async function removeRouteraCredential(): Promise<RouteraCredential> {
+  await removeEncryptedSecret(ROUTERA_SECRET_NAME);
+  const fallback = serverEnvironment().routeraApiKey;
+  return isRouteraApiKey(fallback) ? credential(fallback, "vercel") : credential("", "none");
+}
+
+async function removeEncryptedSecret(name: string): Promise<void> {
   const supabase = supabaseService();
-  const { error } = await supabase.from("platform_secrets").delete().eq("key", ROUTERA_SECRET_NAME);
+  const { error } = await supabase.from("platform_secrets").delete().eq("key", name);
   if (error) {
     const storageError = secretStorageError(error.message);
     if (!isRecoverableSecretStorageError(storageError)) throw storageError;
   }
-  await removeSettingsSecret(ROUTERA_SECRET_NAME);
-  const fallback = serverEnvironment().routeraApiKey;
-  return isRouteraApiKey(fallback) ? credential(fallback, "vercel") : credential("", "none");
+  await removeSettingsSecret(name);
 }
 
 async function readEncryptedSecret(name: string): Promise<string> {
@@ -91,7 +159,7 @@ async function readSettingsSecret(name: string): Promise<string> {
   const { data, error } = await supabaseService()
     .from("site_settings")
     .select("value")
-    .eq("key", FALLBACK_SETTINGS_KEY)
+    .eq("key", settingsKey(name))
     .maybeSingle();
   if (error) throw settingsStorageError(error.message);
   return secretFromSettings(data?.value, name);
@@ -102,14 +170,14 @@ async function writeSettingsSecret(name: string, encryptedValue: string, actorId
   const { data, error: readError } = await supabase
     .from("site_settings")
     .select("value")
-    .eq("key", FALLBACK_SETTINGS_KEY)
+    .eq("key", settingsKey(name))
     .maybeSingle();
   if (readError) throw settingsStorageError(readError.message);
 
   const value = settingsSecretValue(data?.value);
   const { error } = await supabase.from("site_settings").upsert(
     {
-      key: FALLBACK_SETTINGS_KEY,
+      key: settingsKey(name),
       value: {
         ...value,
         secrets: {
@@ -130,7 +198,7 @@ async function removeSettingsSecret(name: string): Promise<void> {
   const { data, error: readError } = await supabase
     .from("site_settings")
     .select("value")
-    .eq("key", FALLBACK_SETTINGS_KEY)
+    .eq("key", settingsKey(name))
     .maybeSingle();
   if (readError) {
     if (isRecoverableSecretStorageError(settingsStorageError(readError.message))) return;
@@ -142,12 +210,17 @@ async function removeSettingsSecret(name: string): Promise<void> {
   delete value.secrets[name];
   const { error } = await supabase.from("site_settings").upsert(
     {
-      key: FALLBACK_SETTINGS_KEY,
+      key: settingsKey(name),
       value: { ...value, updatedAt: new Date().toISOString() },
     },
     { onConflict: "key" }
   );
   if (error) throw settingsStorageError(error.message);
+}
+
+function settingsKey(name: string): string {
+  // Preserve existing Routera storage; separate Stripe rows avoid concurrent saves overwriting each other.
+  return name === ROUTERA_SECRET_NAME ? FALLBACK_SETTINGS_KEY : `private_${name}`;
 }
 
 function encryptSecret(name: string, value: string): string {
@@ -162,7 +235,7 @@ function encryptSecret(name: string, value: string): string {
 function decryptSecret(name: string, payload: string): string {
   const [version, ivValue, tagValue, encryptedValue] = String(payload || "").split(":");
   if (version !== ENCRYPTION_VERSION || !ivValue || !tagValue || !encryptedValue) {
-    throw new HttpError(503, "The stored Routera credential is invalid. Save it again from Admin.");
+    throw new HttpError(503, "The stored server credential is invalid. Save it again from Admin.");
   }
   try {
     const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), Buffer.from(ivValue, "base64url"));
@@ -170,7 +243,7 @@ function decryptSecret(name: string, payload: string): string {
     decipher.setAuthTag(Buffer.from(tagValue, "base64url"));
     return Buffer.concat([decipher.update(Buffer.from(encryptedValue, "base64url")), decipher.final()]).toString("utf8");
   } catch {
-    throw new HttpError(503, "The stored Routera credential could not be decrypted. Save it again from Admin.");
+    throw new HttpError(503, "The stored server credential could not be decrypted. Save it again from Admin.");
   }
 }
 
@@ -185,7 +258,7 @@ function aad(name: string): string {
   return `diagnostica-online:${name}:${ENCRYPTION_VERSION}`;
 }
 
-function credential(apiKey: string, source: RouteraCredential["source"]): RouteraCredential {
+function credential(apiKey: string, source: ServerCredential["source"]): ServerCredential {
   return {
     apiKey,
     configured: Boolean(apiKey),

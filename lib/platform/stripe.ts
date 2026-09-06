@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { HttpError } from "@/lib/platform/http";
+import { resolveStripeCredential } from "@/lib/platform/secrets";
 
 type StripeMethod = "GET" | "POST";
 
@@ -8,8 +9,8 @@ export async function stripeRequest<T extends Record<string, any>>(
   path: string,
   options: { method?: StripeMethod; params?: URLSearchParams } = {}
 ): Promise<T> {
-  const secretKey = process.env.STRIPE_SECRET_KEY || "";
-  if (!secretKey) throw new HttpError(503, "Stripe is not configured. Add STRIPE_SECRET_KEY in Vercel.");
+  const { apiKey: secretKey } = await resolveStripeCredential("secretKey");
+  if (!secretKey) throw new HttpError(503, "Stripe is not configured. Save the Stripe secret key in Admin > Stripe payments.");
 
   const method = options.method || "POST";
   const response = await fetch(`https://api.stripe.com/v1/${path.replace(/^\/+/, "")}`, {

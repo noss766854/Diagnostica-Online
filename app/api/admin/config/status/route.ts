@@ -1,8 +1,9 @@
 import { requireAdmin } from "@/lib/platform/auth";
 import { activePremiumPlans, billingSettingsFromContent } from "@/lib/platform/billing-settings";
+import { paidBookingLegalDetails } from "@/lib/platform/booking-legal";
 import { errorResponse, json } from "@/lib/platform/http";
 import { CANONICAL_SITE_URL } from "@/lib/platform/site-url";
-import { resolveRouteraCredential } from "@/lib/platform/secrets";
+import { resolveRouteraCredential, resolveStripeCredentials } from "@/lib/platform/secrets";
 import { supabaseService } from "@/lib/platform/supabase";
 
 export const runtime = "nodejs";
@@ -20,8 +21,8 @@ export async function GET(request: Request): Promise<Response> {
     const content = data?.value && typeof data.value === "object" && !Array.isArray(data.value)
       ? data.value as Record<string, unknown>
       : {};
-    const legalText = `${content.businessAddress || ""} ${content.refundText || content.refundPolicySummary || ""}`;
-    const legalReady = Boolean(content.businessAddress && (content.refundText || content.refundPolicySummary) && !/add your|not configured|placeholder/i.test(legalText));
+    const legalReady = paidBookingLegalDetails(content).ready;
+    const stripeCredentials = await resolveStripeCredentials();
     const provider = aiProvider();
     const routeraCredential = provider === "routera" ? await resolveRouteraCredential() : null;
     const aiReady = provider === "openai" ? Boolean(process.env.OPENAI_API_KEY) : Boolean(routeraCredential?.configured);
@@ -58,10 +59,10 @@ export async function GET(request: Request): Promise<Response> {
         envItem("Public guide content", true, "/guides"),
         envItem("Ad consent gate", content.consentEnabled !== false, "Admin - Legal content"),
         envItem("AdSense legal disclosure", adDisclosureReady, "Admin - Legal content"),
-        envItem("Stripe secret key", Boolean(process.env.STRIPE_SECRET_KEY), "Vercel", true),
-        envItem("Stripe webhook secret", Boolean(process.env.STRIPE_WEBHOOK_SECRET), "Vercel", true),
+        envItem("Stripe secret key", stripeCredentials.secretKey.configured, stripeCredentials.secretKey.source === "vercel" ? "Vercel" : "Admin - Stripe payments", true, false, "#stripe-payments"),
+        envItem("Stripe webhook secret", stripeCredentials.webhookSecret.configured, stripeCredentials.webhookSecret.source === "vercel" ? "Vercel" : "Admin - Stripe payments", true, false, "#stripe-payments"),
         envItem("Stripe Premium prices", premiumBillingReady, "Admin - Premium plans"),
-        envItem("Paid-booking legal details", legalReady, "Admin - Legal content"),
+        envItem("Paid-booking legal details", legalReady, "Admin - Paid-booking legal details", false, false, "#paid-booking-legal"),
       ],
     });
   } catch (error) {
@@ -94,6 +95,6 @@ function cleanAdsenseClient(value: unknown): string {
   return client.startsWith("ca-") ? client : `ca-${client}`;
 }
 
-function envItem(label: string, configured: boolean, location: string, secret = false, optional = false) {
-  return { label, configured, location, secret, optional };
+function envItem(label: string, configured: boolean, location: string, secret = false, optional = false, href?: string) {
+  return { label, configured, location, secret, optional, href };
 }

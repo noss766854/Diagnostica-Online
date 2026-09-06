@@ -1744,6 +1744,30 @@ ins.adsbygoogle[data-ad-status="filled"] {
   text-decoration: underline;
 }
 
+.credential-controls {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.credential-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.credential-controls .form-message {
+  min-height: 3em;
+  overflow-wrap: anywhere;
+}
+
+#stripe-payments,
+#paid-booking-legal {
+  scroll-margin-top: 24px;
+  letter-spacing: 0;
+}
+
 .integration-status {
   flex-wrap: wrap;
   gap: 8px;

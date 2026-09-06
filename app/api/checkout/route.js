@@ -1,6 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 
 import { canonicalSiteOrigin } from "@/lib/platform/site-url";
+import { resolveStripeCredentials } from "@/lib/platform/secrets";
+import { paidBookingLegalDetails } from "@/lib/platform/booking-legal";
 
 export const runtime = "nodejs";
 
@@ -16,13 +18,11 @@ const DEFAULT_CONTENT = {
 
 export async function POST(request) {
   try {
-    const stripeKey = process.env.STRIPE_SECRET_KEY || "";
-    const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
     const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
-    if (!stripeKey || !stripeWebhookSecret || !supabaseUrl || !serviceRoleKey) {
-      return json({ error: "Checkout is not configured. Add Stripe keys, SUPABASE_URL, and SUPABASE_SERVICE_ROLE_KEY in Vercel." }, 503);
+    if (!supabaseUrl || !serviceRoleKey) {
+      return json({ error: "Checkout is not configured. Add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel." }, 503);
     }
 
     const token = bearerToken(request.headers.get("authorization") || "");
@@ -36,13 +36,19 @@ export async function POST(request) {
     const { data: profile } = await supabase.from("profiles").select("is_disabled,disabled_reason").eq("id", userData.user.id).maybeSingle();
     if (profile?.is_disabled) return json({ error: profile.disabled_reason || "This account has been disabled." }, 403);
 
+    const credentials = await resolveStripeCredentials();
+    const stripeKey = credentials.secretKey.apiKey;
+    if (!credentials.secretKey.configured || !credentials.webhookSecret.configured) {
+      return json({ error: "Paid bookings are unavailable until the Stripe secret key and webhook secret are saved in Admin > Stripe payments." }, 503);
+    }
+
     const body = await request.json();
     const callType = body.callType === "voice" ? "voice" : body.callType === "video" ? "video" : "";
     if (!callType) return json({ error: "Only paid voice or video bookings use checkout." }, 400);
 
     const siteContent = await loadSiteContent(supabase);
-    if (!legalCheckoutReady(siteContent)) {
-      return json({ error: "Paid bookings are paused until the business address and final refund/cancellation policy are completed in Admin." }, 503);
+    if (!siteContent.ready) {
+      return json({ error: "Paid bookings are paused until the operator address and final refund/cancellation policy are completed in Admin > Paid-booking legal details." }, 503);
     }
     const durationMinutes = clampToOptions(Number(body.durationMinutes || siteContent.minimumCallMinutes), siteContent);
     const hourlyRate = callType === "video" ? siteContent.videoRateUsd : siteContent.voiceRateUsd;
@@ -171,8 +177,7 @@ function sanitizeContent(value) {
     maximumCallMinutes: cleanMinutes(merged.maximumCallMinutes, DEFAULT_CONTENT.maximumCallMinutes),
     durationOptions: cleanDurationOptions(merged.durationOptions, DEFAULT_CONTENT.durationOptions),
     jitsiDomain: cleanDomain(merged.jitsiDomain, DEFAULT_CONTENT.jitsiDomain),
-    businessAddress: String(merged.businessAddress || "").trim(),
-    refundPolicyText: String(merged.refundText || merged.refundPolicySummary || "").trim(),
+    ...paidBookingLegalDetails(merged),
   };
 }
 
@@ -205,12 +210,6 @@ function cleanIsoDate(value) {
   if (!text) return null;
   const date = new Date(text);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
-}
-
-function legalCheckoutReady(content) {
-  const address = String(content.businessAddress || "").trim();
-  const refund = String(content.refundPolicyText || "").trim();
-  return Boolean(address && refund && !/add your|not configured|placeholder/i.test(`${address} ${refund}`));
 }
 
 async function verifyLinkedCase(supabase, userId, diagnosticCaseId, conversationId) {

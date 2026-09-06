@@ -128,12 +128,17 @@
   };
 
   const els = {};
+  const STRIPE_FIELDS = {
+    secretKey: { input: "stripeSecretKeyInput", save: "saveStripeSecretKeyBtn", remove: "removeStripeSecretKeyBtn", message: "stripeSecretKeyMessage", label: "Stripe secret key", pattern: /^(?:sk|rk)_(?:test|live)_[A-Za-z0-9]{16,}$/ },
+    webhookSecret: { input: "stripeWebhookSecretInput", save: "saveStripeWebhookSecretBtn", remove: "removeStripeWebhookSecretBtn", message: "stripeWebhookSecretMessage", label: "Stripe webhook secret", pattern: /^whsec_[A-Za-z0-9]{16,}$/ },
+  };
   const state = {
     settings: loadSettings(),
     siteContent: { ...DEFAULT_SITE_CONTENT },
     supabase: null,
     user: null,
     profile: null,
+    stripeCredentials: {},
     routeraCredential: {
       configured: false,
       source: "none",
@@ -238,6 +243,15 @@
       "saveRouteraApiKeyBtn",
       "removeRouteraApiKeyBtn",
       "routeraApiKeyMessage",
+      "stripeSecretKeyInput",
+      "saveStripeSecretKeyBtn",
+      "removeStripeSecretKeyBtn",
+      "stripeSecretKeyMessage",
+      "stripeWebhookSecretInput",
+      "saveStripeWebhookSecretBtn",
+      "removeStripeWebhookSecretBtn",
+      "stripeWebhookSecretMessage",
+      "stripeWebhookUrl",
       "adsClientInput",
       "adsSlotInput",
       "adSlotTopBannerInput",
@@ -300,6 +314,16 @@
     els.siteContentForm.addEventListener("submit", saveSiteContent);
     els.saveRouteraApiKeyBtn.addEventListener("click", saveRouteraApiKey);
     els.removeRouteraApiKeyBtn.addEventListener("click", removeRouteraApiKey);
+    Object.entries(STRIPE_FIELDS).forEach(([kind, field]) => {
+      els[field.save].addEventListener("click", () => updateStripeCredential(kind, "POST"));
+      els[field.remove].addEventListener("click", () => updateStripeCredential(kind, "DELETE"));
+      els[field.input].addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          if (!els[field.save].disabled) updateStripeCredential(kind, "POST");
+        }
+      });
+    });
     els.recommendedToolForm.addEventListener("submit", saveRecommendedTool);
     els.resetRecommendedToolBtn.addEventListener("click", resetRecommendedToolForm);
   }
@@ -349,7 +373,7 @@
     await loadConfigStatus();
     await loadDashboard();
     if (isAdmin) {
-      await Promise.all([loadPlatformDashboard(), loadRouteraCredentialStatus(), loadRouteraModels()]);
+      await Promise.all([loadPlatformDashboard(), loadRouteraCredentialStatus(), loadRouteraModels(), loadStripeCredentialStatus()]);
     }
   }
 
@@ -461,6 +485,67 @@
     els.removeRouteraApiKeyBtn.disabled = busy || state.routeraCredential?.source !== "admin";
   }
 
+  async function loadStripeCredentialStatus() {
+    if (state.profile?.role !== "admin") return;
+    try {
+      const result = await adminPlatformRequest("/api/admin/billing/credentials");
+      state.stripeCredentials = result;
+      els.stripeWebhookUrl.value = result.webhookUrl;
+      Object.keys(STRIPE_FIELDS).forEach((kind) => renderStripeCredentialStatus(kind));
+    } catch (error) {
+      Object.values(STRIPE_FIELDS).forEach((field) => {
+        els[field.message].textContent = error.message || "Stripe credential status is unavailable.";
+        els[field.remove].disabled = true;
+      });
+    }
+  }
+
+  function renderStripeCredentialStatus(kind, message = "") {
+    const field = STRIPE_FIELDS[kind];
+    const credential = state.stripeCredentials[kind] || {};
+    const suffix = credential.suffix ? ` ending in ${credential.suffix}` : "";
+    const status = credential.source === "admin"
+      ? `Configured in Admin${suffix}. The saved secret is never returned to this page.`
+      : credential.source === "vercel"
+        ? `Using the Vercel secret${suffix}. Save a secret here to override it.`
+        : "Not configured. Paste the secret from Stripe, then save it.";
+    els[field.message].textContent = message ? `${message} ${status}` : status;
+    els[field.remove].disabled = credential.source !== "admin";
+  }
+
+  async function updateStripeCredential(kind, method) {
+    if (state.profile?.role !== "admin") return;
+    const field = STRIPE_FIELDS[kind];
+    const value = els[field.input].value.trim();
+    if (method === "POST" && (!field.pattern.test(value) || value.length > 500)) {
+      els[field.message].textContent = kind === "secretKey"
+        ? "Enter a valid sk_test_, sk_live_, rk_test_, or rk_live_ key. Publishable keys (pk_) cannot be used here."
+        : "Enter the signing secret beginning with whsec_ for the endpoint shown below.";
+      els[field.input].focus();
+      return;
+    }
+    if (method === "DELETE" && !window.confirm(`Remove the ${field.label} saved in Admin? Any configured Vercel secret will be used instead.`)) return;
+    els[field.input].disabled = true;
+    els[field.save].disabled = true;
+    els[field.remove].disabled = true;
+    els[field.message].textContent = method === "POST" ? "Encrypting and saving..." : "Removing saved secret...";
+    try {
+      state.stripeCredentials[kind] = await adminPlatformRequest("/api/admin/billing/credentials", {
+        method,
+        body: JSON.stringify(method === "POST" ? { kind, value } : { kind }),
+      });
+      els[field.input].value = "";
+      renderStripeCredentialStatus(kind, method === "POST" ? "Saved securely." : "Admin secret removed.");
+      await loadConfigStatus();
+    } catch (error) {
+      els[field.message].textContent = error.message || "The Stripe credential could not be updated.";
+    } finally {
+      els[field.input].disabled = false;
+      els[field.save].disabled = false;
+      els[field.remove].disabled = state.stripeCredentials[kind]?.source !== "admin";
+    }
+  }
+
   function renderConfigStatus(items) {
     if (!items.length) {
       els.configStatus.innerHTML = `<div class="empty-state">No production configuration status available.</div>`;
@@ -474,6 +559,7 @@
             <span>${escapeHtml(item.label)}</span>
             <strong>${item.configured ? "Configured" : item.optional ? "Recommended" : "Missing"}</strong>
             <small>${escapeHtml(item.secret ? "Secret" : "Public")} - ${escapeHtml(item.location || "Vercel")}</small>
+            ${item.href?.startsWith("#") ? `<a class="nav-link" href="${escapeHtml(item.href)}">Edit settings</a>` : ""}
           </div>
         `
       )
@@ -1003,6 +1089,7 @@
         changedAt: new Date().toISOString(),
       });
       els.siteContentMessage.textContent = "Saved. The public site will use these diagnostic, exception-routing, Premium, ad, call, and email settings.";
+      await loadConfigStatus();
     } catch (error) {
       els.siteContentMessage.textContent = error.message || "Could not save settings.";
     } finally {
@@ -1794,6 +1881,8 @@
   }
 
   function renderLoggedOut(message) {
+    state.stripeCredentials = {};
+    Object.values(STRIPE_FIELDS).forEach((field) => { els[field.input].value = ""; });
     els.adminLoginCard.hidden = false;
     els.adminDashboard.hidden = true;
     els.adminMessage.textContent = message || "";

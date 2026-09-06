@@ -1,6 +1,7 @@
 import { errorResponse, HttpError, json } from "@/lib/platform/http";
 import { CANONICAL_SITE_URL } from "@/lib/platform/site-url";
 import { stripeId, verifyStripeWebhook } from "@/lib/platform/stripe";
+import { resolveStripeCredential } from "@/lib/platform/secrets";
 import { supabaseService } from "@/lib/platform/supabase";
 import { Resend } from "resend";
 
@@ -17,7 +18,8 @@ export async function POST(request: Request): Promise<Response> {
   let event: StripeEvent | null = null;
   try {
     const payload = await request.text();
-    verifyStripeWebhook(payload, request.headers.get("stripe-signature") || "", process.env.STRIPE_WEBHOOK_SECRET || "");
+    const { apiKey: webhookSecret } = await resolveStripeCredential("webhookSecret");
+    verifyStripeWebhook(payload, request.headers.get("stripe-signature") || "", webhookSecret);
     event = JSON.parse(payload) as StripeEvent;
     if (!event.id || !event.type || !event.data?.object) throw new HttpError(400, "Stripe event payload is incomplete.");
 

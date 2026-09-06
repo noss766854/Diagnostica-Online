@@ -122,11 +122,14 @@ TXT, CSV, OBD, VCDS, and ODIS text files are normalized into bounded diagnostic 
 
 ## Stripe and live sessions
 
-1. Create a recurring Premium Price in Stripe and set its `price_...` ID as `STRIPE_PREMIUM_PRICE_ID`.
+1. Open **Admin > Stripe payments** (linked from Production configuration). Save the secret API key (`sk_test_...` / `sk_live_...`, or a restricted `rk_...` key with the required permissions). Secrets are encrypted on the server, never saved to browser storage or `public_content`, and only a status and last four characters are returned. Hosted Stripe Checkout does not require a publishable key.
 2. In Stripe **Developers > Webhooks**, add `https://diagnostica-online.com/api/webhooks/stripe`.
 3. Subscribe it to `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, and `invoice.payment_failed`.
-4. Copy the endpoint signing secret to `STRIPE_WEBHOOK_SECRET` in Vercel.
-5. In Admin, replace the sample business address and refund/cancellation text. Paid checkout remains blocked until both are complete.
+4. Copy that endpoint's `whsec_...` signing secret into **Admin > Stripe payments > Stripe webhook secret**, then click its save button. Use a matching test/live endpoint and API key. Saving updates the running checkout, subscription portal, and webhook handler without redeployment. Removing an Admin secret restores the corresponding Vercel fallback (`STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`) if configured.
+5. Create recurring Stripe prices, then set their `price_...` IDs in **Admin > Premium subscription billing**. `STRIPE_PREMIUM_PRICE_ID` remains an optional Vercel fallback.
+6. Under **Admin > Paid-booking legal details**, complete the operator/business address, booking refund summary, and full refund/cancellation/no-show/rescheduling policy, then click **Save site settings**. The existing configuration checks and paid checkout use these values. The address remains absent from the Legal Centre; the full refund policy appears there.
+
+These credentials reuse the existing private `platform_secrets` table and its service-role-only permissions. If it is unavailable, each Stripe secret has a separate encrypted private `site_settings` row, preventing simultaneous saves from overwriting another credential. No new schema migration is required. Keep the Supabase service-role key stable: it derives the encryption key, so rotating it requires re-entering saved credentials. The old optional Supabase `create-checkout` function still uses its own environment secrets; use the default Next.js `/api/checkout` endpoint for Admin-managed Stripe credentials.
 
 Mechanic-call checkout creates a pending booking. Only a verified Stripe webhook can mark it paid and create an opaque room token. The authenticated meeting endpoint releases the Jitsi URL from 30 minutes before the scheduled start until 60 minutes after the purchased duration. Paid booking confirmations are sent through Resend and delivery errors are recorded on the booking.
 
