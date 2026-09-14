@@ -813,6 +813,7 @@
     supabaseUser: null,
     profile: null,
     authSubscription: null,
+    authHydrationPromise: null,
     authMode: "login",
     saving: false,
     typing: false,
@@ -859,10 +860,7 @@
     if (!state.languageWasStored) openLanguageScreen(true);
     await connectSupabase();
     await loadSiteContent();
-    await loadSupabaseConversations();
-    await loadDiagnosticCases();
-    await loadBookings();
-    renderAll();
+    void hydrateAuthenticatedState();
     renderCheckoutReturnNotice();
     renderAds();
     startTextChatPolling();
@@ -1540,7 +1538,24 @@
   }
 
   async function openPremiumBilling() {
-    window.location.href = "/premium";
+    if (!state.supabaseUser) {
+      openAuth("login", "Log in before starting Premium.");
+      return;
+    }
+    if (state.entitlements.plan === "premium") {
+      window.location.href = "/premium";
+      return;
+    }
+    els.premiumBtn.disabled = true;
+    if (!els.premiumDialog.open) els.premiumDialog.showModal();
+    els.premiumPlanList.innerHTML = `<div class="empty-state compact">Loading Premium plans...</div>`;
+    try {
+      if (!activePremiumPlans().length) await loadSiteContent();
+      renderPremiumPlans();
+      createIcons();
+    } finally {
+      els.premiumBtn.disabled = false;
+    }
   }
 
   async function startPremiumCheckout(planKey) {
@@ -2051,6 +2066,8 @@
     if (forceReset) {
       state.supabase = null;
       state.supabaseUser = null;
+      state.profile = null;
+      state.authHydrationPromise = null;
     }
 
     const { supabaseUrl, supabaseAnonKey } = state.settings;
@@ -2062,17 +2079,19 @@
 
     try {
       state.supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-      await refreshSupabaseUser();
-      const subscription = state.supabase.auth.onAuthStateChange(async (_event, session) => {
+      const { data } = await state.supabase.auth.getSession();
+      state.supabaseUser = data?.session?.user || null;
+      state.profile = null;
+      const subscription = state.supabase.auth.onAuthStateChange((_event, session) => {
         state.supabaseUser = session?.user || null;
-        state.profile = state.supabaseUser ? await loadProfile() : null;
-        await syncLanguageFromProfile();
+        state.profile = null;
         renderAuth();
         if (state.supabaseUser) {
-          await loadSupabaseConversations();
-          await loadDiagnosticCases();
-          await loadBookings();
-          renderAll();
+          window.setTimeout(() => {
+            void hydrateAuthenticatedState();
+          }, 0);
+        } else {
+          state.authHydrationPromise = null;
         }
       });
       state.authSubscription = subscription.data?.subscription || null;
@@ -2351,10 +2370,35 @@
     if (!state.supabase) return null;
     const { data } = await state.supabase.auth.getSession();
     state.supabaseUser = data?.session?.user || null;
-    state.profile = state.supabaseUser ? await loadProfile() : null;
-    await syncLanguageFromProfile();
+    state.profile = null;
     renderAuth();
     return state.supabaseUser;
+  }
+
+  function hydrateAuthenticatedState() {
+    if (!state.supabase || !state.supabaseUser) return Promise.resolve();
+    if (state.authHydrationPromise) return state.authHydrationPromise;
+    const userId = state.supabaseUser.id;
+    state.authHydrationPromise = (async () => {
+      const [profile] = await Promise.all([
+        loadProfile(),
+        loadSupabaseConversations(),
+        loadDiagnosticCases(),
+        loadBookings(),
+      ]);
+      if (!state.supabaseUser || state.supabaseUser.id !== userId) return;
+      state.profile = profile;
+      await syncLanguageFromProfile();
+      renderAll();
+      renderAds();
+    })()
+      .catch(() => {
+        renderAll();
+      })
+      .finally(() => {
+        state.authHydrationPromise = null;
+      });
+    return state.authHydrationPromise;
   }
 
   async function loadProfile() {
@@ -2457,13 +2501,13 @@
 
     try {
       if (state.authMode === "login") {
-        const { error } = await state.supabase.auth.signInWithPassword({ email: resolveLoginEmail(loginId), password });
+        const { data, error } = await state.supabase.auth.signInWithPassword({ email: resolveLoginEmail(loginId), password });
         if (error) throw error;
-        await refreshSupabaseUser();
-        await loadSupabaseConversations();
-        await loadDiagnosticCases();
-        await loadBookings();
+        state.supabaseUser = data?.user || data?.session?.user || null;
+        state.profile = null;
+        renderAuth();
         els.authDialog.close();
+        void hydrateAuthenticatedState();
       } else {
         const response = await fetch("/api/auth/signup", {
           method: "POST",
